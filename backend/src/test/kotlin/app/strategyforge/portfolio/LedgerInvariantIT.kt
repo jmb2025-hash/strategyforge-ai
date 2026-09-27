@@ -40,7 +40,7 @@ class LedgerInvariantIT : FreshDatabaseTest() {
     }
 
     @Test
-    fun `MS-04 FR-012 FR-013 randomized activity always reconciles to the ledger`() {
+    fun `MS-04 FR-012 FR-013 FR-014 randomized activity always reconciles to the ledger and equity identity holds`() {
         val h = TestOwner.client(baseUrl)
         h.post("/v1/auth/reauthenticate", mapOf("password" to TestOwner.PASSWORD))
         val symbols = listOf("ETH-USD", "SOL-USD", "AAPL", "MSFT", "SPY")
