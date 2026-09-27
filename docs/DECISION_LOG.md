@@ -104,3 +104,23 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Decision:** A successful recovery resets the password, revokes every session, disables TOTP (re-enrolment required) and raises a SECURITY notification. Recovery codes are HMAC-SHA256 hashed with the server signing key and single use.
 - **Requirements affected:** FR-002.
 - **Reversal plan:** Require TOTP during recovery if the owner prefers; one condition in `IdentityService.recover`.
+
+## D-012 Fractional equity quantities
+
+- **Date:** 2026-09-27
+- **Context:** Percent-of-equity sizing on high-priced equities can round to zero shares; the simulator is paper-only.
+- **Decision:** Equities trade in increments of 0.0001 shares, crypto in 1e-8 (1e-6 for low-priced coins). Quantities are floored to the increment (never rounded up into more exposure).
+- **Requirements affected:** FR-045, FR-080, section 7 quantity rules.
+- **Reversal plan:** Per-instrument `quantity_increment`; set to 1 for whole shares.
+
+## D-013 Replay clock and market time
+
+- **Context:** Deterministic replay needs a controllable notion of "now" for freshness, sessions, expiry and evaluation buckets.
+- **Decision:** A persisted replay clock (`replay_state`) is the market clock while the REPLAY provider is active; wall-clock time remains used for sessions, audit timestamps and security. The replay clock only moves forward once paper orders exist. Each replay step synchronously runs ingestion, execution, evaluation and expiry in that order.
+- **Requirements affected:** FR-112, NFR-012, RG-07.
+- **Reversal plan:** Activating a live provider switches the market clock to wall time.
+
+## D-014 Data-quality flags block until newer valid data arrives
+
+- **Decision:** A rejected quote or candle batch (out-of-order, malformed, clock skew, provider error) sets a per-instrument flag that makes verification fail. The flag clears only when a newer batch passes validation, or when the owner resets it after review (audited endpoint).
+- **Requirements affected:** FR-024, MS-17.

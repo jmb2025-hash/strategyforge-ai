@@ -179,6 +179,11 @@ interface ProviderTester {
     fun test(provider: ResolvedProvider): ProviderTestResult
 }
 
+/** Published after diagnostics so adapters refresh detected capabilities. */
+data class ProviderTested(
+    val providerId: UUID,
+)
+
 /** Published when the active market-data provider changes. */
 data class MarketProviderActivated(
     val providerId: UUID,
@@ -339,6 +344,7 @@ class ProviderService(
                 else -> runCatching { tester.test(resolved) }.getOrElse { ProviderTestResult(TestStatus.FAILED, "Diagnostics failed: ${it.javaClass.simpleName}") }
             }
         recordTest(id, result)
+        events.publishEvent(ProviderTested(id))
         return get(id)
     }
 

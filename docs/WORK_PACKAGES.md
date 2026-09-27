@@ -25,3 +25,12 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Dependencies:** Spring Security, Bouncy Castle (Argon2).
 - **Risks:** Argon2 cost vs test time (acceptable); push access to the Git remote is currently denied (work is committed locally).
 - **Result:** Passed — 37 tests green; spotless and detekt clean.
+
+## WP2 — Instrument master and market data
+
+- **Outcome:** Instrument master (46 curated instruments; provider-verified equity additions), provider abstraction with explicit capability states, deterministic replay adapter with persisted replay clock, Twelve Data adapter (fixture-tested only), token-bucket limits, quote/candle/FX ingestion with provider and exchange timestamps, batch validation (out-of-order, malformed, clock skew), freshness verification, candle aggregation with session alignment and gap detection, NYSE calendar 2023–2027, watchlists, price alerts, corporate actions with coverage/MRR, notification inbox (early, needed for alerts and stale data), market diagnostics.
+- **Requirements:** FR-004, FR-020–FR-025, MS-09, MS-17 (FR-100 inbox groundwork).
+- **Migrations:** `V3__instruments_market_data.sql`, `V4__notifications.sql`.
+- **Tests:** `MarketCalendarTest`, `ReplayProviderTest`, `TwelveDataProviderTest` (MockWebServer + recorded responses), `MarketDataIT`, `LiveProviderIT` (fresh DB).
+- **Risks:** Twelve Data response shapes are based on published documentation; live verification is an optional owner step (docs/RUNBOOK.md).
+- **Result:** Passed — 61 tests green; spotless and detekt clean.

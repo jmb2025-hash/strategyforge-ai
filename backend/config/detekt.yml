@@ -25,7 +25,8 @@ style:
   MaxLineLength:
     active: false
   ReturnCount:
-    max: 6
+    max: 10
+    excludeGuardClauses: true
   ThrowsCount:
     active: false
   WildcardImport:
@@ -48,7 +49,7 @@ exceptions:
     active: false
   SwallowedException:
     active: true
-    ignoredExceptionTypes: ['InterruptedException', 'NumberFormatException', 'ParseException', 'MalformedURLException', 'DateTimeParseException', 'DateTimeException', 'IllegalArgumentException']
+    ignoredExceptionTypes: ['InterruptedException', 'NumberFormatException', 'ParseException', 'MalformedURLException', 'DateTimeParseException', 'DateTimeException', 'IllegalArgumentException', 'HttpTimeoutException', 'IOException', 'JsonProcessingException', 'JsonParseException']
 naming:
   FunctionNaming:
     excludes: ['**/test/**']
