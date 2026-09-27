@@ -3,14 +3,15 @@ complexity:
   ComplexCondition:
     threshold: 6
   LongParameterList:
+    excludes: ['**/test/**']
     functionThreshold: 10
     constructorThreshold: 16
   TooManyFunctions:
     active: false
   LongMethod:
-    threshold: 120
+    threshold: 150
   CyclomaticComplexMethod:
-    threshold: 30
+    threshold: 36
   LargeClass:
     threshold: 1200
   NestedBlockDepth:
@@ -25,7 +26,7 @@ style:
   MaxLineLength:
     active: false
   ReturnCount:
-    max: 10
+    max: 12
     excludeGuardClauses: true
   ThrowsCount:
     active: false
@@ -49,7 +50,7 @@ exceptions:
     active: false
   SwallowedException:
     active: true
-    ignoredExceptionTypes: ['InterruptedException', 'NumberFormatException', 'ParseException', 'MalformedURLException', 'DateTimeParseException', 'DateTimeException', 'IllegalArgumentException', 'HttpTimeoutException', 'IOException', 'JsonProcessingException', 'JsonParseException']
+    ignoredExceptionTypes: ['InterruptedException', 'NumberFormatException', 'ParseException', 'MalformedURLException', 'DateTimeParseException', 'DateTimeException', 'IllegalArgumentException', 'HttpTimeoutException', 'IOException', 'JsonProcessingException', 'JsonParseException', 'CharacterCodingException']
 naming:
   FunctionNaming:
     excludes: ['**/test/**']

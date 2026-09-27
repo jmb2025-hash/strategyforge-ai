@@ -34,3 +34,12 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Tests:** `MarketCalendarTest`, `ReplayProviderTest`, `TwelveDataProviderTest` (MockWebServer + recorded responses), `MarketDataIT`, `LiveProviderIT` (fresh DB).
 - **Risks:** Twelve Data response shapes are based on published documentation; live verification is an optional owner step (docs/RUNBOOK.md).
 - **Result:** Passed — 61 tests green; spotless and detekt clean.
+
+## WP3 — Portfolio, ledger and manual orders
+
+- **Outcome:** Paper portfolios (≤10 active) with create/rename/archive/clone/reset; append-only double-entry ledger with database-enforced balance; FIFO lots; ledger-derived positions and valuation; cash reservations; paper order state machine; simulator with spread, slippage, commissions, liquidity-capped partial fills, execution delay, sessions and crypto 24/7; shorts/covers with borrow fees and forced cover; splits and dividends; reconciliation; restart-safe execution; risk-engine framework with integrity rules.
+- **Requirements:** FR-010–FR-015, FR-080–FR-085, NFR-002, MS-03, MS-04, MS-14 (FR-093 groundwork).
+- **Migrations:** `V5__portfolio_ledger_orders.sql`.
+- **Tests:** `PricingPropertyTest` (jqwik), `PortfolioLifecycleIT`, `OrderExecutionIT`, `EquitySessionIT`, `LedgerInvariantIT` (randomized seeds), `ExecutionRecoveryIT` (DB fault injection).
+- **Risks found and fixed:** Kotlin default arguments under CGLIB proxies, audit-lock self-deadlock (D-015), in-flight order counted in holdings, self-invoked `@Transactional` methods.
+- **Result:** Passed — 80 tests green; spotless and detekt clean.

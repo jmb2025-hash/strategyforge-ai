@@ -3,12 +3,12 @@ FR-001,WP1,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategy
 FR-002,WP1,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/identity/IdentityService.kt;backend/src/main/kotlin/app/strategyforge/identity/Totp.kt;backend/src/main/kotlin/app/strategyforge/identity/SecurityConfig.kt,backend/src/test/kotlin/app/strategyforge/identity/IdentityLifecycleIT.kt;backend/src/test/kotlin/app/strategyforge/identity/TotpTest.kt;backend/src/test/kotlin/app/strategyforge/identity/SessionsAndSettingsIT.kt,Passed,"WP1: Argon2id login, lockout, revocation, RFC 6238 vectors, TOTP replay rejection, single-use recovery codes"
 FR-003,WP1,Master §5; docs/ARCHITECTURE.md,,,In Progress,
 FR-004,WP1,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/operations/Diagnostics.kt;backend/src/main/kotlin/app/strategyforge/market/MarketDiagnostics.kt,backend/src/test/kotlin/app/strategyforge/identity/SessionsAndSettingsIT.kt;backend/src/test/kotlin/app/strategyforge/market/MarketDataIT.kt;backend/src/test/kotlin/app/strategyforge/market/LiveProviderIT.kt,Passed,"WP1/WP2: backend, database, market provider capabilities, AI providers, FCM, clock drift, data freshness"
-FR-010,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-011,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-012,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-013,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-014,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-015,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
+FR-010,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/PortfolioService.kt,backend/src/test/kotlin/app/strategyforge/portfolio/PortfolioLifecycleIT.kt,Passed,WP3: create/rename(ETag)/archive/clone/reset; cap of 10 active enforced under lock
+FR-011,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/Ledger.kt;backend/src/main/resources/db/migration/V5__portfolio_ledger_orders.sql,backend/src/test/kotlin/app/strategyforge/portfolio/LedgerInvariantIT.kt,Passed,WP3: DB deferred constraint rejects unbalanced journals; append-only triggers; app-level balance check
+FR-012,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/Reconciliation.kt;backend/src/main/kotlin/app/strategyforge/portfolio/Ledger.kt,backend/src/test/kotlin/app/strategyforge/portfolio/LedgerInvariantIT.kt;backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt,Passed,WP3: balances/positions computed from entries; 7-check reconciliation passes after randomized activity (3 seeds)
+FR-013,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/execution/ExecutionEngine.kt;backend/src/main/kotlin/app/strategyforge/execution/PortfolioMaintenance.kt,backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt;backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt,Passed,"WP3: funding, reservations, executions, fees, spread/slippage costs, borrow fees, dividends, splits journaled (FX translation display in WP10)"
+FR-014,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/PortfolioService.kt,backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt;backend/src/test/kotlin/app/strategyforge/portfolio/LedgerInvariantIT.kt,Passed,"WP3: summary exposes cash, buying power, cost basis, market value, realized/unrealized P/L, total return; equity identity asserted"
+FR-015,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/PortfolioService.kt,backend/src/test/kotlin/app/strategyforge/portfolio/PortfolioLifecycleIT.kt,Passed,WP3: reset archives old portfolio with ledger intact and creates new ledger
 FR-020,WP2,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/market/InstrumentService.kt;backend/src/main/resources/db/migration/V3__instruments_market_data.sql,backend/src/test/kotlin/app/strategyforge/market/MarketDataIT.kt;backend/src/test/kotlin/app/strategyforge/market/TwelveDataProviderTest.kt,Passed,WP2: seeded US equities/ETFs + crypto allowlist; provider-verified additions; non-allowlisted crypto 422
 FR-021,WP2,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/market/Watchlists.kt,backend/src/test/kotlin/app/strategyforge/market/MarketDataIT.kt,Passed,WP2: watchlists; price alert fired on replay step and delivered to inbox with redacted title
 FR-022,WP2,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/market/data/MarketDataService.kt;backend/src/main/kotlin/app/strategyforge/market/provider/ReplayProvider.kt;backend/src/main/kotlin/app/strategyforge/market/provider/TwelveDataProvider.kt,backend/src/test/kotlin/app/strategyforge/market/ReplayProviderTest.kt;backend/src/test/kotlin/app/strategyforge/market/TwelveDataProviderTest.kt;backend/src/test/kotlin/app/strategyforge/market/MarketDataIT.kt,Passed,"WP2: quotes/candles stored with provider, exchange and received timestamps; aggregation consistency test"
@@ -50,16 +50,16 @@ FR-072,WP7,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-073,WP7,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-074,WP7,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-075,WP7,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-080,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-081,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-082,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-083,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-084,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-085,WP3,Master §5; docs/ARCHITECTURE.md,,,Not Started,
+FR-080,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/execution/OrderService.kt;backend/src/main/kotlin/app/strategyforge/execution/ExecutionEngine.kt,backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt;backend/src/test/kotlin/app/strategyforge/execution/PricingPropertyTest.kt;backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt,Passed,WP3: market/limit/stop/stop-limit; all nine states with enforced state machine and history
+FR-081,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/execution/OrderService.kt;backend/src/main/kotlin/app/strategyforge/execution/ExecutionEngine.kt,backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt;backend/src/test/kotlin/app/strategyforge/execution/PricingPropertyTest.kt;backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt,Passed,WP3: market/limit/stop/stop-limit; all nine states with enforced state machine and history
+FR-082,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/execution/Pricing.kt;backend/src/main/kotlin/app/strategyforge/execution/ExecutionEngine.kt;backend/src/main/kotlin/app/strategyforge/market/MarketCalendar.kt,backend/src/test/kotlin/app/strategyforge/execution/PricingPropertyTest.kt;backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt;backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt,Passed,"WP3: spread (quoted/fallback 0.10/0.20%), slippage, commissions, participation-capped partial fills, delay, sessions, crypto 24/7"
+FR-083,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/execution/PortfolioMaintenance.kt;backend/src/main/kotlin/app/strategyforge/risk/CoreRules.kt,backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt;backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt,Passed,"WP3: shorting disabled by default, recent-auth to enable, borrow accrual, forced cover on maintenance breach"
+FR-084,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/risk/CoreRules.kt,backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt,Passed,WP3: HOLDINGS rule rejects sells beyond holdings and long/short mixing
+FR-085,WP3,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/execution/OrderService.kt;backend/src/main/resources/db/migration/V5__portfolio_ledger_orders.sql,backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt,Passed,"WP3: orders link portfolio, source, snapshot, risk evaluation (strategy links enforced by CHECK); executions link snapshot and journal"
 FR-090,WP6,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-091,WP6,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-092,WP6,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-093,WP6,Master §5; docs/ARCHITECTURE.md,,,Not Started,
+FR-093,WP6,Master §5; docs/ARCHITECTURE.md,,,In Progress,
 FR-094,WP6,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-100,WP6/WP10,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/notifications/NotificationService.kt,,In Progress,
 FR-101,WP6/WP10,Master §5; docs/ARCHITECTURE.md,,,Not Started,
@@ -72,21 +72,21 @@ FR-111,WP10,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-112,WP10,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-113,WP0-WP11,Master §5; docs/ARCHITECTURE.md,,,In Progress,
 NFR-001,WP0,Master §6; docs/ARCHITECTURE.md,,,In Progress,
-NFR-002,WP0/WP3,Master §6; docs/ARCHITECTURE.md,,,In Progress,
+NFR-002,WP0/WP3,Master §6; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/common/money/Decimals.kt;backend/src/main/kotlin/app/strategyforge/common/money/BigMath.kt,backend/src/test/kotlin/app/strategyforge/common/DecimalsTest.kt;backend/src/test/kotlin/app/strategyforge/ArchitectureTest.kt;backend/src/test/kotlin/app/strategyforge/common/BaselineIT.kt;backend/src/test/kotlin/app/strategyforge/execution/PricingPropertyTest.kt,Passed,"WP0/WP3: numeric(38,12)/(38,18) columns, no float columns or fields (ArchUnit), HALF_EVEN reports, decimals as JSON strings"
 NFR-003,WP9,Master §6; docs/ARCHITECTURE.md,,,Not Started,
 NFR-004,WP0/WP1,Master §6; docs/ARCHITECTURE.md,,,In Progress,
 NFR-005,WP9,Master §6; docs/ARCHITECTURE.md,,,Not Started,
 NFR-006,WP6,Master §6; docs/ARCHITECTURE.md,,,Not Started,
-NFR-007,WP6,Master §6; docs/ARCHITECTURE.md,,,Not Started,
-NFR-008,WP3/WP10,Master §6; docs/ARCHITECTURE.md,,,Not Started,
+NFR-007,WP6,Master §6; docs/ARCHITECTURE.md,,,In Progress,
+NFR-008,WP3/WP10,Master §6; docs/ARCHITECTURE.md,,,In Progress,
 NFR-009,WP9,Master §6; docs/ARCHITECTURE.md,,,Not Started,
 NFR-010,WP0,Master §6; docs/ARCHITECTURE.md,,,In Progress,
 NFR-011,WP0/WP11,Master §6; docs/ARCHITECTURE.md,,,Not Started,
 NFR-012,WP0,Master §6; docs/ARCHITECTURE.md,,,Not Started,
 MS-01,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/identity/IdentityService.kt,backend/src/test/kotlin/app/strategyforge/identity/IdentityLifecycleIT.kt,Passed,WP1: bootstrap then second registration 409 and DB-level rejection
 MS-02,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/common/security/SecretRedactor.kt;backend/src/main/kotlin/app/strategyforge/common/security/Crypto.kt,backend/src/test/kotlin/app/strategyforge/providers/ProviderCredentialIT.kt;backend/src/test/kotlin/app/strategyforge/common/SecretRedactionTest.kt,Passed,"WP1: encrypted at rest, redacted in logs and audit"
-MS-03,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
-MS-04,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
+MS-03,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/PortfolioService.kt,backend/src/test/kotlin/app/strategyforge/portfolio/PortfolioLifecycleIT.kt,Passed,WP3: reset archives old portfolio with ledger intact and creates new ledger
+MS-04,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/Reconciliation.kt,backend/src/test/kotlin/app/strategyforge/portfolio/LedgerInvariantIT.kt;backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt;backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt,Passed,"WP3: reconciliation OK after buys, sells, fees, splits, dividends, shorts, covers, partial fills, cancellations"
 MS-05,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-06,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-07,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
@@ -96,7 +96,7 @@ MS-10,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-11,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-12,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-13,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
-MS-14,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
+MS-14,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/execution/ExecutionEngine.kt,backend/src/test/kotlin/app/strategyforge/execution/ExecutionRecoveryIT.kt,Passed,WP3: injected DB crash mid-fill rolls back atomically; order fills exactly once afterwards
 MS-15,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-16,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-17,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/market/provider/TwelveDataProvider.kt;backend/src/main/kotlin/app/strategyforge/market/data/MarketDataService.kt,backend/src/test/kotlin/app/strategyforge/market/TwelveDataProviderTest.kt;backend/src/test/kotlin/app/strategyforge/market/MarketDataIT.kt,Passed,"WP2: timeout, malformed JSON/values, auth, rate limit, clock skew and out-of-order candles/quotes rejected and flagged"

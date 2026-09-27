@@ -43,6 +43,7 @@ data class IngestionReport(
 @Service
 class MarketDataIngestion(
     private val interests: ObjectProvider<MarketInterest>,
+    private val volumeInterests: ObjectProvider<app.strategyforge.market.VolumeInterest>,
     private val instruments: InstrumentService,
     private val data: MarketDataService,
     private val alerts: PriceAlertService,
@@ -93,6 +94,18 @@ class MarketDataIngestion(
                 }
             }
         }
+        if (clock.mode() == ClockMode.LIVE) {
+            val volumeIds =
+                volumeInterests
+                    .orderedStream()
+                    .toList()
+                    .flatMap { it.instrumentIds() }
+                    .toSet()
+            instruments.byIds(volumeIds).forEach { i ->
+                runCatching { data.candles(i, app.strategyforge.market.Timeframe.M1, now.minus(Duration.ofMinutes(10)), now, now, hydrate = true) }
+                    .onFailure { log.warn("1m volume refresh failed for {}", i.symbol, it) }
+            }
+        }
         if (data.latestFx()?.asOf?.isBefore(now.minus(Duration.ofHours(6))) != false) runCatching { data.refreshFx() }
         val report = IngestionReport(now, list.size, verified, failures)
         lastReport.set(report)
@@ -134,8 +147,15 @@ class ReplayService(
     private val audit: AuditService,
     private val jdbc: JdbcClient,
     private val props: StrategyForgeProperties,
+    txManager: org.springframework.transaction.PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    /** The pipeline must run outside the caller's transaction: each stage commits its own work. */
+    private val noTx =
+        org.springframework.transaction.support.TransactionTemplate(txManager).apply {
+            propagationBehavior = org.springframework.transaction.TransactionDefinition.PROPAGATION_NOT_SUPPORTED
+        }
 
     fun view(): ReplayClockView {
         val replay = clock.mode() == ClockMode.REPLAY
@@ -153,11 +173,14 @@ class ReplayService(
         val start = clock.now()
         var t = start
         val target = start.plus(Duration.ofMinutes(minutes))
-        while (t.isBefore(target)) {
-            val next = minOf(t.plus(Duration.ofMinutes(stepMinutes)), target)
-            clock.setReplayTime(next)
-            CorrelationIdFilter.withCorrelation("replay") { events.publishEvent(MarketClockAdvanced(t, next)) }
-            t = next
+        noTx.executeWithoutResult {
+            while (t.isBefore(target)) {
+                val next = minOf(t.plus(Duration.ofMinutes(stepMinutes)), target)
+                clock.setReplayTime(next)
+                val from = t
+                CorrelationIdFilter.withCorrelation("replay") { events.publishEvent(MarketClockAdvanced(from, next)) }
+                t = next
+            }
         }
         audit.record(AuditCategory.MARKET_DATA, "REPLAY_ADVANCED", details = mapOf("from" to start.toString(), "to" to target.toString(), "stepMinutes" to stepMinutes))
         return view()

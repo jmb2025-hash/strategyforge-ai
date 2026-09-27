@@ -48,6 +48,11 @@ data class PriceAlert(
     val triggeredPrice: BigDecimal?,
 )
 
+/** Instruments whose recent 1-minute volume the execution simulator needs (live mode ingestion). */
+fun interface VolumeInterest {
+    fun instrumentIds(): Set<UUID>
+}
+
 /** Instruments the ingestion job must keep fresh. Each module contributes its own set. */
 fun interface MarketInterest {
     fun instrumentIds(): Set<UUID>
