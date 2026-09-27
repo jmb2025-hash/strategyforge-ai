@@ -51,3 +51,11 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Migrations:** `V6__strategies.sql`.
 - **Tests:** `StrategyIT` (27 fixtures through the real import API), `StrategyScannerTest`.
 - **Result:** Passed — 89 tests green; spotless and detekt clean.
+
+## WP5 — Backtesting
+
+- **Outcome:** BigDecimal indicator library and rule evaluator; deterministic point-in-time backtester (next-bar fills, intrabar stops/targets/trailing stops, spread, slippage, commissions, participation-capped fills, daily-loss halts, open-position and trade limits, splits/dividends); integrity and dataset provenance; full metrics; equity/drawdown series; benchmark; async jobs with restart recovery; promotion to Paper Eligible only for clean results.
+- **Requirements:** FR-050, FR-052–FR-055, MS-08 (FR-051 risk-profile parameter completes in WP6).
+- **Migrations:** `V7__backtests.sql`.
+- **Tests:** `IndicatorsTest` (hand values + jqwik causality), `BacktestEngineTest` (look-ahead perturbation, determinism, stop-first), `BacktestIT` (promotion, missing data, future range, corporate-action MRR).
+- **Result:** Passed — 101 tests green; spotless and detekt clean.

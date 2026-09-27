@@ -28,6 +28,8 @@ object Decimals {
     fun price(v: BigDecimal): BigDecimal = v.setScale(PRICE_SCALE, RoundingMode.HALF_EVEN)
 
     /** Reports round HALF_EVEN to cents; source values are preserved separately. */
+    fun percent(v: BigDecimal): BigDecimal = v.setScale(PERCENT_SCALE, RoundingMode.HALF_EVEN)
+
     fun report(v: BigDecimal): BigDecimal = v.setScale(REPORT_SCALE, RoundingMode.HALF_EVEN)
 
     fun percentOf(
