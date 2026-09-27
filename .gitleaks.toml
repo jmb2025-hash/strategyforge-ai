@@ -1,0 +1,11 @@
+# gitleaks configuration: default rules plus allowlist for documented test-only keys.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test-only fixtures and documentation placeholders"
+paths = [
+  '''backend/src/test/resources/application-test\.yml''',
+  '''fixtures/replay/.*''',
+  '''docs/StrategyForge_AI_Master_Build_Package_v1\.0\.docx''',
+]

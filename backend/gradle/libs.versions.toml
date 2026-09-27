@@ -1,0 +1,42 @@
+# All versions are pinned exactly (NFR-011). No dynamic or range versions.
+[versions]
+kotlin = "2.2.21"
+spring-boot = "3.5.16"
+spring-dependency-management = "1.1.7"
+springdoc = "2.8.17"
+testcontainers = "2.0.5"
+bouncycastle = "1.86"
+logstash-encoder = "8.1"
+json-schema-validator = "1.5.9"
+swagger-parser = "2.1.48"
+jqwik = "1.9.3"
+archunit = "1.4.2"
+detekt = "1.23.8"
+spotless = "8.0.0"
+ktlint = "1.7.1"
+cyclonedx = "2.4.1"
+mockwebserver = "4.12.0"
+google-auth = "1.39.1"
+
+[libraries]
+springdoc-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-api", version.ref = "springdoc" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
+testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
+bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+logstash-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstash-encoder" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
+swagger-parser = { module = "io.swagger.parser.v3:swagger-parser", version.ref = "swagger-parser" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
+jqwik-kotlin = { module = "net.jqwik:jqwik-kotlin", version.ref = "jqwik" }
+archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "mockwebserver" }
+google-auth = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }

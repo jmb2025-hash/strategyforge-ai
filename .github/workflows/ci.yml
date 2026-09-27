@@ -1,0 +1,90 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Replay fixtures reproducible
+        run: python3 scripts/generate_replay_fixtures.py --check
+      - name: Traceability
+        run: python3 scripts/traceability.py --no-render
+      - name: Compose config
+        run: DATABASE_USER=x DATABASE_PASSWORD=x docker compose --env-file /dev/null config -q
+      - name: Gradle wrapper validation
+        uses: gradle/actions/wrapper-validation@v4
+
+  backend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Format, static analysis, tests, build, SBOM
+        working-directory: backend
+        run: ./gradlew --no-daemon spotlessCheck detekt test bootJar cyclonedxBom
+      - name: OpenAPI contract is current
+        run: git diff --exit-code contracts/openapi.json
+      - name: Container image
+        working-directory: backend
+        run: docker build -t strategyforge-backend:ci .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-reports
+          path: |
+            backend/build/reports/
+            backend/build/test-results/
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Lint, unit and Compose UI tests, debug and release builds, SBOM
+        working-directory: android
+        env:
+          SF_RELEASE_KEYSTORE_B64: ${{ secrets.SF_RELEASE_KEYSTORE_B64 }}
+          SF_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.SF_RELEASE_KEYSTORE_PASSWORD }}
+          SF_RELEASE_KEY_ALIAS: ${{ secrets.SF_RELEASE_KEY_ALIAS }}
+          SF_RELEASE_KEY_PASSWORD: ${{ secrets.SF_RELEASE_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon spotlessCheck :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease cyclonedxBom
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-outputs
+          path: |
+            android/app/build/outputs/
+            android/app/build/reports/
+            android/core/build/reports/
+
+  security:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Secret, dependency, misconfiguration scans
+        run: scripts/security-scan.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: build/security/

@@ -1,0 +1,115 @@
+id,requirement
+FR-001,Create exactly one owner account during first-run bootstrap and disable additional registration.
+FR-002,"Support secure login, session revocation, offline recovery code, and optional TOTP."
+FR-003,"Store owner preferences for timezone, USD/CAD display, theme, risk defaults, and notifications."
+FR-004,"Provide diagnostics for backend, database, market provider, AI providers, FCM, clock drift, and data freshness."
+FR-010,"Create, rename, archive, clone, and reset up to 10 paper portfolios."
+FR-011,Implement append-only double-entry cash and position ledger semantics.
+FR-012,Reconcile balances from ledger events rather than mutable totals.
+FR-013,"Track funding, reservations, executions, fees, slippage, borrow fees, dividends, splits, and FX translations."
+FR-014,"Show cash, buying power, cost basis, market value, realized P/L, unrealized P/L, and total return."
+FR-015,Reset by archiving the existing portfolio and creating a new ledger.
+FR-020,Maintain an instrument master for supported US equities and allowlisted USD crypto pairs.
+FR-021,Create watchlists and price alerts.
+FR-022,Ingest quotes and OHLCV candles with source and exchange timestamps.
+FR-023,Display real-time or delayed status and exact data timestamp.
+FR-024,"Reject evaluation when data is missing, stale, out of order, or unavailable under provider capability."
+FR-025,Process supported corporate actions and mark affected results Manual Review Required when required source data is unavailable.
+FR-030,Configure AI providers through a common adapter.
+FR-031,Encrypt provider keys server-side and never expose them to Android.
+FR-032,"Record provider, model, prompt, parameters, response, sources, usage, cost when available, timestamps, and edits."
+FR-033,Require citations or source references when the selected research workflow supports retrieval.
+FR-034,Label AI output unverified until reviewed.
+FR-035,"Compile approved research into the controlled schema, never executable code."
+FR-036,Preserve the full AI audit trail linked to the strategy version.
+FR-037,"Apply token, request, and cost ceilings."
+FR-040,"Create, import, clone, edit, version, export, pause, suspend, and archive strategies."
+FR-041,Validate imports against JSON schema and security controls.
+FR-042,"Reject executable content, unsupported operators, unsafe values, and schema violations."
+FR-043,Label unrecognized but potentially meaningful content Manual Review Required.
+FR-044,Make activated versions immutable and addressable by cryptographic hash.
+FR-045,"Support approved indicators, entry/exit rules, sizing, stops, targets, holding period, schedule, data requirements, and inactivity conditions."
+FR-046,Provide human-readable explanations.
+FR-047,Cap a strategy at 500 instruments and the system at 25 active strategies.
+FR-050,Use only information available at each simulated timestamp and prevent look-ahead bias.
+FR-051,"Support date range, starting capital, fees, spread, slippage, execution delay, universe, benchmark, and risk profile."
+FR-052,"Report return, annualized return when meaningful, volatility, drawdown, win/loss rate, profit factor, expectancy, average gain/loss, exposure, turnover, fees, slippage, and trades."
+FR-053,Produce equity and drawdown series and benchmark comparison.
+FR-054,"Record dataset provider, coverage, gaps, adjustments, and timestamps."
+FR-055,Prevent activation when backtest integrity has critical errors.
+FR-060,Evaluate active strategies on an authoritative backend schedule.
+FR-061,"Create signals with strategy version, market snapshot, triggered rules, proposed action, quantity, order type, expiry, and rationale."
+FR-062,Create recommendations only after deterministic risk evaluation.
+FR-063,"Allow accept, permitted modification, decline, snooze, and pause."
+FR-064,Reject acceptance after expiry or material market-price deviation.
+FR-065,"Guarantee at most one order per recommendation through idempotency, locking, and atomic transitions."
+FR-066,"Record accepted, modified, declined, expired, superseded, blocked, and failed outcomes."
+FR-070,Make Recommendation Mode the default.
+FR-071,"Require validated immutable strategy, successful backtest, portfolio, allocation, risk profile, disclosure, and recent authentication before autonomy."
+FR-072,Reauthorize autonomy after material changes.
+FR-073,Execute only after deterministic risk checks pass.
+FR-074,"Pause automatically on stale data, unavailable risk engine, repeated errors, loss/drawdown limit, or reconciliation failure."
+FR-075,"Provide Pause All, Prevent New Positions, Cancel Pending Orders, Disable Autonomous Mode, and separate Close All Simulated Positions."
+FR-080,"Support market, limit, stop, and stop-limit paper orders."
+FR-081,"Support Created, Validated, Rejected, Pending, Partially Filled, Filled, Cancelled, Expired, and Failed states."
+FR-082,"Simulate spread, slippage, commissions, partial fills, liquidity, execution delay, trading hours, and crypto 24/7 behaviour."
+FR-083,Support long and optional simulated short/cover actions with borrow and forced-cover assumptions.
+FR-084,Prevent sells beyond holdings unless approved short simulation is enabled.
+FR-085,"Link every order and execution to its portfolio, source, strategy version where applicable, market snapshot, and risk decision."
+FR-090,"Enforce trade value, strategy/instrument/asset-class allocation, positions, frequency, daily loss, drawdown, short exposure, quote age, spread, liquidity, and symbol lists."
+FR-091,"Apply the strictest global, portfolio, strategy, and order constraint."
+FR-092,Prevent AI output from overriding deterministic risk rules.
+FR-093,"Record every risk evaluation, inputs, rule results, and final decision."
+FR-094,Provide consecutive-loss and error-rate suspension rules.
+FR-100,Maintain an authoritative in-app notification inbox.
+FR-101,"Support optional push for recommendations, expiries, fills, rejections, stop/target events, risk events, suspensions, stale data, health, and daily summary."
+FR-102,Redact sensitive lock-screen content by default.
+FR-103,"Produce portfolio, strategy, asset, trade, recommendation, risk, fee/slippage, benchmark, and AI provenance reports."
+FR-104,Compare accepted/declined and autonomous/recommendation outcomes without claiming causation.
+FR-105,Export CSV and JSON with stable schemas and reconciliation totals.
+FR-110,"Append audit events for authentication, settings, providers, research, strategies, risk, recommendations, orders, executions, emergency controls, exports, and failures."
+FR-111,"Show health, scheduler, provider, data-lag, reconciliation, queue, and error diagnostics."
+FR-112,"Support backup, restore, migrations, replay/demo mode, and disaster-recovery verification."
+FR-113,Block real-money functionality through module boundaries and server policy.
+NFR-001,Store timestamps in UTC and display them using timezone-aware formatting.
+NFR-002,Use decimal types and explicit rounding rules for all financial values.
+NFR-003,Use the backend as source of truth; Room is a cache only.
+NFR-004,"Authenticate, authorize, validate, correlate, and make retryable mutations idempotent."
+NFR-005,Target cached dashboard load under 2 seconds and normal network refresh under 5 seconds.
+NFR-006,Target p95 risk and paper-order decision under 2 seconds after required data is available.
+NFR-007,"Prevent duplicate execution under retries, concurrent devices, scheduler retries, and restarts."
+NFR-008,"Preserve ledger, order, recommendation, and audit consistency during recovery."
+NFR-009,"Support screen readers, scalable fonts, adequate contrast, and non-colour-only P/L cues."
+NFR-010,"Use structured, secret-redacted, correlated logs."
+NFR-011,Pin toolchains and dependencies for reproducible builds.
+NFR-012,Keep core tests independent of live provider APIs.
+MS-01,Owner bootstrap and second-registration rejection
+MS-02,Credential encryption and log redaction
+MS-03,"Portfolio create, clone, archive, and reset"
+MS-04,"Ledger reconciliation after buys, sells, fees, splits, dividends, shorts, covers, partial fills, and cancellations"
+MS-05,Valid and invalid strategy imports
+MS-06,Executable content and prompt-injection rejection
+MS-07,Manual Review Required workflow
+MS-08,Backtest look-ahead prevention and missing data
+MS-09,Real-time/delayed capability states
+MS-10,"Recommendation accept, modify, decline, expire, supersede, duplicate tap, and two-device race"
+MS-11,Autonomous activation and reauthorization
+MS-12,Every defined risk block
+MS-13,Scheduler retry without duplicates
+MS-14,Backend restart during pending order and execution
+MS-15,Every emergency control
+MS-16,Push unavailable while inbox remains complete
+MS-17,"Provider timeout, malformed data, clock skew, and out-of-order candles"
+MS-18,"AI timeout, malformed JSON, missing sources, and budget limit"
+MS-19,Exports reconcile to ledger
+MS-20,Real-money activation attempts fail at all layers
+MS-21,Clean backup/restore and migration
+RG-01,100% of Version 1 requirements mapped in traceability
+RG-02,All mandatory scenarios pass
+RG-03,Android debug and release builds succeed
+RG-04,"Backend build, migrations, and containers succeed"
+RG-05,OpenAPI validation passes
+RG-06,No unresolved critical or high security finding
+RG-07,Replay end-to-end suite passes twice from clean databases
+RG-08,Backup/restore drill passes
+RG-09,Real-money prohibition tests pass

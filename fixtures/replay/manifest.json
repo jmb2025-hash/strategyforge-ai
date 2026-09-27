@@ -1,0 +1,72 @@
+{
+  "description": "SYNTHETIC deterministic replay data for tests and demo mode. Not real market prices.",
+  "documentedGaps": [
+    {
+      "missingBarIndexes": [
+        1,
+        2,
+        3
+      ],
+      "sessionDate": "2026-03-11",
+      "symbol": "XOM",
+      "timeframe": "1h"
+    }
+  ],
+  "files": {
+    "candles/1d/AAPL.csv": "7cd4f13b9d2d4314590e87e56c000ed95adb652b8325b68cd9491999fee4d625",
+    "candles/1d/AMZN.csv": "3b6c0c1f7b48e3c0a7199def1f471276556989702acfe21a648a538d7886a8d2",
+    "candles/1d/BTC-USD.csv": "55cec7d566801565fb9fa3a8f471765219668de44d61b5ae49797cbf0520074a",
+    "candles/1d/ETH-USD.csv": "ebbd04143e06e880435085b211e12df2665de2158e5ab7c11591e1c6bf0d0384",
+    "candles/1d/JPM.csv": "7a3ede5db1a61ce3c05c292d0f4548d79020b33761fda24dc22335c99e2a7e04",
+    "candles/1d/MSFT.csv": "6a92e27edbb156c436201ef8b77d62b91a5b5adaeed860acfd31aa29aca6c3f7",
+    "candles/1d/NVDA.csv": "8e6d15bead1e2ad2b3cf4235b60d892dff0d71f9ee0f5b81c6be074f76f91c62",
+    "candles/1d/QQQ.csv": "de3ef5f14d24f28aa0c693a7657a8a4181fdc56bb716c10029ae5802428e83ee",
+    "candles/1d/SOL-USD.csv": "c966398eb169239818fca45e579e422b04dc778e51d4587c4eabbc6071fd0e77",
+    "candles/1d/SPY.csv": "6bcabf00980b26b97336263e8130901cf5d674fa5428066dd24fdfa88b411913",
+    "candles/1d/XOM.csv": "bec96b29658529b60e47ad01d03ab20160ca9f54109352bfa72edcab7c941ad9",
+    "candles/1h/AAPL.csv": "b3f430c17673897450b81ebf50e3558af5ca3b40ab50fb2c5b953ce35e8aa1eb",
+    "candles/1h/AMZN.csv": "6dec81037b6dbfc8de37d7817607ab6fa878b9cccc13bbe1e12fc3f675131454",
+    "candles/1h/BTC-USD.csv": "6924696bd2e61dbe1eae43fa7fda4e3a828273034a4ba89c10f553f1357273ae",
+    "candles/1h/ETH-USD.csv": "ed5a94c2544ff88e5be3df6413197cdec518d97c4814a4de9ebcbfe0a7162052",
+    "candles/1h/JPM.csv": "bd0486efefcd6d5c854ad887caef7d9077700cdbdf1c51ebd991b8438b9f79ff",
+    "candles/1h/MSFT.csv": "048d42787cb86c7a98d699c0f8968661f167fa6f626620e95778a395fec4e4db",
+    "candles/1h/NVDA.csv": "fbecf670234a6942d7b412179ca7355c029d632a136b97910b7b4bcf56d9a2fd",
+    "candles/1h/QQQ.csv": "04cb5616689492bd652d07cf466164a8c5258ce3a8ec9a10f42379ebfa08e67c",
+    "candles/1h/SOL-USD.csv": "0ab10f6ecaed78d2d50fc7d8412a64fa3a50167977ac1a146baff78ce6227053",
+    "candles/1h/SPY.csv": "fddbf7f619202c1b6ca22cbeb98f1e1d68ad6963ad36ca1743623a9209a37674",
+    "candles/1h/XOM.csv": "0cc5b87c97cb59c33ece61b9d554ddfeb19f43e408b90d0413769c66445dd95e",
+    "candles/1m/AAPL.csv": "72e504975e62f9a15784a406941d6671ef0f50d045cf23baed9ddce39cb085f1",
+    "candles/1m/AMZN.csv": "40351c1b19a7da9ef5452f5a022ec2889bb018a4541409af7b37a3d8284c9862",
+    "candles/1m/BTC-USD.csv": "9d334bb30a55ea9389a17f590ff4af8939821791b05ba16b3c34a3070e6c6d51",
+    "candles/1m/ETH-USD.csv": "f8ae2dd965ef6546c24286ea9a96f67833686c44c3e46dad637fff67e3e7647a",
+    "candles/1m/JPM.csv": "ba84aca58115388563d822438a9658f7bde71369f0b71cbe83af01cddd8d1b13",
+    "candles/1m/MSFT.csv": "e11731d1ee173b821d83e6463404795639d743bf07d613275e7689225053deb7",
+    "candles/1m/NVDA.csv": "9fb804f04e0dcb1062ba4cdd015563c1e44a5a299ff6b14086e43b8c9dde63ec",
+    "candles/1m/QQQ.csv": "7d1053f3e2c580c8c334fc1a0f8149e4402d4ba72c86bbebc07175446b012c1c",
+    "candles/1m/SOL-USD.csv": "140e0f687c6408d062a7198cc8799da2c9938cf4e0b365c59cfa94309f2bf168",
+    "candles/1m/SPY.csv": "680c926b3af4b641a91242c9f20db95e3eab45dcea9a90a64049e69ac683f5fe",
+    "candles/1m/XOM.csv": "945c3579814dbc14af7ff55f497eaf6eb3ff519e53f08477bea588c042a40478",
+    "corporate_actions.csv": "4b5460634a07867e89f607fbd86d5b1ea3e93593898d5487a2d7a7811cec021d",
+    "fx/USD_CAD.csv": "19124ec4e865dc6a1fe8b3aa5242605e8ad5bb17d692fbff8b4880038597c580",
+    "instruments.csv": "1d6b3c99650e8d5041483e70a92974ba6fb561a49246f3ef68b262b4b399a160"
+  },
+  "generatorVersion": "1.0.0",
+  "ranges": {
+    "1d": [
+      "2023-01-03",
+      "2026-06-26"
+    ],
+    "1h": [
+      "2026-01-02",
+      "2026-06-26"
+    ],
+    "1m": [
+      "2026-06-22",
+      "2026-06-26"
+    ]
+  },
+  "replayEndUtc": "2026-06-27T00:00:00Z",
+  "replayStartUtc": "2026-06-22T13:30:00Z",
+  "seed": 20260927,
+  "synthetic": true
+}

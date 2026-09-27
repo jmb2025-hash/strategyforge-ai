@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: strategyforge
+  main:
+    banner-mode: off
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/strategyforge}
+    username: ${DATABASE_USER:strategyforge}
+    password: ${DATABASE_PASSWORD:}
+    hikari:
+      maximum-pool-size: 20
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+  jackson:
+    time-zone: UTC
+  mvc:
+    problemdetails:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 512KB
+      max-request-size: 512KB
+  task:
+    scheduling:
+      pool:
+        size: 4
+
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
+  tomcat:
+    max-http-form-post-size: 512KB
+    max-swallow-size: 1MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    enabled: ${SF_OPENAPI_ENABLED:false}
+    version: openapi_3_1
+    path: /v3/api-docs
+  default-produces-media-type: application/json
+
+strategyforge:
+  real-money-trading-enabled: ${REAL_MONEY_TRADING_ENABLED:false}
+  master-encryption-key: ${MASTER_ENCRYPTION_KEY:}
+  jwt-signing-key: ${JWT_SIGNING_KEY:}
+  bootstrap-token: ${SF_BOOTSTRAP_TOKEN:}
+  market-provider: ${MARKET_PROVIDER:REPLAY}
+  default-timezone: ${DEFAULT_TIMEZONE:America/Halifax}
+  default-base-currency: ${DEFAULT_BASE_CURRENCY:USD}
+  replay:
+    fixtures-dir: ${SF_REPLAY_FIXTURES_DIR:classpath:replay}
+    auto-advance: ${SF_REPLAY_AUTO_ADVANCE:false}
+  scheduler:
+    enabled: ${SF_SCHEDULER_ENABLED:true}
+  backup:
+    directory: ${SF_BACKUP_DIR:/var/lib/strategyforge/backups}
+  push:
+    fcm-credentials-path: ${FCM_CREDENTIALS_PATH:}

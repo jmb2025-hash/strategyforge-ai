@@ -1,0 +1,14 @@
+# TLS termination for private-network access (see docs/RUNBOOK.md section "Private network and TLS").
+# "tls internal" issues a certificate from Caddy's private CA. Install the root CA
+# (/data/caddy/pki/authorities/local/root.crt) on the phone, or prefer Tailscale serve
+# which provides a publicly trusted certificate for *.ts.net names.
+{$SF_TLS_HOSTNAME}:8443 {
+	tls internal
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	reverse_proxy backend:8080
+}

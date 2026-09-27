@@ -1,0 +1,82 @@
+# Decision Log
+
+Format per master package Appendix B. Priority rule for conflicts:
+safety boundary > final product decisions > requirements > contracts > architecture > build plan.
+When a conflict is unresolved, the safest reversible option is selected.
+
+---
+
+## D-001 Backend toolchain line
+
+- **Date:** 2026-09-27
+- **Context:** Spring Boot 4.1, Kotlin 2.4 and Testcontainers 2 are available. Spring Boot 3.5.x is still receiving patch releases on Maven Central (3.5.16).
+- **Decision:** Kotlin 2.2.21, Spring Boot 3.5.16 (Jackson 2, Spring Framework 6.2), Java 21, Gradle 8.14.3, Flyway (Boot-managed 11.x), PostgreSQL 16.15, Testcontainers 2.0.5.
+- **Alternatives:** Spring Boot 4.x (Jackson 3, new modular starters) — rejected for Version 1 because of higher migration risk with no functional benefit.
+- **Consequences:** Stable, well-understood APIs. A move to Boot 4 must occur before 3.5 patch support ends.
+- **Requirements affected:** NFR-011, RG-04, RG-06.
+- **Reversal plan:** Upgrade Boot/Kotlin in one change set guarded by the full test suite; Jackson 3 migration is isolated to `common/json`.
+
+## D-002 Restricted build network in the delivery environment
+
+- **Date:** 2026-09-27
+- **Context:** The container used to build this delivery blocks `downloads.gradle.org` (Gradle distributions) and `dl.google.com` (Android SDK packages and every Google Maven artifact: AGP, AndroidX, Firebase). Maven Central, the Gradle plugin portal and Docker Hub are reachable.
+- **Decision:** (a) The Gradle wrapper pins 8.14.3; `scripts/verify.sh` falls back to an installed Gradle of the same version when the wrapper distribution cannot be downloaded. (b) The Android SDK (platforms, build-tools) is taken from CircleCI's public `cimg/android` Docker image. (c) Google Maven artifacts cannot be obtained in this environment; see D-003.
+- **Alternatives:** Third-party mirrors of Google Maven — rejected: routing around an organization egress policy is not acceptable.
+- **Consequences:** Backend verification is complete here. Android verification depends on D-003.
+- **Requirements affected:** NFR-011, RG-03.
+- **Reversal plan:** Once `dl.google.com` is allowed, the standard `./gradlew` flow is used unchanged; CI (GitHub Actions) already uses it.
+
+## D-003 Android build verification path
+
+- **Date:** 2026-09-27
+- **Context:** AGP and AndroidX resolve only from Google Maven (redirects to the blocked `dl.google.com`).
+- **Decision:** Android code that has no Android framework dependency (API client, DTOs, formatting, redaction, UI state reducers, cache policy) lives in a pure Kotlin/JVM module `android/core` that is built and tested here from Maven Central. The Compose application module `android/app` is built and tested by CI (`.github/workflows/ci.yml` android job), and locally once Google Maven is reachable. Its status is recorded in the traceability matrix as not verified until such a run passes.
+- **Alternatives:** Declaring Android complete without compiling it — rejected (no claims without verification).
+- **Consequences:** WP9 exit gates depend on an environment with Google Maven access.
+- **Requirements affected:** RG-03, NFR-003, NFR-005, NFR-009, FR-101, FR-102.
+- **Reversal plan:** None needed; the split is a sound architecture regardless.
+
+## D-004 Opaque server-side sessions instead of JWT access tokens
+
+- **Date:** 2026-09-27
+- **Context:** FR-002 requires session revocation. Appendix C lists `JWT_SIGNING_KEY`.
+- **Decision:** Access tokens are 256-bit random opaque tokens; only their SHA-256 hash is stored. Revocation is immediate. `JWT_SIGNING_KEY` is used as the HMAC key for single-use server-side action tokens (section 14) and other signed values.
+- **Alternatives:** Stateless JWT (revocation needs a deny list anyway).
+- **Consequences:** One indexed lookup per request; simple, immediate revocation.
+- **Requirements affected:** FR-002, NFR-004, section 14.
+- **Reversal plan:** Token format is opaque to clients; can be changed server-side.
+
+## D-005 Unknown strategy fields: Manual Review Required vs rejection
+
+- **Date:** 2026-09-27
+- **Context:** Section 9 lists "Unknown schema fields" under prohibited content and says unknown fields are not silently ignored; FR-043 requires unrecognized but potentially meaningful content to be labelled Manual Review Required; FR-042 requires rejecting executable content, unsupported operators, unsafe values and schema violations.
+- **Decision:** Unknown fields are never ignored and never activatable. (1) Unknown fields whose name or content matches executable, network, file, database, shell, reflection or real-money patterns → **rejected** (Validation Failed, security). (2) Unknown enum values (operators, indicators, comparisons, timeframes, sizing methods) → **rejected** as unsupported operators. (3) Any other unknown field → **Manual Review Required**: the version cannot be validated, backtested or activated; the owner must remove or resolve it by creating a new version.
+- **Alternatives:** Reject all unknown fields (loses FR-043); accept and ignore (violates section 9).
+- **Consequences:** Satisfies both statements with the most restrictive outcome for anything executable.
+- **Requirements affected:** FR-041, FR-042, FR-043, section 9.
+- **Reversal plan:** Classification rules are data in `StrategyContentScanner`; moving a field class between MRR and rejection is a one-line change with tests.
+
+## D-006 Replay data is synthetic and labelled
+
+- **Date:** 2026-09-27
+- **Context:** Deterministic replay is mandatory; real historical data cannot be redistributed in the repository.
+- **Decision:** `scripts/generate_replay_fixtures.py` produces deterministic synthetic OHLCV (integer arithmetic, fixed seed) for 8 US equities/ETFs and 3 crypto pairs, plus synthetic splits, dividends and USD/CAD rates. Every artifact and API response in replay mode is labelled `REPLAY_SYNTHETIC`; nothing is presented as real market data.
+- **Consequences:** No silent placeholder data; realistic enough for end-to-end verification (calendar-aligned sessions, split, dividends, documented gap, stress regime).
+- **Requirements affected:** NFR-012, FR-112, FR-023.
+- **Reversal plan:** Replace fixtures with licensed data by pointing `SF_REPLAY_FIXTURES_DIR` at another directory with the same format.
+
+## D-007 In-application encrypted logical backup instead of pg_dump
+
+- **Date:** 2026-09-27
+- **Decision:** Backups are produced by the backend using PostgreSQL `COPY` over JDBC, packaged with a manifest (schema version, row counts, ledger reconciliation totals, SHA-256), and encrypted with AES-256-GCM using a key derived from `MASTER_ENCRYPTION_KEY`. Restore runs as an offline command mode, loads a clean database, applies Flyway upgrades and verifies reconciliation.
+- **Alternatives:** `pg_dump` in the backend image (extra native dependency, separate encryption tooling).
+- **Consequences:** Backup/restore is testable in CI with Testcontainers; no superuser is required.
+- **Requirements affected:** FR-112, NFR-008, MS-21, RG-08.
+- **Reversal plan:** `pg_dump` remains usable as an operator-level extra (documented in docs/BACKUP_RESTORE.md).
+
+## D-008 US equity trading calendar
+
+- **Date:** 2026-09-27
+- **Decision:** NYSE regular sessions, full-day holidays and 13:00 ET early closes are encoded for 2023–2027. Outside that range the calendar reports `UNVERIFIED` and equity trading is blocked (fail closed) until the table is extended.
+- **Requirements affected:** FR-082, FR-090, section 11 (trading schedule).
+- **Reversal plan:** Extend the table annually; a test fails when the current year is not covered.

@@ -1,0 +1,14 @@
+strategyforge:
+  # Test-only keys. Never used outside the test profile.
+  master-encryption-key: "dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctISE="
+  jwt-signing-key: "dGVzdC1zaWduaW5nLWtleS1mb3ItYWN0aW9uLXRva2Vucy0wMTIzNDU2Nzg5"
+  scheduler:
+    enabled: false
+  backup:
+    directory: build/test-backups
+springdoc:
+  api-docs:
+    enabled: true
+logging:
+  level:
+    root: WARN

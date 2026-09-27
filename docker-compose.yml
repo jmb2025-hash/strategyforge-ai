@@ -1,0 +1,72 @@
+# StrategyForge AI - private single-owner deployment (paper trading only).
+# Usage: see docs/RUNBOOK.md. Secrets come from .env (never committed).
+name: strategyforge
+
+services:
+  db:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: strategyforge
+      POSTGRES_USER: ${DATABASE_USER:?set DATABASE_USER in .env}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}
+      TZ: UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d strategyforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [internal]
+
+  backend:
+    build:
+      context: ./backend
+    image: strategyforge-backend:1.0.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false  # backend refuses to start without its secrets
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/strategyforge
+      REAL_MONEY_TRADING_ENABLED: "false"
+      SF_BACKUP_DIR: /var/lib/strategyforge/backups
+    volumes:
+      - backups:/var/lib/strategyforge/backups
+    # Bound to loopback only. Expose to the phone through a private network
+    # (Tailscale serve) or the optional TLS proxy profile below.
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks: [internal]
+
+  # Optional TLS termination on a private network: docker compose --profile tls up -d
+  tls-proxy:
+    profiles: ["tls"]
+    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    restart: unless-stopped
+    depends_on: [backend]
+    environment:
+      SF_TLS_HOSTNAME: ${SF_TLS_HOSTNAME:-strategyforge.local}
+    ports:
+      - "${SF_TLS_BIND:-127.0.0.1}:8443:8443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    networks: [internal]
+
+volumes:
+  pgdata:
+  backups:
+  caddy-data:
+
+networks:
+  internal:

@@ -1,0 +1,24 @@
+# Secrets
+.env
+*.jks
+*.keystore
+keystore.properties
+local.properties
+google-services.json
+*service-account*.json
+# Build output
+**/build/
+**/.gradle/
+**/.kotlin/
+*.class
+# IDE
+.idea/
+*.iml
+.vscode/
+# OS
+.DS_Store
+# Python
+__pycache__/
+# Local backups
+backups/
+.jqwik-database

@@ -1,0 +1,60 @@
+# Built upon detekt defaults. Adjustments are deliberate and documented.
+complexity:
+  LongParameterList:
+    functionThreshold: 10
+    constructorThreshold: 16
+  TooManyFunctions:
+    active: false
+  LongMethod:
+    threshold: 120
+  CyclomaticComplexMethod:
+    threshold: 30
+  LargeClass:
+    threshold: 1200
+  NestedBlockDepth:
+    threshold: 6
+style:
+  UnusedParameter:
+    allowedNames: 'ignored|expected|e|_'
+  LoopWithTooManyJumpStatements:
+    maxJumpCount: 2
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    active: false
+  ReturnCount:
+    max: 6
+  ThrowsCount:
+    max: 8
+  WildcardImport:
+    active: false
+  UnusedPrivateMember:
+    active: true
+  ForbiddenComment:
+    active: true
+    comments:
+      - value: 'TODO'
+        reason: 'No unfinished work may ship (no hidden production stubs).'
+      - value: 'FIXME'
+        reason: 'No unfinished work may ship.'
+      - value: 'STOPSHIP'
+        reason: 'No unfinished work may ship.'
+  DestructuringDeclarationWithTooManyEntries:
+    maxDestructuringEntries: 5
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+  SwallowedException:
+    active: true
+    ignoredExceptionTypes: ['InterruptedException', 'NumberFormatException', 'ParseException', 'MalformedURLException', 'DateTimeParseException', 'IllegalArgumentException']
+naming:
+  FunctionNaming:
+    excludes: ['**/test/**']
+  ConstructorParameterNaming:
+    active: true
+potential-bugs:
+  UnsafeCallOnNullableType:
+    active: true
+performance:
+  SpreadOperator:
+    active: false

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Structured, correlated, secret-redacted JSON logs (NFR-010). -->
+<configuration>
+  <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="strategyforge"/>
+  <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <includeMdcKeyName>correlationId</includeMdcKeyName>
+      <customFields>{"app":"${appName}"}</customFields>
+      <jsonGeneratorDecorator class="net.logstash.logback.mask.MaskingJsonGeneratorDecorator">
+        <valueMasker class="app.strategyforge.common.security.LogMasker"/>
+      </jsonGeneratorDecorator>
+      <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+        <maxDepthPerThrowable>30</maxDepthPerThrowable>
+      </throwableConverter>
+    </encoder>
+  </appender>
+  <logger name="org.flywaydb" level="INFO"/>
+  <logger name="org.springframework" level="WARN"/>
+  <logger name="org.testcontainers" level="WARN"/>
+  <logger name="com.zaxxer.hikari" level="WARN"/>
+  <root level="INFO">
+    <appender-ref ref="JSON"/>
+  </root>
+</configuration>
