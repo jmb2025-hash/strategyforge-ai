@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "metadata": { "name": "Crypto RSI Rebound", "assetClass": "CRYPTO", "timeframe": "1h", "createdBy": "OWNER" },
+  "universe": { "symbols": ["BTC-USD", "ETH-USD", "SOL-USD"] },
+  "dataRequirements": {
+    "minimumHistoryBars": 120,
+    "maximumQuoteAgeSeconds": 120,
+    "indicators": [
+      { "id": "RSI_14", "type": "RSI", "period": 14 },
+      { "id": "EMA_20", "type": "EMA", "period": 20 },
+      { "id": "BB", "type": "BOLLINGER_BANDS", "period": 20, "standardDeviations": 2 },
+      { "id": "MACD", "type": "MACD", "fastPeriod": 12, "slowPeriod": 26, "signalPeriod": 9 },
+      { "id": "ATR_14", "type": "ATR", "period": 14 }
+    ]
+  },
+  "entryRules": {
+    "operator": "ANY",
+    "conditions": [
+      { "left": "RSI_14", "comparison": "LT", "right": 35 },
+      { "operator": "ALL", "conditions": [ { "left": "CLOSE", "comparison": "CROSSES_ABOVE", "right": "EMA_20" }, { "left": "MACD.histogram", "comparison": "GT", "right": 0 } ] },
+      { "left": "CLOSE", "comparison": "LT", "right": "BB.lower" }
+    ]
+  },
+  "exitRules": { "stopLossPercent": 4, "takeProfitPercent": 8, "trailingStopPercent": 5, "maximumHoldingBars": 48, "conditions": { "operator": "ANY", "conditions": [ { "left": "RSI_14", "comparison": "GT", "right": 70 } ] } },
+  "positionSizing": { "method": "FIXED_CASH", "value": 5000 },
+  "orderInstructions": { "orderType": "LIMIT", "timeInForce": "GTC", "limitOffsetPercent": 0.2 },
+  "riskLimits": { "maximumOpenPositions": 3, "maximumDailyTrades": 12, "maximumDailyLossPercent": 3, "maximumDrawdownPercent": 15, "maximumConsecutiveLosses": 5, "allowShort": false },
+  "inactivityConditions": ["STALE_MARKET_DATA", "RISK_ENGINE_UNAVAILABLE", "RECONCILIATION_FAILURE"]
+}

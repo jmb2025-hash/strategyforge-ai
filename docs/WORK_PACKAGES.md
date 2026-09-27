@@ -43,3 +43,11 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Tests:** `PricingPropertyTest` (jqwik), `PortfolioLifecycleIT`, `OrderExecutionIT`, `EquitySessionIT`, `LedgerInvariantIT` (randomized seeds), `ExecutionRecoveryIT` (DB fault injection).
 - **Risks found and fixed:** Kotlin default arguments under CGLIB proxies, audit-lock self-deadlock (D-015), in-flight order counted in holdings, self-invoked `@Transactional` methods.
 - **Result:** Passed — 80 tests green; spotless and detekt clean.
+
+## WP4 — Strategy framework
+
+- **Outcome:** Restricted JSON strategy format (schema 1.0), import pipeline (size, UTF-8, no BOM/control characters, strict JSON without duplicates/comments, prohibited-content and prompt-injection scan, unknown-field classification, JSON Schema 2020-12, semantic rules, data availability), immutable SHA-256-addressed versions, lifecycle state machine with history, explanations, clone/export, rejected-import records.
+- **Requirements:** FR-040–FR-046, FR-047 (instrument cap), MS-05, MS-07, MS-06 (strategy side).
+- **Migrations:** `V6__strategies.sql`.
+- **Tests:** `StrategyIT` (27 fixtures through the real import API), `StrategyScannerTest`.
+- **Result:** Passed — 89 tests green; spotless and detekt clean.

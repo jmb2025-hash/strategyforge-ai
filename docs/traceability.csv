@@ -23,14 +23,14 @@ FR-034,WP8,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-035,WP8,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-036,WP8,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-037,WP8,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-040,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-041,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-042,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-043,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-044,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-045,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-046,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
-FR-047,WP4,Master §5; docs/ARCHITECTURE.md,,,Not Started,
+FR-040,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyService.kt;backend/src/main/kotlin/app/strategyforge/strategy/StrategyController.kt,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,"WP4: create, import, clone, edit (new version), version, export, pause/suspend/archive (activation in WP7)"
+FR-041,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt;backend/src/main/resources/strategy/strategy-schema-1.0.json,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,"WP4: size, encoding, BOM, strict JSON (duplicates/comments), schema and semantic validation; valid and invalid fixtures"
+FR-042,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt;backend/src/test/kotlin/app/strategyforge/strategy/StrategyScannerTest.kt,Passed,"WP4: executable/network/SQL/shell/reflection/real-money content rejected; unsupported operators, unsafe values, contradictions, future data fail"
+FR-043,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt;backend/src/main/kotlin/app/strategyforge/strategy/StrategyService.kt,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,WP4: unknown fields preserved and listed; status MANUAL_REVIEW_REQUIRED blocks explanation/execution until a new version resolves them (D-005)
+FR-044,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyService.kt;backend/src/main/resources/db/migration/V6__strategies.sql,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,"WP4: every version immutable (DB trigger), SHA-256 of canonical JSON, export carries X-Content-Hash"
+FR-045,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyModel.kt;backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,"WP4: SMA/EMA/RSI/MACD/ATR/Bollinger, nested ALL/ANY, sizing methods, stops/targets/trailing, holding period, schedule, data requirements, inactivity conditions"
+FR-046,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyExplainer.kt,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,"WP4: deterministic plain-English explanation of rules, exits, sizing and limits"
+FR-047,WP4,Master §5; docs/ARCHITECTURE.md,backend/src/main/resources/strategy/strategy-schema-1.0.json,,In Progress,WP4: 500-instrument cap enforced by schema (tested); 25-active cap enforced at activation (WP7)
 FR-050,WP5,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-051,WP5,Master §5; docs/ARCHITECTURE.md,,,Not Started,
 FR-052,WP5,Master §5; docs/ARCHITECTURE.md,,,Not Started,
@@ -87,9 +87,9 @@ MS-01,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/mai
 MS-02,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/common/security/SecretRedactor.kt;backend/src/main/kotlin/app/strategyforge/common/security/Crypto.kt,backend/src/test/kotlin/app/strategyforge/providers/ProviderCredentialIT.kt;backend/src/test/kotlin/app/strategyforge/common/SecretRedactionTest.kt,Passed,"WP1: encrypted at rest, redacted in logs and audit"
 MS-03,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/PortfolioService.kt,backend/src/test/kotlin/app/strategyforge/portfolio/PortfolioLifecycleIT.kt,Passed,WP3: reset archives old portfolio with ledger intact and creates new ledger
 MS-04,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/portfolio/Reconciliation.kt,backend/src/test/kotlin/app/strategyforge/portfolio/LedgerInvariantIT.kt;backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt;backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt,Passed,"WP3: reconciliation OK after buys, sells, fees, splits, dividends, shorts, covers, partial fills, cancellations"
-MS-05,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
-MS-06,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
-MS-07,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
+MS-05,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt;backend/src/main/resources/strategy/strategy-schema-1.0.json,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,"WP4: size, encoding, BOM, strict JSON (duplicates/comments), schema and semantic validation; valid and invalid fixtures"
+MS-06,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,In Progress,WP4: strategy-side executable and prompt-injection rejection passes; AI compilation side in WP8
+MS-07,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt;backend/src/main/kotlin/app/strategyforge/strategy/StrategyService.kt,backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt,Passed,WP4: unknown fields preserved and listed; status MANUAL_REVIEW_REQUIRED blocks explanation/execution until a new version resolves them (D-005)
 MS-08,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
 MS-09,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,backend/src/main/kotlin/app/strategyforge/market/provider/TwelveDataProvider.kt;backend/src/main/kotlin/app/strategyforge/market/MarketDataController.kt,backend/src/test/kotlin/app/strategyforge/market/LiveProviderIT.kt;backend/src/test/kotlin/app/strategyforge/market/TwelveDataProviderTest.kt;backend/src/test/kotlin/app/strategyforge/market/MarketDataIT.kt,Passed,WP2: realtime/delayed/unknown/replay states detected and displayed; unsupported capabilities explicit
 MS-10,WP11,Master §17 mandatory scenarios; docs/ARCHITECTURE.md,,,Not Started,
