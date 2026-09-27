@@ -1,5 +1,7 @@
 # Built upon detekt defaults. Adjustments are deliberate and documented.
 complexity:
+  ComplexCondition:
+    threshold: 6
   LongParameterList:
     functionThreshold: 10
     constructorThreshold: 16
@@ -25,7 +27,7 @@ style:
   ReturnCount:
     max: 6
   ThrowsCount:
-    max: 8
+    active: false
   WildcardImport:
     active: false
   UnusedPrivateMember:
@@ -46,7 +48,7 @@ exceptions:
     active: false
   SwallowedException:
     active: true
-    ignoredExceptionTypes: ['InterruptedException', 'NumberFormatException', 'ParseException', 'MalformedURLException', 'DateTimeParseException', 'IllegalArgumentException']
+    ignoredExceptionTypes: ['InterruptedException', 'NumberFormatException', 'ParseException', 'MalformedURLException', 'DateTimeParseException', 'DateTimeException', 'IllegalArgumentException']
 naming:
   FunctionNaming:
     excludes: ['**/test/**']

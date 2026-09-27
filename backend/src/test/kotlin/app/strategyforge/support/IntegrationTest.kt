@@ -35,7 +35,7 @@ object Postgres {
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-abstract class IntegrationTest {
+abstract class BaseIntegrationTest {
     @LocalServerPort
     protected var port: Int = 0
 
@@ -43,7 +43,10 @@ abstract class IntegrationTest {
     protected lateinit var jdbc: JdbcClient
 
     protected val baseUrl: String get() = "http://localhost:$port"
+}
 
+/** Shares one database and Spring context across all test classes. */
+abstract class IntegrationTest : BaseIntegrationTest() {
     companion object {
         @JvmStatic
         @DynamicPropertySource

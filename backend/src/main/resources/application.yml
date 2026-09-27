@@ -17,7 +17,8 @@ spring:
     time-zone: UTC
   mvc:
     problemdetails:
-      enabled: true
+      # Our ProblemHandler produces RFC 7807 documents with stable codes for every failure.
+      enabled: false
   servlet:
     multipart:
       max-file-size: 512KB

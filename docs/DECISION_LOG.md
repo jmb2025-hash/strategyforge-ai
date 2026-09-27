@@ -80,3 +80,27 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Decision:** NYSE regular sessions, full-day holidays and 13:00 ET early closes are encoded for 2023–2027. Outside that range the calendar reports `UNVERIFIED` and equity trading is blocked (fail closed) until the table is extended.
 - **Requirements affected:** FR-082, FR-090, section 11 (trading schedule).
 - **Reversal plan:** Extend the table annually; a test fails when the current year is not covered.
+
+## D-009 Critical notifications cannot be disabled
+
+- **Date:** 2026-09-27
+- **Context:** Section 3: "critical safety events cannot be disabled"; FR-101 makes push optional.
+- **Decision:** Categories RISK_EVENT, STRATEGY_SUSPENSION, STALE_DATA, SYSTEM_HEALTH and SECURITY are always written to the inbox and, when a push channel is configured, always pushed regardless of per-category preferences. Settings updates that disable them are rejected with 422 `critical-notification-required`.
+- **Requirements affected:** FR-100, FR-101, section 3.
+- **Reversal plan:** The critical flag lives on `NotificationCategory`.
+
+## D-010 AI provider pricing is mandatory configuration
+
+- **Date:** 2026-09-27
+- **Context:** FR-037 requires cost ceilings; FR-032 records cost "when available". Provider APIs return token usage but not price.
+- **Decision:** Every AI provider configuration must declare input/output USD price per million tokens. Costs are reported as estimates computed from recorded usage. Requests whose worst-case estimated cost would exceed the remaining budget are refused before any network call (fail closed).
+- **Requirements affected:** FR-032, FR-037.
+- **Reversal plan:** If a provider starts returning authoritative cost, prefer it and keep the estimate as fallback.
+
+## D-011 Recovery flow disables TOTP
+
+- **Date:** 2026-09-27
+- **Context:** The offline recovery code exists for lost devices, which usually means a lost authenticator.
+- **Decision:** A successful recovery resets the password, revokes every session, disables TOTP (re-enrolment required) and raises a SECURITY notification. Recovery codes are HMAC-SHA256 hashed with the server signing key and single use.
+- **Requirements affected:** FR-002.
+- **Reversal plan:** Require TOTP during recovery if the owner prefers; one condition in `IdentityService.recover`.

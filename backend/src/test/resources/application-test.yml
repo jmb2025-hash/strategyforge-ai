@@ -12,3 +12,7 @@ springdoc:
 logging:
   level:
     root: WARN
+---
+strategyforge:
+  providers:
+    allow-local-http: true

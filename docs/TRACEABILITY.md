@@ -9,16 +9,18 @@ Allowed statuses: Not Started, In Progress, Blocked, Manual Review Required, Fai
 
 | Status | Count |
 |---|---|
-| Not Started | 114 |
+| In Progress | 9 |
+| Not Started | 100 |
+| Passed | 5 |
 
 ## Matrix
 
 | Requirement | WP | Design reference | Code reference | Test reference | Status | Evidence |
 |---|---|---|---|---|---|---|
-| **FR-001** Create exactly one owner account during first-run bootstrap and disable additional registration. | WP1 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **FR-002** Support secure login, session revocation, offline recovery code, and optional TOTP. | WP1 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **FR-003** Store owner preferences for timezone, USD/CAD display, theme, risk defaults, and notifications. | WP1 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **FR-004** Provide diagnostics for backend, database, market provider, AI providers, FCM, clock drift, and data freshness. | WP1 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **FR-001** Create exactly one owner account during first-run bootstrap and disable additional registration. | WP1 | Master §5<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/identity/IdentityService.kt<br>backend/src/main/resources/db/migration/V2__identity_settings_providers.sql | backend/src/test/kotlin/app/strategyforge/identity/IdentityLifecycleIT.kt | Passed | WP1: singleton owner row + 409 registration-disabled<br> DB rejects second owner |
+| **FR-002** Support secure login, session revocation, offline recovery code, and optional TOTP. | WP1 | Master §5<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/identity/IdentityService.kt<br>backend/src/main/kotlin/app/strategyforge/identity/Totp.kt<br>backend/src/main/kotlin/app/strategyforge/identity/SecurityConfig.kt | backend/src/test/kotlin/app/strategyforge/identity/IdentityLifecycleIT.kt<br>backend/src/test/kotlin/app/strategyforge/identity/TotpTest.kt<br>backend/src/test/kotlin/app/strategyforge/identity/SessionsAndSettingsIT.kt | Passed | WP1: Argon2id login, lockout, revocation, RFC 6238 vectors, TOTP replay rejection, single-use recovery codes |
+| **FR-003** Store owner preferences for timezone, USD/CAD display, theme, risk defaults, and notifications. | WP1 | Master §5<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
+| **FR-004** Provide diagnostics for backend, database, market provider, AI providers, FCM, clock drift, and data freshness. | WP1 | Master §5<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
 | **FR-010** Create, rename, archive, clone, and reset up to 10 paper portfolios. | WP3 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-011** Implement append-only double-entry cash and position ledger semantics. | WP3 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-012** Reconcile balances from ledger events rather than mutable totals. | WP3 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
@@ -31,8 +33,8 @@ Allowed statuses: Not Started, In Progress, Blocked, Manual Review Required, Fai
 | **FR-023** Display real-time or delayed status and exact data timestamp. | WP2 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-024** Reject evaluation when data is missing, stale, out of order, or unavailable under provider capability. | WP2 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-025** Process supported corporate actions and mark affected results Manual Review Required when required source data is unavailable. | WP2 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **FR-030** Configure AI providers through a common adapter. | WP8 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **FR-031** Encrypt provider keys server-side and never expose them to Android. | WP8 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **FR-030** Configure AI providers through a common adapter. | WP8 | Master §5<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
+| **FR-031** Encrypt provider keys server-side and never expose them to Android. | WP8 | Master §5<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/common/security/Crypto.kt<br>backend/src/main/kotlin/app/strategyforge/providers/Providers.kt | backend/src/test/kotlin/app/strategyforge/providers/ProviderCredentialIT.kt | Passed | WP1: AES-256-GCM with row-bound AAD<br> API/DB/audit never contain plaintext<br> rotation needs recent auth |
 | **FR-032** Record provider, model, prompt, parameters, response, sources, usage, cost when available, timestamps, and edits. | WP8 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-033** Require citations or source references when the selected research workflow supports retrieval. | WP8 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-034** Label AI output unverified until reviewed. | WP8 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
@@ -83,24 +85,24 @@ Allowed statuses: Not Started, In Progress, Blocked, Manual Review Required, Fai
 | **FR-103** Produce portfolio, strategy, asset, trade, recommendation, risk, fee/slippage, benchmark, and AI provenance reports. | WP6/WP10 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-104** Compare accepted/declined and autonomous/recommendation outcomes without claiming causation. | WP6/WP10 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-105** Export CSV and JSON with stable schemas and reconciliation totals. | WP6/WP10 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **FR-110** Append audit events for authentication, settings, providers, research, strategies, risk, recommendations, orders, executions, emergency controls, exports, and failures. | WP0-WP10 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **FR-110** Append audit events for authentication, settings, providers, research, strategies, risk, recommendations, orders, executions, emergency controls, exports, and failures. | WP0-WP10 | Master §5<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
 | **FR-111** Show health, scheduler, provider, data-lag, reconciliation, queue, and error diagnostics. | WP10 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **FR-112** Support backup, restore, migrations, replay/demo mode, and disaster-recovery verification. | WP10 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **FR-113** Block real-money functionality through module boundaries and server policy. | WP0-WP11 | Master §5<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **NFR-001** Store timestamps in UTC and display them using timezone-aware formatting. | WP0 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **NFR-002** Use decimal types and explicit rounding rules for all financial values. | WP0/WP3 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **FR-113** Block real-money functionality through module boundaries and server policy. | WP0-WP11 | Master §5<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
+| **NFR-001** Store timestamps in UTC and display them using timezone-aware formatting. | WP0 | Master §6<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
+| **NFR-002** Use decimal types and explicit rounding rules for all financial values. | WP0/WP3 | Master §6<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
 | **NFR-003** Use the backend as source of truth; Room is a cache only. | WP9 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **NFR-004** Authenticate, authorize, validate, correlate, and make retryable mutations idempotent. | WP0/WP1 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **NFR-004** Authenticate, authorize, validate, correlate, and make retryable mutations idempotent. | WP0/WP1 | Master §6<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
 | **NFR-005** Target cached dashboard load under 2 seconds and normal network refresh under 5 seconds. | WP9 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **NFR-006** Target p95 risk and paper-order decision under 2 seconds after required data is available. | WP6 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **NFR-007** Prevent duplicate execution under retries, concurrent devices, scheduler retries, and restarts. | WP6 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **NFR-008** Preserve ledger, order, recommendation, and audit consistency during recovery. | WP3/WP10 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **NFR-009** Support screen readers, scalable fonts, adequate contrast, and non-colour-only P/L cues. | WP9 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **NFR-010** Use structured, secret-redacted, correlated logs. | WP0 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **NFR-010** Use structured, secret-redacted, correlated logs. | WP0 | Master §6<br> docs/ARCHITECTURE.md |  |  | In Progress |  |
 | **NFR-011** Pin toolchains and dependencies for reproducible builds. | WP0/WP11 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **NFR-012** Keep core tests independent of live provider APIs. | WP0 | Master §6<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **MS-01** Owner bootstrap and second-registration rejection | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
-| **MS-02** Credential encryption and log redaction | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **MS-01** Owner bootstrap and second-registration rejection | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/identity/IdentityService.kt | backend/src/test/kotlin/app/strategyforge/identity/IdentityLifecycleIT.kt | Passed | WP1: bootstrap then second registration 409 and DB-level rejection |
+| **MS-02** Credential encryption and log redaction | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/common/security/SecretRedactor.kt<br>backend/src/main/kotlin/app/strategyforge/common/security/Crypto.kt | backend/src/test/kotlin/app/strategyforge/providers/ProviderCredentialIT.kt<br>backend/src/test/kotlin/app/strategyforge/common/SecretRedactionTest.kt | Passed | WP1: encrypted at rest, redacted in logs and audit |
 | **MS-03** Portfolio create, clone, archive, and reset | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **MS-04** Ledger reconciliation after buys, sells, fees, splits, dividends, shorts, covers, partial fills, and cancellations | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
 | **MS-05** Valid and invalid strategy imports | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
