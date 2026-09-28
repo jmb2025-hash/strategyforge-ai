@@ -56,7 +56,7 @@ object AppModule {
     ): CacheDatabase =
         Room
             .databaseBuilder(context, CacheDatabase::class.java, "sf-cache.db")
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
     @Provides

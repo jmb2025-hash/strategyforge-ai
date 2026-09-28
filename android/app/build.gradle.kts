@@ -126,6 +126,14 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
 }
 
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStandardStreams = false
+    }
+}
+
 tasks.cyclonedxBom {
     setIncludeConfigs(listOf("releaseRuntimeClasspath"))
     setProjectType("application")

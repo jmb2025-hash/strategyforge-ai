@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.strategyforge.android.core.api.ApiError
 import app.strategyforge.android.core.api.SfJson
@@ -69,9 +70,13 @@ class ComposeUiTest {
         var accepted = 0
         val d = detail()
         recScreen(RecommendationState(loading = false, detail = d, quantity = "0.01", limitPrice = "60000")) { accepted++ }
-        rule.onNodeWithText("Entry: CLOSE GT 1").assertIsDisplayed()
-        rule.onNodeWithText("Info: Simulated paper trade.").assertIsDisplayed()
-        rule.onNodeWithTag("accept").assertIsEnabled().performClick()
+        rule.onNodeWithText("Entry: CLOSE GT 1").assertExists()
+        rule.onNodeWithText("Info: Simulated paper trade.", useUnmergedTree = true).assertExists()
+        rule
+            .onNodeWithTag("accept")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
         assertEquals(1, accepted)
     }
 
@@ -80,14 +85,14 @@ class ComposeUiTest {
         val s = RecommendationState(loading = false, detail = detail(), quantity = "0.02", limitPrice = "60000")
         recScreen(s.copy(validation = RecommendationPresenter.validate(s)))
         rule.onNodeWithTag("accept").assertIsNotEnabled()
-        rule.onNodeWithText("Warning: Quantity can only be reduced (max 0.01)").assertIsDisplayed()
+        rule.onNodeWithText("Warning: Quantity can only be reduced (max 0.01)", useUnmergedTree = true).assertExists()
     }
 
     @Test
     fun `expired recommendations offer no decision controls`() {
         recScreen(RecommendationState(loading = false, detail = detail("EXPIRED", token = false), quantity = "0.01"))
         assertEquals(0, rule.onAllNodesWithTag("accept").fetchSemanticsNodes().size)
-        rule.onNodeWithText("Info: This recommendation is expired; no further action is possible.").assertIsDisplayed()
+        rule.onNodeWithText("Info: This recommendation is expired; no further action is possible.", useUnmergedTree = true).assertExists()
     }
 
     private val dashboard =

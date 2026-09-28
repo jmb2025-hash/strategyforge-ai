@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
@@ -63,7 +63,7 @@ private data class Tab(
 private val tabs =
     listOf(
         Tab("home", "Home", Icons.Filled.Home),
-        Tab("strategies", "Strategies", Icons.Filled.List),
+        Tab("strategies", "Strategies", Icons.AutoMirrored.Filled.List),
         Tab("portfolio", "Portfolio", Icons.Filled.Star),
         Tab("activity", "Activity", Icons.Filled.Notifications),
         Tab("more", "More", Icons.Filled.MoreVert),
