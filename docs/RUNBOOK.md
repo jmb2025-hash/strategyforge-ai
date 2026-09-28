@@ -77,7 +77,7 @@ Switch back to Replay at any time.
 With `MARKET_PROVIDER=REPLAY`, the backend serves the deterministic synthetic data in
 `fixtures/replay/`. The replay clock only moves when advanced:
 
-- API: `POST /v1/market-data/replay/advance` with `{"steps": N}`.
+- API: `POST /v1/market-data/replay/advance` with `{"minutes": N, "stepMinutes": 1}`.
 - Automatic: set `SF_REPLAY_AUTO_ADVANCE=true` (one step every 5 seconds).
 
 Replay results are reproducible. Two runs from the same state produce identical signals, orders and ledgers.

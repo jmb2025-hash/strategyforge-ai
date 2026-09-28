@@ -23,6 +23,8 @@ jobs:
         run: python3 scripts/generate_replay_fixtures.py --check
       - name: Traceability
         run: python3 scripts/traceability.py --no-render
+      - name: Repository policies (pinning, no live APIs in tests, no brokerage SDKs)
+        run: python3 -m unittest discover -s scripts/tests -v
       - name: Compose config
         run: DATABASE_USER=x DATABASE_PASSWORD=x docker compose --env-file /dev/null config -q
       - name: Gradle wrapper validation

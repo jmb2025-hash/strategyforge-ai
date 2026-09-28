@@ -1,0 +1,16 @@
+# Reviewed gitleaks findings (all false positives). Each entry: commit:file:rule:line.
+# Review date 2026-09-28. New findings still fail the scan (RG-06).
+#
+# Test-only RSA key generated at runtime; only the PEM header literal is in source.
+aa63770c3644ba672c3c2c72afe750b517501d0b:backend/src/test/kotlin/app/strategyforge/notifications/PushDeliveryIT.kt:private-key:59
+# Documented test-profile master key (same value as application-test.yml, already allowlisted) and a deliberately wrong key.
+aa63770c3644ba672c3c2c72afe750b517501d0b:backend/src/test/kotlin/app/strategyforge/operations/BackupRestoreIT.kt:generic-api-key:19
+aa63770c3644ba672c3c2c72afe750b517501d0b:backend/src/test/kotlin/app/strategyforge/operations/BackupRestoreIT.kt:generic-api-key:101
+# Prose in the work package log ("token-bucket limits ...").
+e990bdefd64d79b9244d43437aa0cc0a7b850252:docs/WORK_PACKAGES.md:generic-api-key:31
+# Fake API key sent to a local MockWebServer.
+e990bdefd64d79b9244d43437aa0cc0a7b850252:backend/src/test/kotlin/app/strategyforge/market/TwelveDataProviderTest.kt:generic-api-key:23
+# Test password for a throwaway owner in an ephemeral database.
+68f6abc3f57e983fe0740b2bac1c697678c90298:backend/src/test/kotlin/app/strategyforge/identity/IdentityLifecycleIT.kt:generic-api-key:142
+# Redaction test input (the string being redacted).
+ea93405c6d592a298a80ce74fb7028ddab349444:backend/src/test/kotlin/app/strategyforge/common/SecretRedactionTest.kt:generic-api-key:18

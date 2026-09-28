@@ -12,7 +12,7 @@ fail=0
 
 echo "==> gitleaks (secrets in working tree and git history)"
 if docker run --rm -v "$ROOT:/repo" "$GITLEAKS_IMAGE" git /repo --redact \
-     --config /repo/.gitleaks.toml --report-format json --report-path /repo/build/security/gitleaks.json; then
+     --config /repo/.gitleaks.toml --gitleaks-ignore-path /repo/.gitleaksignore --report-format json --report-path /repo/build/security/gitleaks.json; then
   echo "gitleaks: no secrets found"
 else
   echo "gitleaks: findings present (see build/security/gitleaks.json)"; fail=1
