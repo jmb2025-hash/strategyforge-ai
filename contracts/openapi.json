@@ -1,0 +1,7435 @@
+{
+  "components" : {
+    "schemas" : {
+      "AcceptRequest" : {
+        "properties" : {
+          "actionToken" : {
+            "type" : [ "string", "null" ]
+          },
+          "modification" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Modification"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "type" : "object"
+      },
+      "ActionToken" : {
+        "properties" : {
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "token" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "expiresAt", "token" ],
+        "type" : "object"
+      },
+      "Activation" : {
+        "properties" : {
+          "allocationPercent" : {
+            "type" : "number"
+          },
+          "authorizedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "backtestId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "disclosureVersion" : {
+            "type" : [ "string", "null" ]
+          },
+          "endReason" : {
+            "type" : [ "string", "null" ]
+          },
+          "endedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "fingerprint" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "mode" : {
+            "enum" : [ "RECOMMENDATION", "AUTONOMOUS" ],
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "versionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "allocationPercent", "backtestId", "contentHash", "createdAt", "id", "mode", "portfolioId", "status", "strategyId", "versionId" ],
+        "type" : "object"
+      },
+      "ActivationRequest" : {
+        "properties" : {
+          "allocationPercent" : {
+            "type" : "number"
+          },
+          "disclosureAccepted" : {
+            "type" : "boolean"
+          },
+          "disclosureVersion" : {
+            "type" : [ "string", "null" ]
+          },
+          "mode" : {
+            "enum" : [ "RECOMMENDATION", "AUTONOMOUS" ],
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "allocationPercent", "disclosureAccepted", "mode", "portfolioId" ],
+        "type" : "object"
+      },
+      "AddInstrumentRequest" : {
+        "properties" : {
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "symbol" ],
+        "type" : "object"
+      },
+      "AiBudget" : {
+        "properties" : {
+          "dailyRequestLimit" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "maxInputChars" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "maxOutputTokens" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "monthCostUsd" : {
+            "type" : "number"
+          },
+          "monthlyCostLimitUsd" : {
+            "type" : "number"
+          },
+          "todayRequests" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "dailyRequestLimit", "maxInputChars", "maxOutputTokens", "monthCostUsd", "monthlyCostLimitUsd", "todayRequests", "updatedAt", "version" ],
+        "type" : "object"
+      },
+      "AiBudgetUpdate" : {
+        "properties" : {
+          "dailyRequestLimit" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "maxInputChars" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "maxOutputTokens" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "monthlyCostLimitUsd" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "dailyRequestLimit", "maxInputChars", "maxOutputTokens", "monthlyCostLimitUsd" ],
+        "type" : "object"
+      },
+      "AiSource" : {
+        "properties" : {
+          "citedText" : {
+            "type" : [ "string", "null" ]
+          },
+          "pageAge" : {
+            "type" : [ "string", "null" ]
+          },
+          "title" : {
+            "type" : [ "string", "null" ]
+          },
+          "url" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "url" ],
+        "type" : "object"
+      },
+      "AlertCreate" : {
+        "properties" : {
+          "condition" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "threshold" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "condition", "symbol", "threshold" ],
+        "type" : "object"
+      },
+      "BacktestRequest" : {
+        "properties" : {
+          "applyGlobalRiskProfile" : {
+            "type" : "boolean"
+          },
+          "benchmarkSymbol" : {
+            "type" : [ "string", "null" ]
+          },
+          "costModel" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/CostModel"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "executionDelayBars" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "from" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "riskProfile" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/RiskLimits"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "startingCapital" : {
+            "type" : [ "number", "null" ]
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "symbols" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "to" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "versionId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "applyGlobalRiskProfile", "executionDelayBars", "from", "strategyId", "to" ],
+        "type" : "object"
+      },
+      "BacktestView" : {
+        "properties" : {
+          "benchmark" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/JsonNode"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "dataset" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/JsonNode"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "error" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "integrity" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/JsonNode"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "metrics" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/JsonNode"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "params" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "resultStatus" : {
+            "type" : [ "string", "null" ]
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "versionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "contentHash", "createdAt", "id", "params", "status", "strategyId", "versionId" ],
+        "type" : "object"
+      },
+      "BootstrapRequest" : {
+        "properties" : {
+          "bootstrapToken" : {
+            "type" : [ "string", "null" ]
+          },
+          "deviceName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : [ "string", "null" ]
+          },
+          "username" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "deviceName", "password", "username" ],
+        "type" : "object"
+      },
+      "BootstrapResponse" : {
+        "properties" : {
+          "notice" : {
+            "type" : "string"
+          },
+          "recoveryCodes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "session" : {
+            "$ref" : "#/components/schemas/SessionResponse"
+          }
+        },
+        "required" : [ "notice", "recoveryCodes", "session" ],
+        "type" : "object"
+      },
+      "BootstrapStatus" : {
+        "properties" : {
+          "bootstrapTokenRequired" : {
+            "type" : "boolean"
+          },
+          "bootstrapped" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "bootstrapTokenRequired", "bootstrapped" ],
+        "type" : "object"
+      },
+      "CancelRequest" : {
+        "properties" : {
+          "reason" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "CandleView" : {
+        "properties" : {
+          "close" : {
+            "type" : "number"
+          },
+          "closeTime" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "high" : {
+            "type" : "number"
+          },
+          "low" : {
+            "type" : "number"
+          },
+          "open" : {
+            "type" : "number"
+          },
+          "openTime" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "volume" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "close", "closeTime", "high", "low", "open", "openTime", "volume" ],
+        "type" : "object"
+      },
+      "CandlesResponse" : {
+        "properties" : {
+          "bars" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CandleView"
+            },
+            "type" : "array"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "gaps" : {
+            "items" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "sourceTimeframe" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "enum" : [ "VERIFIED", "STALE", "MISSING", "OUT_OF_ORDER", "MALFORMED", "CLOCK_SKEW", "UNSUPPORTED", "PROVIDER_ERROR", "INSUFFICIENT_HISTORY", "GAPS" ],
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "timeframe" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "bars", "detail", "gaps", "provider", "status", "symbol", "timeframe" ],
+        "type" : "object"
+      },
+      "CapabilityStatusView" : {
+        "properties" : {
+          "capability" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "capability", "state" ],
+        "type" : "object"
+      },
+      "CapabilityView" : {
+        "properties" : {
+          "capability" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "verifiedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "capability", "status", "verifiedAt" ],
+        "type" : "object"
+      },
+      "CloneRequest" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
+      "CloseAllRequest" : {
+        "properties" : {
+          "confirmation" : {
+            "type" : [ "string", "null" ]
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "CompilationView" : {
+        "properties" : {
+          "candidate" : {
+            "type" : [ "string", "null" ]
+          },
+          "compilerVersion" : {
+            "type" : "string"
+          },
+          "contentHash" : {
+            "type" : [ "string", "null" ]
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "issues" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "runId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "sessionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "sourceEditId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "sourceRunId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "versionId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "compilerVersion", "createdAt", "id", "issues", "sessionId", "sourceRunId", "status" ],
+        "type" : "object"
+      },
+      "ComponentHealth" : {
+        "properties" : {
+          "checkedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "component" : {
+            "type" : "string"
+          },
+          "data" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "OK", "DEGRADED", "FAILED", "NOT_CONFIGURED", "UNKNOWN" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "checkedAt", "component", "data", "detail", "status" ],
+        "type" : "object"
+      },
+      "CostModel" : {
+        "properties" : {
+          "borrowRateAnnualPercent" : {
+            "type" : "number"
+          },
+          "commissionPerOrder" : {
+            "type" : "number"
+          },
+          "commissionPerShare" : {
+            "type" : "number"
+          },
+          "commissionPercent" : {
+            "type" : "number"
+          },
+          "cryptoFallbackSpreadPercent" : {
+            "type" : "number"
+          },
+          "equityFallbackSpreadPercent" : {
+            "type" : "number"
+          },
+          "executionDelaySeconds" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "executionMaxQuoteAgeSeconds" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "maxPriceDeviationPercent" : {
+            "type" : "number"
+          },
+          "participationRatePercent" : {
+            "type" : "number"
+          },
+          "reservationBufferPercent" : {
+            "type" : "number"
+          },
+          "shortInitialMarginPercent" : {
+            "type" : "number"
+          },
+          "shortMaintenancePercent" : {
+            "type" : "number"
+          },
+          "slippageBps" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "borrowRateAnnualPercent", "commissionPerOrder", "commissionPerShare", "commissionPercent", "cryptoFallbackSpreadPercent", "equityFallbackSpreadPercent", "executionDelaySeconds", "executionMaxQuoteAgeSeconds", "maxPriceDeviationPercent", "participationRatePercent", "reservationBufferPercent", "shortInitialMarginPercent", "shortMaintenancePercent", "slippageBps" ],
+        "type" : "object"
+      },
+      "CountResponse" : {
+        "properties" : {
+          "count" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "count" ],
+        "type" : "object"
+      },
+      "CredentialStatus" : {
+        "properties" : {
+          "configured" : {
+            "type" : "boolean"
+          },
+          "fingerprint" : {
+            "type" : [ "string", "null" ]
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "configured", "source" ],
+        "type" : "object"
+      },
+      "CredentialUpdate" : {
+        "properties" : {
+          "credential" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "credential" ],
+        "type" : "object"
+      },
+      "DeactivateRequest" : {
+        "properties" : {
+          "reason" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "DeclineRequest" : {
+        "properties" : {
+          "reason" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "DeviceRegistration" : {
+        "properties" : {
+          "name" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
+          },
+          "pushToken" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "name", "platform" ],
+        "type" : "object"
+      },
+      "DeviceView" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lastSeenAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "platform" : {
+            "type" : "string"
+          },
+          "pushEnabled" : {
+            "type" : "boolean"
+          },
+          "pushTokenRegistered" : {
+            "type" : "boolean"
+          },
+          "revokedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "createdAt", "id", "lastSeenAt", "name", "platform", "pushEnabled", "pushTokenRegistered" ],
+        "type" : "object"
+      },
+      "DiagnosticsReport" : {
+        "properties" : {
+          "components" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ComponentHealth"
+            },
+            "type" : "array"
+          },
+          "generatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "overall" : {
+            "enum" : [ "OK", "DEGRADED", "FAILED", "NOT_CONFIGURED", "UNKNOWN" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "components", "generatedAt", "overall" ],
+        "type" : "object"
+      },
+      "DisclosureView" : {
+        "properties" : {
+          "text" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "text", "version" ],
+        "type" : "object"
+      },
+      "EditRequest" : {
+        "properties" : {
+          "content" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "content" ],
+        "type" : "object"
+      },
+      "EmergencyState" : {
+        "properties" : {
+          "pauseAll" : {
+            "type" : "boolean"
+          },
+          "preventNewPositions" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "updatedBy" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "pauseAll", "preventNewPositions", "updatedAt", "version" ],
+        "type" : "object"
+      },
+      "EntryView" : {
+        "properties" : {
+          "account" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "symbol" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "account", "amount", "quantity" ],
+        "type" : "object"
+      },
+      "Execution" : {
+        "properties" : {
+          "commission" : {
+            "type" : "number"
+          },
+          "executedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "fillSeq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "journalId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "liquidityCap" : {
+            "type" : [ "number", "null" ]
+          },
+          "liquidityModel" : {
+            "type" : "string"
+          },
+          "marketSnapshotId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "notional" : {
+            "type" : "number"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "price" : {
+            "type" : "number"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "realizedPnl" : {
+            "type" : "number"
+          },
+          "recordedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "referencePrice" : {
+            "type" : "number"
+          },
+          "side" : {
+            "type" : "string"
+          },
+          "slippageCost" : {
+            "type" : "number"
+          },
+          "spreadCost" : {
+            "type" : "number"
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "commission", "executedAt", "fillSeq", "id", "instrumentId", "journalId", "liquidityModel", "marketSnapshotId", "notional", "orderId", "portfolioId", "price", "quantity", "realizedPnl", "recordedAt", "referencePrice", "side", "slippageCost", "spreadCost", "symbol" ],
+        "type" : "object"
+      },
+      "FxRateView" : {
+        "properties" : {
+          "asOf" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "base" : {
+            "type" : "string"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "quote" : {
+            "type" : "string"
+          },
+          "rate" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "asOf", "base", "provider", "quote", "rate" ],
+        "type" : "object"
+      },
+      "Instrument" : {
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "assetClass" : {
+            "enum" : [ "US_EQUITY", "CRYPTO" ],
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "exchange" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "minQuantity" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "priceIncrement" : {
+            "type" : "number"
+          },
+          "quantityIncrement" : {
+            "type" : "number"
+          },
+          "shortable" : {
+            "type" : "boolean"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "active", "assetClass", "currency", "exchange", "id", "minQuantity", "name", "priceIncrement", "quantityIncrement", "shortable", "source", "symbol", "version" ],
+        "type" : "object"
+      },
+      "InstrumentActiveRequest" : {
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "active" ],
+        "type" : "object"
+      },
+      "JournalView" : {
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "entries" : {
+            "items" : {
+              "$ref" : "#/components/schemas/EntryView"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "recordedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "referenceId" : {
+            "type" : [ "string", "null" ]
+          },
+          "referenceType" : {
+            "type" : [ "string", "null" ]
+          },
+          "seq" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "description", "entries", "id", "occurredAt", "recordedAt", "seq", "type" ],
+        "type" : "object"
+      },
+      "JsonNode" : { },
+      "LoginRequest" : {
+        "properties" : {
+          "deviceName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "totpCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "username" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "deviceName", "password", "username" ],
+        "type" : "object"
+      },
+      "Lot" : {
+        "properties" : {
+          "closedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "costRemaining" : {
+            "type" : "number"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "openedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "quantityOpen" : {
+            "type" : "number"
+          },
+          "quantityRemaining" : {
+            "type" : "number"
+          },
+          "side" : {
+            "enum" : [ "LONG", "SHORT" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "costRemaining", "id", "instrumentId", "openedAt", "portfolioId", "quantityOpen", "quantityRemaining", "side" ],
+        "type" : "object"
+      },
+      "MarketStatusView" : {
+        "properties" : {
+          "capabilities" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CapabilityStatusView"
+            },
+            "type" : "array"
+          },
+          "clockMode" : {
+            "enum" : [ "LIVE", "REPLAY" ],
+            "type" : "string"
+          },
+          "dataFlags" : {
+            "additionalProperties" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "object"
+          },
+          "equitySession" : {
+            "enum" : [ "OPEN", "CLOSED", "UNVERIFIED" ],
+            "type" : "string"
+          },
+          "lastIngestionAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "lastIngestionFailures" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "marketTime" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "providerId" : {
+            "type" : "string"
+          },
+          "providerType" : {
+            "type" : "string"
+          },
+          "syntheticData" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "capabilities", "clockMode", "dataFlags", "equitySession", "lastIngestionFailures", "marketTime", "providerId", "providerType", "syntheticData" ],
+        "type" : "object"
+      },
+      "MeResponse" : {
+        "properties" : {
+          "lastAuthenticatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "ownerId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recentAuthValidUntil" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "remainingRecoveryCodes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sessionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "totpEnabled" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "lastAuthenticatedAt", "ownerId", "recentAuthValidUntil", "remainingRecoveryCodes", "sessionId", "totpEnabled", "username" ],
+        "type" : "object"
+      },
+      "Modification" : {
+        "properties" : {
+          "limitPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "NotificationPreferences" : {
+        "properties" : {
+          "categories" : {
+            "additionalProperties" : {
+              "type" : "boolean"
+            },
+            "type" : "object"
+          },
+          "dailySummaryLocalTime" : {
+            "type" : "string"
+          },
+          "lockScreenRedaction" : {
+            "type" : "boolean"
+          },
+          "pushEnabled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "categories", "dailySummaryLocalTime", "lockScreenRedaction", "pushEnabled" ],
+        "type" : "object"
+      },
+      "NotificationView" : {
+        "properties" : {
+          "body" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "critical" : {
+            "type" : "boolean"
+          },
+          "deepLink" : {
+            "type" : [ "string", "null" ]
+          },
+          "entityId" : {
+            "type" : [ "string", "null" ]
+          },
+          "entityType" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "pushStatus" : {
+            "type" : "string"
+          },
+          "readAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "redactedBody" : {
+            "type" : "string"
+          },
+          "redactedTitle" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "body", "category", "createdAt", "critical", "id", "pushStatus", "redactedBody", "redactedTitle", "severity", "title" ],
+        "type" : "object"
+      },
+      "OrderRequest" : {
+        "properties" : {
+          "limitPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "orderType" : {
+            "enum" : [ "MARKET", "LIMIT", "STOP", "STOP_LIMIT" ],
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "side" : {
+            "enum" : [ "BUY", "SELL", "SELL_SHORT", "BUY_TO_COVER" ],
+            "type" : "string"
+          },
+          "stopPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "timeInForce" : {
+            "enum" : [ "DAY", "GTC" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "orderType", "portfolioId", "quantity", "side", "symbol", "timeInForce" ],
+        "type" : "object"
+      },
+      "OwnerSettings" : {
+        "properties" : {
+          "displayCurrency" : {
+            "type" : "string"
+          },
+          "notifications" : {
+            "$ref" : "#/components/schemas/NotificationPreferences"
+          },
+          "portfolioDefaults" : {
+            "$ref" : "#/components/schemas/PortfolioDefaults"
+          },
+          "privacy" : {
+            "$ref" : "#/components/schemas/PrivacyPreferences"
+          },
+          "riskDefaults" : {
+            "type" : "string"
+          },
+          "showCadEquivalent" : {
+            "type" : "boolean"
+          },
+          "theme" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "displayCurrency", "notifications", "portfolioDefaults", "privacy", "riskDefaults", "showCadEquivalent", "theme", "timezone", "updatedAt", "version" ],
+        "type" : "object"
+      },
+      "PageResponseJournalView" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/JournalView"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
+      "PageResponseNotificationView" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/NotificationView"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
+      "PageResponsePaperOrder" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PaperOrder"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
+      "PageResponseRecommendation" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Recommendation"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
+      "PaperOrder" : {
+        "properties" : {
+          "averageFillPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "eligibleAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "filledQuantity" : {
+            "type" : "number"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lastFillQuoteTs" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "limitPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "marketSnapshotId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "orderType" : {
+            "enum" : [ "MARKET", "LIMIT", "STOP", "STOP_LIMIT" ],
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "recommendationId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "rejectionReason" : {
+            "type" : [ "string", "null" ]
+          },
+          "remaining" : {
+            "type" : "number"
+          },
+          "reservationReleased" : {
+            "type" : "number"
+          },
+          "reservedAmount" : {
+            "type" : "number"
+          },
+          "riskEvaluationId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "side" : {
+            "enum" : [ "BUY", "SELL", "SELL_SHORT", "BUY_TO_COVER" ],
+            "type" : "string"
+          },
+          "signalId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "source" : {
+            "enum" : [ "MANUAL", "RECOMMENDATION", "AUTONOMOUS", "EMERGENCY_CLOSE", "FORCED_COVER", "SYSTEM" ],
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "CREATED", "VALIDATED", "REJECTED", "PENDING", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "EXPIRED", "FAILED" ],
+            "type" : "string"
+          },
+          "stopPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "strategyVersionId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "timeInForce" : {
+            "enum" : [ "DAY", "GTC" ],
+            "type" : "string"
+          },
+          "triggered" : {
+            "type" : "boolean"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "venue" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "createdAt", "eligibleAt", "expiresAt", "filledQuantity", "id", "instrumentId", "orderType", "portfolioId", "quantity", "remaining", "reservationReleased", "reservedAmount", "side", "source", "status", "symbol", "timeInForce", "triggered", "updatedAt", "venue", "version" ],
+        "type" : "object"
+      },
+      "PasswordChangeRequest" : {
+        "properties" : {
+          "currentPassword" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "newPassword" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "currentPassword", "newPassword" ],
+        "type" : "object"
+      },
+      "Portfolio" : {
+        "properties" : {
+          "accountType" : {
+            "type" : "string"
+          },
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "baseCurrency" : {
+            "type" : "string"
+          },
+          "clonedFrom" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "costModel" : {
+            "$ref" : "#/components/schemas/CostModel"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "reconciliationStatus" : {
+            "type" : "string"
+          },
+          "resetFrom" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "shortingEnabled" : {
+            "type" : "boolean"
+          },
+          "startingBalance" : {
+            "type" : "number"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accountType", "baseCurrency", "costModel", "createdAt", "id", "name", "reconciliationStatus", "shortingEnabled", "startingBalance", "status", "version" ],
+        "type" : "object"
+      },
+      "PortfolioCreate" : {
+        "properties" : {
+          "costModel" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/CostModel"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "startingBalance" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
+      "PortfolioDefaults" : {
+        "properties" : {
+          "borrowRateAnnualPercent" : {
+            "type" : "number"
+          },
+          "commissionPerOrder" : {
+            "type" : "number"
+          },
+          "commissionPerShare" : {
+            "type" : "number"
+          },
+          "commissionPercent" : {
+            "type" : "number"
+          },
+          "cryptoFallbackSpreadPercent" : {
+            "type" : "number"
+          },
+          "equityFallbackSpreadPercent" : {
+            "type" : "number"
+          },
+          "executionDelaySeconds" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "maxPriceDeviationPercent" : {
+            "type" : "number"
+          },
+          "participationRatePercent" : {
+            "type" : "number"
+          },
+          "shortInitialMarginPercent" : {
+            "type" : "number"
+          },
+          "shortMaintenancePercent" : {
+            "type" : "number"
+          },
+          "slippageBps" : {
+            "type" : "number"
+          },
+          "startingBalance" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "borrowRateAnnualPercent", "commissionPerOrder", "commissionPerShare", "commissionPercent", "cryptoFallbackSpreadPercent", "equityFallbackSpreadPercent", "executionDelaySeconds", "maxPriceDeviationPercent", "participationRatePercent", "shortInitialMarginPercent", "shortMaintenancePercent", "slippageBps", "startingBalance" ],
+        "type" : "object"
+      },
+      "PortfolioSummary" : {
+        "properties" : {
+          "asOf" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "borrowFees" : {
+            "type" : "number"
+          },
+          "buyingPower" : {
+            "type" : "number"
+          },
+          "cash" : {
+            "type" : "number"
+          },
+          "costBasis" : {
+            "type" : "number"
+          },
+          "dividends" : {
+            "type" : "number"
+          },
+          "equity" : {
+            "type" : "number"
+          },
+          "fees" : {
+            "type" : "number"
+          },
+          "fullyPriced" : {
+            "type" : "boolean"
+          },
+          "marketValue" : {
+            "type" : "number"
+          },
+          "portfolio" : {
+            "$ref" : "#/components/schemas/Portfolio"
+          },
+          "positions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PositionView"
+            },
+            "type" : "array"
+          },
+          "realizedPnl" : {
+            "type" : "number"
+          },
+          "reservedCash" : {
+            "type" : "number"
+          },
+          "shortRequirement" : {
+            "type" : "number"
+          },
+          "totalReturn" : {
+            "type" : "number"
+          },
+          "totalReturnPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "unrealizedPnl" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "asOf", "borrowFees", "buyingPower", "cash", "costBasis", "dividends", "equity", "fees", "fullyPriced", "marketValue", "portfolio", "positions", "realizedPnl", "reservedCash", "shortRequirement", "totalReturn", "unrealizedPnl" ],
+        "type" : "object"
+      },
+      "PortfolioUpdate" : {
+        "properties" : {
+          "costModel" : {
+            "$ref" : "#/components/schemas/CostModel"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "costModel", "name" ],
+        "type" : "object"
+      },
+      "PositionView" : {
+        "properties" : {
+          "assetClass" : {
+            "type" : "string"
+          },
+          "averageCost" : {
+            "type" : "number"
+          },
+          "costBasis" : {
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "manualReviewRequired" : {
+            "type" : "boolean"
+          },
+          "marketPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "marketValue" : {
+            "type" : [ "number", "null" ]
+          },
+          "priceStatus" : {
+            "enum" : [ "VERIFIED", "STALE", "MISSING", "OUT_OF_ORDER", "MALFORMED", "CLOCK_SKEW", "UNSUPPORTED", "PROVIDER_ERROR", "INSUFFICIENT_HISTORY", "GAPS" ],
+            "type" : "string"
+          },
+          "priceTimestamp" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "side" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "unrealizedPnl" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "assetClass", "averageCost", "costBasis", "instrumentId", "manualReviewRequired", "priceStatus", "quantity", "side", "symbol" ],
+        "type" : "object"
+      },
+      "PriceAlert" : {
+        "properties" : {
+          "condition" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "threshold" : {
+            "type" : "number"
+          },
+          "triggeredAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "triggeredPrice" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "condition", "createdAt", "id", "instrumentId", "status", "symbol", "threshold" ],
+        "type" : "object"
+      },
+      "PrivacyPreferences" : {
+        "properties" : {
+          "crashReportingOptIn" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "crashReportingOptIn" ],
+        "type" : "object"
+      },
+      "ProviderCreate" : {
+        "properties" : {
+          "credential" : {
+            "type" : [ "string", "null" ]
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "providerType" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          }
+        },
+        "required" : [ "displayName", "providerType", "settings" ],
+        "type" : "object"
+      },
+      "ProviderTypeView" : {
+        "properties" : {
+          "credentialEnvironmentVariable" : {
+            "type" : [ "string", "null" ]
+          },
+          "credentialRequired" : {
+            "type" : "boolean"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/SettingSpec"
+            },
+            "type" : "object"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "credentialRequired", "kind", "settings", "type" ],
+        "type" : "object"
+      },
+      "ProviderUpdate" : {
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          }
+        },
+        "required" : [ "displayName", "settings" ],
+        "type" : "object"
+      },
+      "ProviderView" : {
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "capabilities" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CapabilityView"
+            },
+            "type" : "array"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "credential" : {
+            "$ref" : "#/components/schemas/CredentialStatus"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "lastTestAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "lastTestDetail" : {
+            "type" : [ "string", "null" ]
+          },
+          "lastTestStatus" : {
+            "type" : [ "string", "null" ]
+          },
+          "providerType" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "active", "capabilities", "createdAt", "credential", "displayName", "id", "kind", "providerType", "settings", "updatedAt", "version" ],
+        "type" : "object"
+      },
+      "PushClientConfig" : {
+        "properties" : {
+          "apiKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "applicationId" : {
+            "type" : [ "string", "null" ]
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "projectId" : {
+            "type" : [ "string", "null" ]
+          },
+          "senderId" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "enabled" ],
+        "type" : "object"
+      },
+      "PushTokenUpdate" : {
+        "properties" : {
+          "pushEnabled" : {
+            "type" : "boolean"
+          },
+          "pushToken" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "pushEnabled" ],
+        "type" : "object"
+      },
+      "QuoteView" : {
+        "properties" : {
+          "ageSeconds" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "ask" : {
+            "type" : [ "number", "null" ]
+          },
+          "assetClass" : {
+            "enum" : [ "US_EQUITY", "CRYPTO" ],
+            "type" : "string"
+          },
+          "bid" : {
+            "type" : [ "number", "null" ]
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "exchangeTimestamp" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "feedLabel" : {
+            "type" : "string"
+          },
+          "feedType" : {
+            "type" : "string"
+          },
+          "last" : {
+            "type" : [ "number", "null" ]
+          },
+          "marketTime" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "provider" : {
+            "type" : [ "string", "null" ]
+          },
+          "receivedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "session" : {
+            "enum" : [ "OPEN", "CLOSED", "UNVERIFIED" ],
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "VERIFIED", "STALE", "MISSING", "OUT_OF_ORDER", "MALFORMED", "CLOCK_SKEW", "UNSUPPORTED", "PROVIDER_ERROR", "INSUFFICIENT_HISTORY", "GAPS" ],
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "assetClass", "detail", "feedLabel", "feedType", "marketTime", "session", "status", "symbol" ],
+        "type" : "object"
+      },
+      "ReauthRequest" : {
+        "properties" : {
+          "password" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "totpCode" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "password" ],
+        "type" : "object"
+      },
+      "ReauthResponse" : {
+        "properties" : {
+          "lastAuthenticatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "validUntil" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "lastAuthenticatedAt", "validUntil" ],
+        "type" : "object"
+      },
+      "Recommendation" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "decidedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "limitPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "marketSnapshotId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "maxDeviationPercent" : {
+            "type" : "number"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "orderType" : {
+            "enum" : [ "MARKET", "LIMIT", "STOP", "STOP_LIMIT" ],
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "rationale" : {
+            "type" : "string"
+          },
+          "referencePrice" : {
+            "type" : "number"
+          },
+          "riskEvaluationId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "side" : {
+            "enum" : [ "BUY", "SELL", "SELL_SHORT", "BUY_TO_COVER" ],
+            "type" : "string"
+          },
+          "signalId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "snoozedUntil" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "enum" : [ "CREATED", "BLOCKED", "PENDING", "ACCEPTED", "MODIFIED", "DECLINED", "EXPIRED", "SUPERSEDED", "FAILED" ],
+            "type" : "string"
+          },
+          "statusReason" : {
+            "type" : [ "string", "null" ]
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "strategyName" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "triggeredRules" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "versionHash" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "expiresAt", "id", "instrumentId", "marketSnapshotId", "maxDeviationPercent", "orderType", "portfolioId", "quantity", "rationale", "referencePrice", "side", "signalId", "status", "strategyId", "strategyName", "symbol", "triggeredRules", "version", "versionHash" ],
+        "type" : "object"
+      },
+      "RecommendationDetail" : {
+        "properties" : {
+          "actionToken" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ActionToken"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "decisions" : {
+            "items" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "disclaimer" : {
+            "type" : "string"
+          },
+          "recommendation" : {
+            "$ref" : "#/components/schemas/Recommendation"
+          }
+        },
+        "required" : [ "decisions", "disclaimer", "recommendation" ],
+        "type" : "object"
+      },
+      "ReconciliationCheck" : {
+        "properties" : {
+          "actual" : {
+            "type" : [ "string", "null" ]
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "expected" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "passed" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "detail", "name", "passed" ],
+        "type" : "object"
+      },
+      "ReconciliationRun" : {
+        "properties" : {
+          "checks" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReconciliationCheck"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "runAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "checks", "id", "portfolioId", "runAt", "status" ],
+        "type" : "object"
+      },
+      "RecoverRequest" : {
+        "properties" : {
+          "deviceName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "newPassword" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "recoveryCode" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "username" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "deviceName", "newPassword", "recoveryCode", "username" ],
+        "type" : "object"
+      },
+      "RecoverResponse" : {
+        "properties" : {
+          "remainingRecoveryCodes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "session" : {
+            "$ref" : "#/components/schemas/SessionResponse"
+          }
+        },
+        "required" : [ "remainingRecoveryCodes", "session" ],
+        "type" : "object"
+      },
+      "RecoveryCodesResponse" : {
+        "properties" : {
+          "notice" : {
+            "type" : "string"
+          },
+          "recoveryCodes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "notice", "recoveryCodes" ],
+        "type" : "object"
+      },
+      "ReplayAdvanceRequest" : {
+        "properties" : {
+          "minutes" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "stepMinutes" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "minutes", "stepMinutes" ],
+        "type" : "object"
+      },
+      "ReplayClockView" : {
+        "properties" : {
+          "mode" : {
+            "enum" : [ "LIVE", "REPLAY" ],
+            "type" : "string"
+          },
+          "now" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "replayEnd" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "replayStart" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "synthetic" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "mode", "now", "synthetic" ],
+        "type" : "object"
+      },
+      "ReplaySetRequest" : {
+        "properties" : {
+          "to" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "to" ],
+        "type" : "object"
+      },
+      "ResearchCreate" : {
+        "properties" : {
+          "approach" : {
+            "type" : "string"
+          },
+          "assetClass" : {
+            "type" : "string"
+          },
+          "horizon" : {
+            "type" : "string"
+          },
+          "maxCostUsd" : {
+            "type" : "number"
+          },
+          "maxRequests" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "prompt" : {
+            "type" : "string"
+          },
+          "providerId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "retrieval" : {
+            "type" : "boolean"
+          },
+          "timeframe" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "universe" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "approach", "assetClass", "horizon", "maxCostUsd", "maxRequests", "prompt", "providerId", "retrieval", "timeframe", "title", "universe" ],
+        "type" : "object"
+      },
+      "ResearchDetail" : {
+        "properties" : {
+          "compilations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CompilationView"
+            },
+            "type" : "array"
+          },
+          "disclaimer" : {
+            "type" : "string"
+          },
+          "edits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ResearchEditView"
+            },
+            "type" : "array"
+          },
+          "runs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ResearchRunView"
+            },
+            "type" : "array"
+          },
+          "session" : {
+            "$ref" : "#/components/schemas/ResearchSession"
+          }
+        },
+        "required" : [ "compilations", "disclaimer", "edits", "runs", "session" ],
+        "type" : "object"
+      },
+      "ResearchEditView" : {
+        "properties" : {
+          "actor" : {
+            "type" : "string"
+          },
+          "baseRunId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "content" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "actor", "baseRunId", "content", "createdAt", "id" ],
+        "type" : "object"
+      },
+      "ResearchRunView" : {
+        "properties" : {
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "estimatedCostUsd" : {
+            "type" : [ "number", "null" ]
+          },
+          "failureCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "failureDetail" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "inputTokens" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "outputTokens" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "parameters" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "promptVersion" : {
+            "type" : "string"
+          },
+          "providerType" : {
+            "type" : "string"
+          },
+          "purpose" : {
+            "type" : "string"
+          },
+          "reservedCostUsd" : {
+            "type" : "number"
+          },
+          "responseText" : {
+            "type" : [ "string", "null" ]
+          },
+          "searchRequests" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "sources" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AiSource"
+            },
+            "type" : "array"
+          },
+          "sourcesRequired" : {
+            "type" : "boolean"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "stopReason" : {
+            "type" : [ "string", "null" ]
+          },
+          "systemPrompt" : {
+            "type" : "string"
+          },
+          "userPrompt" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "label", "model", "parameters", "promptVersion", "providerType", "purpose", "reservedCostUsd", "sources", "sourcesRequired", "startedAt", "status", "systemPrompt", "userPrompt" ],
+        "type" : "object"
+      },
+      "ResearchSession" : {
+        "properties" : {
+          "approach" : {
+            "type" : "string"
+          },
+          "assetClass" : {
+            "type" : "string"
+          },
+          "costUsd" : {
+            "type" : "number"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "horizon" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "maxCostUsd" : {
+            "type" : "number"
+          },
+          "maxRequests" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "prompt" : {
+            "type" : "string"
+          },
+          "providerId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "providerType" : {
+            "type" : "string"
+          },
+          "requestsUsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "retrieval" : {
+            "type" : "boolean"
+          },
+          "reviewNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "reviewStatus" : {
+            "type" : "string"
+          },
+          "reviewedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "timeframe" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "universe" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "approach", "assetClass", "costUsd", "createdAt", "horizon", "id", "maxCostUsd", "maxRequests", "model", "prompt", "providerId", "providerType", "requestsUsed", "retrieval", "reviewStatus", "status", "timeframe", "title", "universe", "updatedAt", "version" ],
+        "type" : "object"
+      },
+      "ResetRequest" : {
+        "properties" : {
+          "confirm" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "ReviewRequest" : {
+        "properties" : {
+          "decision" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "decision" ],
+        "type" : "object"
+      },
+      "RiskLimits" : {
+        "properties" : {
+          "allowSymbols" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "cooldownSeconds" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "denySymbols" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "maxAssetClassAllocationPercent" : {
+            "additionalProperties" : {
+              "type" : "number"
+            },
+            "type" : [ "object", "null" ]
+          },
+          "maxConsecutiveErrors" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "maxConsecutiveLosses" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "maxDailyLossPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxDrawdownPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxInstrumentAllocationPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxOpenPositions" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "maxParticipationPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxPriceDeviationPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxQuoteAgeSeconds" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "maxShortExposurePercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxSpreadPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxStrategyAllocationPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxTradePercentOfEquity" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxTradeValue" : {
+            "type" : [ "number", "null" ]
+          },
+          "maxTradesPerDay" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "maxTradesPerHour" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "maxTradesPerMinute" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "shortingAllowed" : {
+            "type" : [ "boolean", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "RiskProfileView" : {
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/RiskLimits"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "scopeId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "id", "limits", "scope", "updatedAt", "version" ],
+        "type" : "object"
+      },
+      "SessionInfo" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "current" : {
+            "type" : "boolean"
+          },
+          "deviceId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "deviceName" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lastAuthenticatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "lastSeenAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "revokedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "createdAt", "current", "deviceName", "expiresAt", "id", "lastAuthenticatedAt", "lastSeenAt" ],
+        "type" : "object"
+      },
+      "SessionResponse" : {
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "lastAuthenticatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "sessionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "accessToken", "expiresAt", "lastAuthenticatedAt", "sessionId" ],
+        "type" : "object"
+      },
+      "SettingSpec" : {
+        "properties" : {
+          "max" : {
+            "type" : [ "number", "null" ]
+          },
+          "min" : {
+            "type" : [ "number", "null" ]
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "enum" : [ "STRING", "DECIMAL", "INT", "BOOLEAN", "HTTPS_URL" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "required", "type" ],
+        "type" : "object"
+      },
+      "SettingsUpdate" : {
+        "properties" : {
+          "displayCurrency" : {
+            "type" : "string"
+          },
+          "notifications" : {
+            "$ref" : "#/components/schemas/NotificationPreferences"
+          },
+          "portfolioDefaults" : {
+            "$ref" : "#/components/schemas/PortfolioDefaults"
+          },
+          "privacy" : {
+            "$ref" : "#/components/schemas/PrivacyPreferences"
+          },
+          "showCadEquivalent" : {
+            "type" : "boolean"
+          },
+          "theme" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "displayCurrency", "notifications", "portfolioDefaults", "privacy", "showCadEquivalent", "theme", "timezone" ],
+        "type" : "object"
+      },
+      "ShortingRequest" : {
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "enabled" ],
+        "type" : "object"
+      },
+      "SignalView" : {
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "activationId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "bucketStart" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "disposition" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "limitPrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "marketSnapshotId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "orderType" : {
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "rationale" : {
+            "type" : "string"
+          },
+          "referencePrice" : {
+            "type" : "number"
+          },
+          "riskEvaluationId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "side" : {
+            "type" : "string"
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "triggeredRules" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "versionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "action", "activationId", "bucketStart", "contentHash", "createdAt", "disposition", "expiresAt", "id", "instrumentId", "marketSnapshotId", "orderType", "quantity", "rationale", "referencePrice", "side", "strategyId", "triggeredRules", "versionId" ],
+        "type" : "object"
+      },
+      "SnoozeRequest" : {
+        "properties" : {
+          "minutes" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "minutes" ],
+        "type" : "object"
+      },
+      "StrategyCloneRequest" : {
+        "properties" : {
+          "name" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "StrategyContentRequest" : {
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          }
+        },
+        "required" : [ "content" ],
+        "type" : "object"
+      },
+      "StrategyReasonRequest" : {
+        "properties" : {
+          "reason" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "StrategyResult" : {
+        "properties" : {
+          "explanation" : {
+            "type" : [ "string", "null" ]
+          },
+          "strategy" : {
+            "$ref" : "#/components/schemas/StrategyView"
+          },
+          "validation" : {
+            "$ref" : "#/components/schemas/ValidationView"
+          },
+          "version" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/StrategyVersionView"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "strategy", "validation" ],
+        "type" : "object"
+      },
+      "StrategyVersionView" : {
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "schemaVersion" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "sourceRef" : {
+            "type" : [ "string", "null" ]
+          },
+          "strategyId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "validationStatus" : {
+            "type" : "string"
+          },
+          "versionNumber" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "content", "contentHash", "createdAt", "id", "schemaVersion", "source", "strategyId", "validationStatus", "versionNumber" ],
+        "type" : "object"
+      },
+      "StrategyView" : {
+        "properties" : {
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "assetClass" : {
+            "type" : "string"
+          },
+          "clonedFrom" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "contentHash" : {
+            "type" : [ "string", "null" ]
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "currentVersion" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "currentVersionId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "DRAFT", "VALIDATION_FAILED", "MANUAL_REVIEW_REQUIRED", "VALIDATED", "BACKTESTED", "PAPER_ELIGIBLE", "ACTIVE_RECOMMENDATION", "ACTIVE_AUTONOMOUS", "PAUSED", "SUSPENDED", "ARCHIVED" ],
+            "type" : "string"
+          },
+          "statusReason" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "validationStatus" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "assetClass", "createdAt", "id", "name", "status", "updatedAt", "version" ],
+        "type" : "object"
+      },
+      "ToggleRequest" : {
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "enabled" ],
+        "type" : "object"
+      },
+      "TotpCodeRequest" : {
+        "properties" : {
+          "code" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "code" ],
+        "type" : "object"
+      },
+      "TotpSetupResponse" : {
+        "properties" : {
+          "otpauthUri" : {
+            "type" : "string"
+          },
+          "secret" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "otpauthUri", "secret" ],
+        "type" : "object"
+      },
+      "ValidationIssue" : {
+        "properties" : {
+          "category" : {
+            "enum" : [ "SECURITY", "FORMAT", "SCHEMA", "SEMANTIC", "UNKNOWN_CONTENT", "DATA", "RISK" ],
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "enum" : [ "ERROR", "WARNING", "REVIEW" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "category", "code", "message", "path", "severity" ],
+        "type" : "object"
+      },
+      "ValidationView" : {
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "issues" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ValidationIssue"
+            },
+            "type" : "array"
+          },
+          "provider" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "unknownFields" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "validatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "validatorVersion" : {
+            "type" : "string"
+          },
+          "versionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "issues", "status", "unknownFields", "validatedAt", "validatorVersion", "versionId" ],
+        "type" : "object"
+      },
+      "Watchlist" : {
+        "properties" : {
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/WatchlistItem"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "createdAt", "id", "items", "name", "version" ],
+        "type" : "object"
+      },
+      "WatchlistCreate" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "symbols" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "name", "symbols" ],
+        "type" : "object"
+      },
+      "WatchlistItem" : {
+        "properties" : {
+          "addedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "instrumentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "addedAt", "instrumentId", "symbol" ],
+        "type" : "object"
+      },
+      "WatchlistItemAdd" : {
+        "properties" : {
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "symbol" ],
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/v1/auth/login" : {
+      "post" : {
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/logout" : {
+      "post" : {
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/me" : {
+      "get" : {
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/password" : {
+      "post" : {
+        "operationId" : "changePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/reauthenticate" : {
+      "post" : {
+        "operationId" : "reauthenticate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReauthRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReauthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/recover" : {
+      "post" : {
+        "operationId" : "recover",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecoverRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecoverResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/recovery-codes/regenerate" : {
+      "post" : {
+        "operationId" : "regenerate",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/totp/confirm" : {
+      "post" : {
+        "operationId" : "totpConfirm",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/totp/disable" : {
+      "post" : {
+        "operationId" : "totpDisable",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TotpCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/auth/totp/setup" : {
+      "post" : {
+        "operationId" : "totpSetup",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TotpSetupResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/autonomy/disclosure" : {
+      "get" : {
+        "operationId" : "disclosure",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DisclosureView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Autonomy" ]
+      }
+    },
+    "/v1/backtests" : {
+      "get" : {
+        "operationId" : "list_8",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "strategyId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/BacktestView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      },
+      "post" : {
+        "operationId" : "submit",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BacktestRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/backtests/{id}" : {
+      "get" : {
+        "operationId" : "get_12",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BacktestView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/backtests/{id}/series" : {
+      "get" : {
+        "operationId" : "series",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/backtests/{id}/trades" : {
+      "get" : {
+        "operationId" : "trades",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/bootstrap" : {
+      "get" : {
+        "operationId" : "status",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BootstrapStatus"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      },
+      "post" : {
+        "operationId" : "bootstrap",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BootstrapRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BootstrapResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/devices" : {
+      "get" : {
+        "operationId" : "list_7",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DeviceView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      },
+      "post" : {
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeviceRegistration"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/devices/push-config" : {
+      "get" : {
+        "operationId" : "pushConfig",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PushClientConfig"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/devices/{id}" : {
+      "delete" : {
+        "operationId" : "revoke_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/devices/{id}/push" : {
+      "put" : {
+        "operationId" : "push",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PushTokenUpdate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeviceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/diagnostics" : {
+      "get" : {
+        "operationId" : "report",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DiagnosticsReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/diagnostics/events" : {
+      "get" : {
+        "operationId" : "events",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/emergency" : {
+      "get" : {
+        "operationId" : "state",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EmergencyState"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Emergency" ]
+      }
+    },
+    "/v1/emergency/cancel-pending-orders" : {
+      "post" : {
+        "operationId" : "cancelPending",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeclineRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Emergency" ]
+      }
+    },
+    "/v1/emergency/close-all-simulated-positions" : {
+      "post" : {
+        "operationId" : "closeAll",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CloseAllRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Emergency" ]
+      }
+    },
+    "/v1/emergency/disable-autonomous" : {
+      "post" : {
+        "operationId" : "disableAutonomous",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeclineRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Emergency" ]
+      }
+    },
+    "/v1/emergency/pause-all" : {
+      "post" : {
+        "operationId" : "pauseAll",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ToggleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Emergency" ]
+      }
+    },
+    "/v1/emergency/prevent-new-positions" : {
+      "post" : {
+        "operationId" : "preventNew",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ToggleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Emergency" ]
+      }
+    },
+    "/v1/executions" : {
+      "get" : {
+        "operationId" : "list_13",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "orderId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Execution"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Execution" ]
+      }
+    },
+    "/v1/instruments" : {
+      "get" : {
+        "operationId" : "list_6",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "assetClass",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "activeOnly",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Instrument"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      },
+      "post" : {
+        "operationId" : "add_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddInstrumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Instrument"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/instruments/{symbol}" : {
+      "get" : {
+        "operationId" : "get_4",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "symbol",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Instrument"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      },
+      "patch" : {
+        "operationId" : "setActive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "symbol",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InstrumentActiveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Instrument"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/ledger" : {
+      "get" : {
+        "operationId" : "journals",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseJournalView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/ledger/balances" : {
+      "get" : {
+        "operationId" : "balances",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : {
+                    "type" : "number"
+                  },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/market-data/candles/{symbol}" : {
+      "get" : {
+        "operationId" : "candles",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "symbol",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "timeframe",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandlesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/clock" : {
+      "get" : {
+        "operationId" : "clock",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReplayClockView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/corporate-actions/{symbol}" : {
+      "get" : {
+        "operationId" : "corporateActions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "symbol",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/fx/{base}/{quote}" : {
+      "get" : {
+        "operationId" : "fx",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "base",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "quote",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FxRateView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/quotes/{symbol}" : {
+      "get" : {
+        "operationId" : "quote",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "symbol",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "refresh",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "maxAgeSeconds",
+          "required" : false,
+          "schema" : {
+            "default" : 60,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/replay/advance" : {
+      "post" : {
+        "operationId" : "advance",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReplayAdvanceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/replay/set" : {
+      "post" : {
+        "operationId" : "set",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReplaySetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/status" : {
+      "get" : {
+        "operationId" : "status_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MarketStatusView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/market-data/status/{symbol}/reset" : {
+      "post" : {
+        "operationId" : "resetFlags",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "symbol",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuoteView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/notifications" : {
+      "get" : {
+        "operationId" : "list_12",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "unreadOnly",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseNotificationView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/v1/notifications/read-all" : {
+      "post" : {
+        "operationId" : "readAll",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : {
+                    "format" : "int32",
+                    "type" : "integer"
+                  },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/v1/notifications/unread-count" : {
+      "get" : {
+        "operationId" : "unread",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : {
+                    "format" : "int32",
+                    "type" : "integer"
+                  },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/v1/notifications/{id}" : {
+      "get" : {
+        "operationId" : "get_11",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NotificationView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/v1/notifications/{id}/read" : {
+      "post" : {
+        "operationId" : "read",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NotificationView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/v1/orders" : {
+      "get" : {
+        "operationId" : "list_5",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePaperOrder"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Execution" ]
+      },
+      "post" : {
+        "operationId" : "create_5",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Execution" ]
+      }
+    },
+    "/v1/orders/{id}" : {
+      "get" : {
+        "operationId" : "get_10",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Execution" ]
+      }
+    },
+    "/v1/orders/{id}/cancel" : {
+      "post" : {
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CancelRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Execution" ]
+      }
+    },
+    "/v1/portfolios" : {
+      "get" : {
+        "operationId" : "list_4",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "includeArchived",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Portfolio"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      },
+      "post" : {
+        "operationId" : "create_4",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PortfolioCreate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}" : {
+      "get" : {
+        "operationId" : "get_3",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      },
+      "patch" : {
+        "operationId" : "update_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PortfolioUpdate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}/archive" : {
+      "post" : {
+        "operationId" : "archive_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}/clone" : {
+      "post" : {
+        "operationId" : "clone_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CloneRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}/equity-history" : {
+      "get" : {
+        "operationId" : "equity",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 500,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}/reconciliation" : {
+      "get" : {
+        "operationId" : "reconciliations",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ReconciliationRun"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      },
+      "post" : {
+        "operationId" : "reconcile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReconciliationRun"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}/reset" : {
+      "post" : {
+        "operationId" : "reset",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}/shorting" : {
+      "put" : {
+        "operationId" : "shorting",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ShortingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/portfolios/{id}/summary" : {
+      "get" : {
+        "operationId" : "summary",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortfolioSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/positions" : {
+      "get" : {
+        "operationId" : "positions",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/PositionView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/positions/closed" : {
+      "get" : {
+        "operationId" : "closed",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Lot"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/positions/lots" : {
+      "get" : {
+        "operationId" : "openLots",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Lot"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Portfolio" ]
+      }
+    },
+    "/v1/providers" : {
+      "get" : {
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "includeArchived",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProviderView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      },
+      "post" : {
+        "operationId" : "create_3",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProviderCreate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/providers/types" : {
+      "get" : {
+        "operationId" : "types",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProviderTypeView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/providers/{id}" : {
+      "get" : {
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      },
+      "patch" : {
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProviderUpdate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/providers/{id}/activate" : {
+      "post" : {
+        "operationId" : "activate_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/providers/{id}/archive" : {
+      "post" : {
+        "operationId" : "archive_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/providers/{id}/credential" : {
+      "delete" : {
+        "operationId" : "removeCredential",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      },
+      "put" : {
+        "operationId" : "setCredential",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CredentialUpdate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/providers/{id}/test" : {
+      "post" : {
+        "operationId" : "test",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/recommendations" : {
+      "get" : {
+        "operationId" : "list_11",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "strategyId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseRecommendation"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/recommendations/{id}" : {
+      "get" : {
+        "operationId" : "get_9",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecommendationDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/recommendations/{id}/accept" : {
+      "post" : {
+        "operationId" : "accept",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/recommendations/{id}/decline" : {
+      "post" : {
+        "operationId" : "decline",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeclineRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/recommendations/{id}/pause-strategy" : {
+      "post" : {
+        "operationId" : "pauseStrategy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/recommendations/{id}/snooze" : {
+      "post" : {
+        "operationId" : "snooze",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SnoozeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/research" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ResearchSession"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      },
+      "post" : {
+        "operationId" : "create_2",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResearchCreate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/research/budget" : {
+      "get" : {
+        "operationId" : "budget",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AiBudget"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      },
+      "put" : {
+        "operationId" : "updateBudget",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AiBudgetUpdate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AiBudget"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/research/provenance/versions/{versionId}" : {
+      "get" : {
+        "operationId" : "provenance",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "versionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/research/{id}" : {
+      "get" : {
+        "operationId" : "get_8",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResearchDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/research/{id}/compile" : {
+      "post" : {
+        "operationId" : "compile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/research/{id}/edits" : {
+      "post" : {
+        "operationId" : "edit",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EditRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/research/{id}/review" : {
+      "post" : {
+        "operationId" : "review",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/research/{id}/run" : {
+      "post" : {
+        "operationId" : "run",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Research" ]
+      }
+    },
+    "/v1/risk/evaluations" : {
+      "get" : {
+        "operationId" : "evaluations",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Risk" ]
+      }
+    },
+    "/v1/risk/evaluations/{id}" : {
+      "get" : {
+        "operationId" : "evaluation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Risk" ]
+      }
+    },
+    "/v1/risk/profiles/global" : {
+      "get" : {
+        "operationId" : "global",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RiskProfileView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Risk" ]
+      },
+      "put" : {
+        "operationId" : "putGlobal",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RiskLimits"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RiskProfileView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Risk" ]
+      }
+    },
+    "/v1/risk/profiles/{scope}/{id}" : {
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "scope",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RiskProfileView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Risk" ]
+      },
+      "put" : {
+        "operationId" : "put_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "scope",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RiskLimits"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RiskProfileView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Risk" ]
+      }
+    },
+    "/v1/sessions" : {
+      "get" : {
+        "operationId" : "list_10",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/SessionInfo"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/sessions/revoke-others" : {
+      "post" : {
+        "operationId" : "revokeOthers",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/sessions/{id}" : {
+      "delete" : {
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Identity" ]
+      }
+    },
+    "/v1/settings" : {
+      "get" : {
+        "operationId" : "get",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerSettings"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      },
+      "put" : {
+        "operationId" : "put",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SettingsUpdate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerSettings"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/signals" : {
+      "get" : {
+        "operationId" : "list_9",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "strategyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/SignalView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/strategies" : {
+      "get" : {
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "includeArchived",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/StrategyView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      },
+      "post" : {
+        "operationId" : "create_1",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StrategyContentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/import" : {
+      "post" : {
+        "operationId" : "import",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "filename",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            },
+            "application/octet-stream" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            },
+            "text/plain" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}" : {
+      "get" : {
+        "operationId" : "get_7",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/activate" : {
+      "post" : {
+        "operationId" : "activate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ActivationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Autonomy" ]
+      }
+    },
+    "/v1/strategies/{id}/activations" : {
+      "get" : {
+        "operationId" : "history",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Activation"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Autonomy" ]
+      }
+    },
+    "/v1/strategies/{id}/archive" : {
+      "post" : {
+        "operationId" : "archive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StrategyView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/clone" : {
+      "post" : {
+        "operationId" : "clone",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StrategyCloneRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/content" : {
+      "put" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StrategyContentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StrategyResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/deactivate" : {
+      "post" : {
+        "operationId" : "deactivate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeactivateRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Autonomy" ]
+      }
+    },
+    "/v1/strategies/{id}/explanation" : {
+      "get" : {
+        "operationId" : "explanation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : {
+                    "type" : "string"
+                  },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/export" : {
+      "get" : {
+        "operationId" : "export",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/pause" : {
+      "post" : {
+        "operationId" : "pause",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StrategyReasonRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StrategyView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/suspend" : {
+      "post" : {
+        "operationId" : "suspend",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StrategyReasonRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StrategyView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/validate" : {
+      "post" : {
+        "operationId" : "validate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StrategyResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/versions" : {
+      "get" : {
+        "operationId" : "versions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/StrategyVersionView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/strategies/{id}/versions/{n}" : {
+      "get" : {
+        "operationId" : "version",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "n",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StrategyVersionView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/validations/{id}" : {
+      "get" : {
+        "operationId" : "get_6",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/watchlists" : {
+      "get" : {
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Watchlist"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WatchlistCreate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Watchlist"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/watchlists/alerts" : {
+      "get" : {
+        "operationId" : "alerts",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/PriceAlert"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      },
+      "post" : {
+        "operationId" : "createAlert",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AlertCreate"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PriceAlert"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/watchlists/alerts/{id}" : {
+      "delete" : {
+        "operationId" : "cancelAlert",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PriceAlert"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/watchlists/{id}" : {
+      "delete" : {
+        "operationId" : "archive_3",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : { },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      },
+      "get" : {
+        "operationId" : "get_5",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Watchlist"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/watchlists/{id}/items" : {
+      "post" : {
+        "operationId" : "add",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WatchlistItemAdd"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Watchlist"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    },
+    "/v1/watchlists/{id}/items/{symbol}" : {
+      "delete" : {
+        "operationId" : "remove",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "symbol",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Watchlist"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Markets" ]
+      }
+    }
+  }
+}
