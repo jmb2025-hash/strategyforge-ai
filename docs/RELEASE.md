@@ -5,7 +5,7 @@ order routing, and none can be enabled (FR-113; verified by MS-20/RG-09).
 
 | Item | Value |
 |---|---|
-| Release candidate code | branch `claude/strategyforge-v1-delivery-vgf1ah`, commit `fd9ef1f` (later commits change documentation only) |
+| Release candidate code | branch `claude/strategyforge-v1-delivery-vgf1ah`, commit `66d7f1b` (later commits change documentation only) |
 | Backend | `strategyforge-backend` 1.0.0: Kotlin 2.2.21, Spring Boot 3.5.16, Java 21, PostgreSQL 16 |
 | Android | `app.strategyforge.android` 1.0.0: minSdk 29, targetSdk 35 |
 | Traceability | 114/114 requirements mapped (RG-01); status in [TRACEABILITY.md](TRACEABILITY.md) |
@@ -65,8 +65,8 @@ Schema version after startup: **9**. Migrations are forward-only. Downgrading is
 |---|---|---|---|
 | Backend unit, integration, contract, security and E2E (JUnit 5, Testcontainers PostgreSQL 16) | 148 | all pass | CI `backend` job; `backend/build/reports/tests/test` |
 | Replay end-to-end, twice from clean databases (RG-07) | included above (`ReplayEndToEndIT`) | identical digests | |
-| Android core (JVM) | 16 | all pass | CI `android` job; `android/core/build/reports/tests` |
-| Android app: Robolectric Compose UI | 7 | all pass | CI `android` job; `android/app/build/reports/tests` |
+| Android core (JVM) | 23 | all pass | CI `android` job; `android/core/build/reports/tests` |
+| Android app: Robolectric Compose UI | 13 | all pass | CI `android` job; `android/app/build/reports/tests` |
 | Android lint | debug variant | no errors | `android/app/build/reports/lint-results-debug.html` |
 | Repository policies (pinning, isolation, release gates) | 15 | all pass | CI `repository` job |
 | Static analysis | spotless (ktlint), detekt | clean | CI |
@@ -89,14 +89,14 @@ All 21 mandatory scenarios (MS-01 to MS-21) and all release gates have passing, 
 
 ## 6. CI evidence for the release commit
 
-CI run **36425386927** (`fd9ef1f`, 2026-09-28): the `repository`, `backend`, `android` and `security` jobs all succeeded.
+CI run **36481488911** (`66d7f1b`, 2026-09-28): the `repository`, `backend`, `android` and `security` jobs all succeeded.
 
 | Item | Value |
 |---|---|
-| `app-release.apk` SHA-256 | `ef52152b0d4e8d204857cf68af05f26c6dce6c3f2ea8943f531eb6bc39610a14` |
-| `app-debug.apk` SHA-256 | `ddb1929fc1bc912467fc3bed347063e8ef4424361f1ea472b195f2d14e555c7d` |
-| Release signing certificate | `CN=StrategyForge CI ephemeral`, SHA-256 `4a0733092bd324fd9685f6e80f79d10b7bc74944a8e966bd749ce74be4f7300b` (APK Signature Scheme v2) |
-| `android-outputs` artifact | id 10971259212, zip SHA-256 `bd79474b330138f596afe95283104a90174ea6bf21ff837520c331fcf97e99b9` |
+| `app-release.apk` SHA-256 | `2d525c8a0cc2c784fc9f8dcfd1f1a4a964f714c74cf8fe91639cce00311fba4a` |
+| `app-debug.apk` SHA-256 | `9b7f193357235eb0939f79c3565598e0cd6769d1e401fffde3519578c65c9514` |
+| Release signing certificate | `CN=StrategyForge CI ephemeral`, SHA-256 `2e976484c35b28b95c3375cd3ec39eff0dffb8a29a3701ca5f3126275b85af89` (APK Signature Scheme v2) |
+| `android-outputs` artifact | id 10996548975, zip SHA-256 `792499f8a86ad0d8f96c613520a1606e171848f7c21dcb86178c26d5c72913d5` |
 | Security | gitleaks: no leaks (history). Trivy: 0 HIGH/CRITICAL in both SBOMs and in IaC |
 | Contract | `contracts/openapi.json` unchanged by the build (`git diff --exit-code`) |
 | Container | `docker build` of the backend image succeeded |

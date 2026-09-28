@@ -114,3 +114,11 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Files:** `backend/src/test/.../e2e/ReplayEndToEndIT.kt`, `.../safety/RealMoneyProhibitionIT.kt`, `scripts/tests/test_repository_policies.py`, `.gitleaksignore`, `android/.../ReportsScreen.kt`, `docs/{ARCHITECTURE,SECURITY,RELEASE}.md`.
 - **Risks found and fixed:** `SpringApplicationBuilder.properties` are defaults that `application.yml` overrides, so the E2E datasource is now passed as arguments. Gitleaks flagged seven test and documentation false positives; they are suppressed by fingerprint with justifications, and new findings still fail the gate. RELEASE, RUNBOOK and ARCHITECTURE statements were checked against the code, which corrected the replay API body, an app navigation label and the real-money strategy outcome.
 - **Result:** Passed. CI run 36425386927 on `fd9ef1f`: repository policies (15), backend (148 tests incl. RG-07 E2E and MS-20), Android (16 core + 7 Compose UI tests, lint, signed debug/release APKs, SBOM), security (gitleaks, Trivy) all green. `scripts/traceability.py --release`: 114/114 Passed. Release notes, artifacts and the owner acceptance checklist are in `docs/RELEASE.md`.
+
+## Post-RC — App screens for former API-only features
+
+- **Outcome:** More → Security (two-factor setup and removal, recovery codes, password, sessions, devices), AI budget, Backups (create and verify; restore stays on the host) and Exports (CSV/JSON through the system save dialog). An action refused for missing recent authentication is retried after the password is confirmed. Account data is never cached on the device.
+- **Requirements:** FR-002, FR-037, FR-105, FR-112 (client side).
+- **Tests:** `AccountFeaturesTest` (core, 7) and `AccountScreensUiTest` (Robolectric, 6).
+- **Risks found and fixed:** a UI test clicked a chip outside the Robolectric viewport, so it now scrolls the chip into view first.
+- **Result:** Passed. CI run 36481488911 on `66d7f1b`: all jobs green, with 23 core tests and 13 Compose UI tests. Release APK SHA-256 `2d525c8a0cc2c784fc9f8dcfd1f1a4a964f714c74cf8fe91639cce00311fba4a`.
