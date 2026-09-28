@@ -84,7 +84,13 @@ private fun aiSettings(retrieval: Boolean): Map<String, SettingSpec> =
         // Pricing is required so cost ceilings are always verifiable (FR-037, D-010).
         put("inputPricePerMillionTokensUsd", SettingSpec(SettingType.DECIMAL, required = true, min = BigDecimal.ZERO, max = BigDecimal(1000)))
         put("outputPricePerMillionTokensUsd", SettingSpec(SettingType.DECIMAL, required = true, min = BigDecimal.ZERO, max = BigDecimal(1000)))
-        if (retrieval) put("webSearchEnabled", SettingSpec(SettingType.BOOLEAN))
+        if (retrieval) {
+            put("webSearchEnabled", SettingSpec(SettingType.BOOLEAN))
+            // Searches are billed separately; a price is required before retrieval can run (D-010).
+            put("webSearchPricePerThousandUsd", SettingSpec(SettingType.DECIMAL, min = BigDecimal.ZERO, max = BigDecimal(1000)))
+            put("maxSearchesPerRequest", SettingSpec(SettingType.INT, min = BigDecimal.ONE, max = BigDecimal(20)))
+            put("serverSideFallback", SettingSpec(SettingType.BOOLEAN))
+        }
     }
 
 data class CredentialStatus(
@@ -383,6 +389,25 @@ class ProviderService(
             entityId = id,
             details = mapOf("status" to result.status.name, "detail" to result.detail, "capabilities" to result.capabilities.map { "${it.capability}=${it.status}" }),
         )
+    }
+
+    /** Records a capability proven by real use (e.g. cited sources returned), never assumed. */
+    fun markCapabilityVerified(
+        id: UUID,
+        capability: String,
+        detail: String,
+    ) {
+        jdbc
+            .sql(
+                """
+                insert into provider_capabilities(provider_id, capability, status, detail, verified_at) values (:id, :c, 'SUPPORTED', :d, :now)
+                on conflict (provider_id, capability) do update set status = 'SUPPORTED', detail = excluded.detail, verified_at = excluded.verified_at
+                """.trimIndent(),
+            ).param("id", id)
+            .param("c", capability)
+            .param("d", detail.take(500))
+            .param("now", ts(clock.instant()))
+            .update()
     }
 
     /** Decrypts the credential for an adapter call. Falls back to the environment variable named by the type. */

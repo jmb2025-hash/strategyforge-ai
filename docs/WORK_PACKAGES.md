@@ -75,3 +75,13 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Requirements:** FR-047 (active cap), FR-070–FR-075, MS-11, MS-15.
 - **Tests:** `AutonomyIT`, `EmergencyControlsIT`.
 - **Result (WP6 + WP7):** Passed. 124 backend tests green; spotless and detekt clean; traceability 71/114 Passed.
+
+## WP8 — AI research and controlled compilation
+
+- **Outcome:** A common AI adapter: Anthropic (official Java SDK, web search with citations, server-side refusal fallback for supported models), OpenAI, OpenRouter and Gemini, with capability diagnostics. Research sessions carry asset class, universe, horizon, timeframe, approach, prompt and request/cost ceilings. Background provider calls with immutable provenance: prompts, prompt version, parameters, raw response, usage, cost, sources and timestamps. Global and session budgets are reserved at worst case before any network call. Output is labelled unverified until owner review, and owner edits are append-only. Compilation turns reviewed research into the strategy schema through the regular validator, and provenance is linked to the resulting strategy version. Restarts mark interrupted runs as failed.
+- **Requirements:** FR-030–FR-037, FR-092, MS-18 (MS-06 on the AI path).
+- **Migrations:** `V9__research.sql`.
+- **Tests:** `AiClientsTest` (MockWebServer recordings for all four adapters: citations, refusal, truncation, pause, HTTP classes, timeouts, malformed JSON), `ResearchIT` (end-to-end workflow, missing sources, malformed/declined/injected/real-money/risk-override compiler output, request and cost ceilings, timeout), `ArchitectureTest` (research cannot reach execution/risk).
+- **Risks found and fixed:** Java's HTTP client request timeout does not cover the response body, so a whole-response deadline was added. The session was marked idle before its compilation record existed, which was a visible race; it is now completed in the same transaction.
+- **Decisions:** D-022.
+- **Result:** Passed. 138 backend tests green; spotless and detekt clean; traceability 80/114 Passed.

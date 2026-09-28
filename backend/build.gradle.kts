@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.logstash.encoder)
     implementation(libs.json.schema.validator)
     implementation(libs.google.auth)
+    implementation(libs.anthropic.java)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")

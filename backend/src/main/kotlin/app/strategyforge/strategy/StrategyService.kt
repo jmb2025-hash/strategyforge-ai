@@ -155,6 +155,13 @@ class StrategyService(
         filename: String?,
     ): StrategyResult = createFromBytes(bytes, "IMPORT", null, filename?.take(200))
 
+    /** Controlled AI compilation output (FR-035): the same byte-level validation as any import, linked to its compilation (FR-036). */
+    @Transactional
+    fun compileImport(
+        bytes: ByteArray,
+        compilationId: UUID,
+    ): StrategyResult = createFromBytes(bytes, "AI_COMPILED", compilationId.toString(), "ai-compilation-$compilationId.json")
+
     private fun createFromBytes(
         bytes: ByteArray,
         source: String,

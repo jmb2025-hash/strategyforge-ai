@@ -80,4 +80,20 @@ class ArchitectureTest {
                 "app.strategyforge.strategy..",
             ).check(classes)
     }
+
+    @Test
+    fun `FR-092 AI research cannot reach order execution, the risk engine, autonomy or portfolios`() {
+        noClasses()
+            .that()
+            .resideInAPackage("app.strategyforge.research..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(
+                "app.strategyforge.execution..",
+                "app.strategyforge.risk..",
+                "app.strategyforge.signals..",
+                "app.strategyforge.autonomy..",
+                "app.strategyforge.portfolio..",
+            ).check(classes)
+    }
 }
