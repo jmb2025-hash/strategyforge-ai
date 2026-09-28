@@ -113,7 +113,7 @@ produces a different checksum; record it in the same way.
 4. **Crypto shorting.** It is not available; the strategy validator rejects `allowShort` for crypto. Equity shorting is simulated with borrow fees and margin (D-017).
 5. **Android build.** The app module is built on CI only in the delivery environment (D-002, D-003).
 6. **APK signing.** Without owner secrets, CI signs with an ephemeral key, so a later APK cannot update an earlier one in place (D-023).
-7. **Features available through the API only.** TOTP setup, session and device management, AI budget changes, backup creation and exports (CSV/JSON download) have API endpoints but no dedicated app screens yet (RUNBOOK lists the calls).
+7. **Restore is host-only.** Backups can be created and verified from the app (More → Backups), but restoring is deliberately an offline command on the backend host (BACKUP_RESTORE.md).
 8. **Master key.** `MASTER_ENCRYPTION_KEY` has no in-place rotation (RUNBOOK §9).
 9. **Restore memory.** Restore loads each table into memory, which is sized for single-owner data (D-024).
 10. **Pinning.** GitHub Actions are pinned to major tags. The Gradle wrapper checksum is not pinned (SECURITY.md).
@@ -131,6 +131,8 @@ Complete these on your own host and phone. Tick each item and keep the notes wit
 - [ ] The APK checksum matches `SHA256SUMS`, and the APK is installed.
 - [ ] Owner created with the bootstrap token, recovery codes stored offline, and a second bootstrap attempt refused (MS-01).
 - [ ] Sign out and sign in again. A wrong password five times locks the account temporarily.
+- [ ] More → Security: turn on two-factor authentication with your authenticator app, create new recovery codes and store them offline, and check that the sessions and devices lists show this phone.
+- [ ] More → AI budget: lower a limit (applies immediately), then raise it (asks for your password).
 
 **Paper trading on replay data**
 - [ ] The Home dashboard shows "Replay/demo mode" and loads in under 2 seconds on reopen (NFR-005). Offline, it shows labelled cached data.
@@ -148,9 +150,9 @@ Complete these on your own host and phone. Tick each item and keep the notes wit
 
 **Operations**
 - [ ] More → Diagnostics shows all components. Audit chain OK, reconciliation OK, backup present.
-- [ ] `POST /v1/backups` creates a backup, and `verify-backup` reports OK.
+- [ ] More → Backups → Back up now creates a backup (asks for your password), Verify reports every table hash matching, and `verify-backup` on the host also reports OK.
 - [ ] Restore drill into a new database per BACKUP_RESTORE.md succeeds, then roll back to the original (MS-21, RG-08).
-- [ ] An export (`/v1/exports/ledger?portfolioId=…&format=csv`) opens in a spreadsheet, and the TOTAL rows match the report (MS-19).
+- [ ] More → Exports: save the ledger as CSV, open it in a spreadsheet, and check that the TOTAL rows match the report (MS-19).
 - [ ] Setting `REAL_MONEY_TRADING_ENABLED=true` in `.env` prevents the backend from starting. Restore it to `false` afterwards (MS-20).
 - [ ] The limitations in §7 are read and accepted.
 

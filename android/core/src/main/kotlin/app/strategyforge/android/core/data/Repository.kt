@@ -2,15 +2,21 @@ package app.strategyforge.android.core.data
 
 import app.strategyforge.android.core.api.ApiClient
 import app.strategyforge.android.core.api.ApiError
+import app.strategyforge.android.core.api.Download
 import app.strategyforge.android.core.api.SfJson
 import app.strategyforge.android.core.api.TokenStore
 import app.strategyforge.android.core.cache.CachedResource
 import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.model.Activation
+import app.strategyforge.android.core.model.AiBudget
 import app.strategyforge.android.core.model.Backtest
+import app.strategyforge.android.core.model.BackupFile
+import app.strategyforge.android.core.model.BackupResult
+import app.strategyforge.android.core.model.BackupVerification
 import app.strategyforge.android.core.model.BootstrapResponse
 import app.strategyforge.android.core.model.BootstrapStatus
 import app.strategyforge.android.core.model.ClockView
+import app.strategyforge.android.core.model.CountResult
 import app.strategyforge.android.core.model.DecisionResult
 import app.strategyforge.android.core.model.Device
 import app.strategyforge.android.core.model.Diagnostics
@@ -30,15 +36,20 @@ import app.strategyforge.android.core.model.PushConfig
 import app.strategyforge.android.core.model.Recommendation
 import app.strategyforge.android.core.model.RecommendationDetail
 import app.strategyforge.android.core.model.RecoverResponse
+import app.strategyforge.android.core.model.RecoveryCodes
 import app.strategyforge.android.core.model.ReportView
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.model.ResearchSession
+import app.strategyforge.android.core.model.SessionInfo
 import app.strategyforge.android.core.model.SessionResponse
 import app.strategyforge.android.core.model.Settings
 import app.strategyforge.android.core.model.Strategy
 import app.strategyforge.android.core.model.StrategyDetail
 import app.strategyforge.android.core.model.StrategyResult
+import app.strategyforge.android.core.model.TotpSetup
 import app.strategyforge.android.core.model.UnreadCount
+import app.strategyforge.android.core.state.BudgetForm
+import app.strategyforge.android.core.state.ExportRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -49,6 +60,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -476,6 +488,84 @@ class Repository(
 
     // ----------------------------------------------------------------- helpers
 
+    // ----------------------------------------------------------------- account security (FR-002)
+
+    suspend fun sessions(): List<SessionInfo> = api.get("/v1/sessions", ListSerializer(SessionInfo.serializer()))
+
+    suspend fun revokeSession(id: String) {
+        api.delete("/v1/sessions/${seg(id)}")
+    }
+
+    suspend fun revokeOtherSessions(): Int = api.decode(api.post("/v1/sessions/revoke-others").body, CountResult.serializer()).count
+
+    suspend fun devices(): List<Device> = api.get("/v1/devices", ListSerializer(Device.serializer()))
+
+    suspend fun revokeDevice(id: String) {
+        api.delete("/v1/devices/${seg(id)}")
+    }
+
+    suspend fun beginTotpSetup(): TotpSetup = api.decode(api.post("/v1/auth/totp/setup").body, TotpSetup.serializer())
+
+    suspend fun confirmTotp(code: String) {
+        api.post("/v1/auth/totp/confirm", buildJsonObject { put("code", code) })
+    }
+
+    suspend fun disableTotp(code: String) {
+        api.post("/v1/auth/totp/disable", buildJsonObject { put("code", code) })
+    }
+
+    suspend fun regenerateRecoveryCodes(): RecoveryCodes = api.decode(api.post("/v1/auth/recovery-codes/regenerate").body, RecoveryCodes.serializer())
+
+    suspend fun changePassword(
+        current: String,
+        new: String,
+    ) {
+        api.post(
+            "/v1/auth/password",
+            buildJsonObject {
+                put("currentPassword", current)
+                put("newPassword", new)
+            },
+        )
+    }
+
+    // ----------------------------------------------------------------- AI budget (FR-037)
+
+    suspend fun aiBudget(): AiBudget = api.get("/v1/research/budget", AiBudget.serializer())
+
+    /** Optimistic concurrency: a budget changed elsewhere is rejected rather than overwritten. */
+    suspend fun updateAiBudget(
+        current: AiBudget,
+        form: BudgetForm,
+    ): AiBudget =
+        api.decode(
+            api
+                .put(
+                    "/v1/research/budget",
+                    buildJsonObject {
+                        put("monthlyCostLimitUsd", form.monthlyCostLimitUsd.toPlainString())
+                        put("dailyRequestLimit", form.dailyRequestLimit)
+                        put("maxOutputTokens", form.maxOutputTokens)
+                        put("maxInputChars", form.maxInputChars)
+                    },
+                    ifMatch = "\"${current.version}\"",
+                ).body,
+            AiBudget.serializer(),
+        )
+
+    // ----------------------------------------------------------------- backups and exports (FR-105, FR-112)
+
+    suspend fun backups(): List<BackupFile> = api.decode(api.get("/v1/backups").body.jsonObject["items"] ?: JsonArray(emptyList()), ListSerializer(BackupFile.serializer()))
+
+    suspend fun createBackup(): BackupResult = api.decode(api.post("/v1/backups").body, BackupResult.serializer())
+
+    suspend fun verifyBackup(name: String): BackupVerification {
+        require(name.matches(BACKUP_NAME)) { "Invalid backup name" }
+        return api.decode(api.post("/v1/backups/$name/verify").body, BackupVerification.serializer())
+    }
+
+    suspend fun export(request: ExportRequest): Download = api.download(request.path)
+
     suspend fun clearCache() = cache.clear()
 
     private fun <T> cached(
@@ -493,6 +583,7 @@ class Repository(
 
     companion object {
         private val SAFE_SEGMENT = Regex("^[A-Za-z0-9-]{1,64}$")
+        private val BACKUP_NAME = Regex("^strategyforge-[0-9]{8}-[0-9]{6}-[a-z0-9]{1,8}\\.sfbk$")
 
         /** Maps an error to owner-facing text; backend problem details are already user-safe. */
         fun message(e: Throwable): String =

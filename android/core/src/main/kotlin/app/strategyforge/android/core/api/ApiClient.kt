@@ -71,6 +71,14 @@ data class ApiResponse(
     val etag: String?,
 )
 
+/** A non-JSON download (CSV/JSON export) with the response headers the backend adds. */
+class Download(
+    val bytes: ByteArray,
+    val contentType: String?,
+    val fileName: String?,
+    val headers: Map<String, String>,
+)
+
 /** Where the session token lives (Android: Keystore-encrypted storage). */
 interface TokenStore {
     fun token(): String?
@@ -97,6 +105,21 @@ class ApiClient(
         path: String,
         strategy: DeserializationStrategy<T>,
     ): T = decode(get(path).body, strategy)
+
+    /** GET of a file-like response (exports). Errors are mapped exactly like JSON calls. */
+    suspend fun download(path: String): Download {
+        val base = baseUrl()?.trimEnd('/') ?: throw ApiError.NotConfigured()
+        val url = (base + path).toHttpUrlOrNull() ?: throw ApiError.NotConfigured()
+        var attempt = 0
+        while (true) {
+            try {
+                return withContext(io) { executeDownload(url.toString()) }
+            } catch (e: IOException) {
+                if (attempt >= retryDelaysMs.size) throw ApiError.Offline(e)
+                delay(retryDelaysMs[attempt++])
+            }
+        }
+    }
 
     /** POST with an idempotency key generated once and reused across retries. */
     suspend fun post(
@@ -178,24 +201,46 @@ class ApiClient(
                     }
                 }
             if (resp.isSuccessful) return ApiResponse(resp.code, json, resp.header("ETag"))
-            val problem = json as? JsonObject
-            val code = problem?.get("code")?.jsonPrimitive?.contentOrNull
-            if (resp.code == 401) {
-                tokens.save(null)
-                throw ApiError.Unauthorized(code)
-            }
-            throw ApiError.Http(
-                resp.code,
-                code,
-                problem?.get("title")?.jsonPrimitive?.contentOrNull,
-                problem?.get("detail")?.jsonPrimitive?.contentOrNull,
-                problem,
-            )
+            throw failure(resp.code, json)
         }
+    }
+
+    private fun executeDownload(url: String): Download {
+        val b = Request.Builder().url(url).header("Accept", "text/csv, application/json")
+        tokens.token()?.let { b.header("Authorization", "Bearer $it") }
+        http.newCall(b.get().build()).execute().use { resp ->
+            val bytes = resp.body?.bytes() ?: ByteArray(0)
+            if (!resp.isSuccessful) {
+                val json = runCatching { SfJson.parseToJsonElement(bytes.toString(Charsets.UTF_8)) }.getOrDefault(JsonNull)
+                throw failure(resp.code, json)
+            }
+            val name = resp.header("Content-Disposition")?.let { FILE_NAME.find(it)?.groupValues?.get(1) }
+            return Download(bytes, resp.header("Content-Type"), name, resp.headers.toMap())
+        }
+    }
+
+    private fun failure(
+        status: Int,
+        json: JsonElement,
+    ): ApiError {
+        val problem = json as? JsonObject
+        val code = problem?.get("code")?.jsonPrimitive?.contentOrNull
+        if (status == 401) {
+            tokens.save(null)
+            return ApiError.Unauthorized(code)
+        }
+        return ApiError.Http(
+            status,
+            code,
+            problem?.get("title")?.jsonPrimitive?.contentOrNull,
+            problem?.get("detail")?.jsonPrimitive?.contentOrNull,
+            problem,
+        )
     }
 
     companion object {
         private val JSON = "application/json".toMediaType()
+        private val FILE_NAME = Regex("filename=\"?([A-Za-z0-9._-]+)\"?")
     }
 }
 

@@ -49,7 +49,7 @@ Release builds of the app accept only HTTPS server URLs. Never expose port 8080 
 Open the app, enter the server URL, and complete **Create owner**. Enter the username,
 password (12+ characters) and the `SF_BOOTSTRAP_TOKEN` from `.env`. Registration closes
 permanently once the owner exists. Write the recovery codes down offline; they are shown
-once. Enable TOTP with `POST /v1/auth/totp/setup` and `/v1/auth/totp/confirm` (API; not yet in the app).
+once. Turn on two-factor authentication in More → Security (scan or open the key in your authenticator app, then enter a code).
 
 ## 4. Providers
 
@@ -65,7 +65,7 @@ All providers are optional. Replay mode needs none.
 Credentials are encrypted with AES-256-GCM before storage and never returned by the API. Only a
 short fingerprint is shown. Run **Test** on each provider. The detected capabilities are
 stored and shown, and anything not detected is shown as unsupported, never assumed.
-AI spending is capped by the budgets at `/v1/research/budget` (API). Raising a budget requires
+AI spending is capped by the budgets in More → AI budget (API: `/v1/research/budget`). Raising a budget requires
 recent authentication.
 
 To use a live market data provider, create and test the provider in the app, then activate it.
@@ -105,7 +105,7 @@ Replay results are reproducible. Two runs from the same state produce identical 
 | Audit chain FAILED | Audit history was modified outside the application. | Treat as a security incident. Stop the backend, preserve the database, and restore from the last good backup (BACKUP_RESTORE.md). |
 | Backup DEGRADED | No backup in the last 36 hours. | Check `docker compose logs backend` for `Scheduled backup failed` and the free space in the backups volume. |
 | Push queue lagging | FCM is unreachable or rejecting requests. | The inbox is complete regardless. Check the FCM provider test. Unregistered tokens disable push for that device automatically. |
-| Lost phone | | From a trusted device: `GET /v1/sessions`, then `POST /v1/sessions/revoke-others` (API), then change the password. |
+| Lost phone | | From another signed-in device: More → Security → Sign out all other sessions (or remove the lost device), then change the password there. Without another device: `POST /v1/sessions/revoke-others` via the API. |
 
 **Emergency controls** (app: More → Emergency controls; API: `/v1/emergency/*`): **Pause all** stops every strategy
 and blocks new orders. **Prevent new positions** allows only reductions. **Close all
@@ -115,7 +115,7 @@ simulated positions** requires recent authentication and typing
 ## 8. Upgrades
 
 ```bash
-# 1. Take a backup first: POST /v1/backups (recent authentication), or wait for the daily one.
+# 1. Take a backup first: More → Backups → Back up now (or POST /v1/backups), or wait for the daily one.
 git fetch && git checkout <new-tag>
 (cd backend && ./gradlew bootJar)
 docker compose up -d --build backend   # Flyway migrates on start; a failed migration keeps the service down

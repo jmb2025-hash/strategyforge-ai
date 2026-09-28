@@ -178,6 +178,10 @@ fun MainShell(
                     ),
             ) { ReportsScreen(hiltViewModel(), fmt) }
             composable("settings") { SettingsScreen(hiltViewModel(), fmt, session) }
+            composable("security") { SecurityScreen(hiltViewModel(), fmt, session) }
+            composable("budget") { BudgetScreen(hiltViewModel(), fmt, session) }
+            composable("backups") { BackupsScreen(hiltViewModel(), fmt, session) }
+            composable("exports") { ExportsScreen(hiltViewModel(), session) }
         }
     }
 }

@@ -42,6 +42,9 @@ disk loss.
 
 ## Taking and checking a backup on demand
 
+In the app, More → Backups lists the backups on the host, creates one with **Back up now** (asks for your
+password), and **Verify** decrypts a file on the host and checks every table hash. Restore is never offered in the app.
+
 API (recent authentication required for creation):
 
 ```
@@ -63,7 +66,7 @@ already contains tables. The procedure below keeps the old database, so it is fu
 
 ```bash
 # 0. Take a final backup of the current state if the service still works.
-#    (POST /v1/backups from the app's Settings -> Diagnostics, or skip if unavailable.)
+#    (More → Backups → Back up now in the app, or POST /v1/backups; skip if unavailable.)
 
 # 1. Stop the backend.
 docker compose stop backend

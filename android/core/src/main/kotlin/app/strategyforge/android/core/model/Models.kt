@@ -57,6 +57,9 @@ data class SessionInfo(
     val deviceName: String? = null,
     val createdAt: String? = null,
     val lastSeenAt: String? = null,
+    val lastAuthenticatedAt: String? = null,
+    val expiresAt: String? = null,
+    val revokedAt: String? = null,
     val current: Boolean = false,
 )
 
@@ -432,6 +435,10 @@ data class Device(
     val name: String,
     val platform: String? = null,
     val pushEnabled: Boolean = false,
+    val pushTokenRegistered: Boolean = false,
+    val createdAt: String? = null,
+    val lastSeenAt: String? = null,
+    val revokedAt: String? = null,
 )
 
 // ------------------------------------------------------------------ reports (FR-103, FR-104)
@@ -495,4 +502,66 @@ data class OutcomeComparison(
 data class ReportView(
     val report: PortfolioReport,
     val outcomes: OutcomeComparison,
+)
+
+// ------------------------------------------------------------------ account security (FR-002)
+
+@Serializable
+data class TotpSetup(
+    val secret: String,
+    val otpauthUri: String,
+)
+
+@Serializable
+data class RecoveryCodes(
+    val recoveryCodes: List<String>,
+    val notice: String = "",
+)
+
+@Serializable
+data class CountResult(
+    val count: Int = 0,
+)
+
+// ------------------------------------------------------------------ AI budget (FR-037)
+
+@Serializable
+data class AiBudget(
+    val monthlyCostLimitUsd: String,
+    val dailyRequestLimit: Int,
+    val maxOutputTokens: Int,
+    val maxInputChars: Int,
+    val monthCostUsd: String = "0",
+    val todayRequests: Int = 0,
+    val updatedAt: String? = null,
+    val version: Long = 0,
+)
+
+// ------------------------------------------------------------------ backups (FR-112)
+
+@Serializable
+data class BackupFile(
+    val name: String,
+    val sizeBytes: Long = 0,
+    val modifiedAt: String? = null,
+)
+
+@Serializable
+data class BackupResult(
+    val file: BackupFile,
+    val sha256: String,
+    val schemaVersion: String,
+    val tables: Int = 0,
+    val rows: Long = 0,
+)
+
+@Serializable
+data class BackupVerification(
+    val name: String,
+    val valid: Boolean,
+    val schemaVersion: String? = null,
+    val createdAt: String? = null,
+    val tables: Int = 0,
+    val rows: Long = 0,
+    val error: String? = null,
 )
