@@ -144,7 +144,7 @@ class AccountScreensUiTest {
         }
         rule.onNodeWithText("Main paper").assertDoesNotExist()
         rule.onNodeWithText("Last export reconciled with the ledger.", substring = true).assertExists()
-        rule.onNodeWithText("JSON").performClick()
+        rule.onNodeWithText("JSON").performScrollTo().performClick()
         rule.onNodeWithText("Save export…").performScrollTo().performClick()
         assertEquals(listOf(Triple<ExportDataset?, ExportFormat?, String?>(null, ExportFormat.JSON, null)), selections)
         assertEquals(1, exported)

@@ -32,7 +32,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.format.Formatters
 import app.strategyforge.android.core.model.AiBudget
 import app.strategyforge.android.core.state.ActionState
