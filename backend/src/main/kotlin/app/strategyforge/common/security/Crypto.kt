@@ -62,12 +62,18 @@ class SecretCipher(
     ): String = String(decrypt(blob, associatedData), Charsets.UTF_8)
 
     /** Derives an independent sub-key (HKDF-like, HMAC-SHA256) for a named purpose, e.g. backups. */
-    fun deriveKey(purpose: String): ByteArray = Crypto.hmacSha256(key.encoded, "strategyforge-subkey:$purpose".toByteArray())
+    fun deriveKey(purpose: String): ByteArray = deriveKey(key.encoded, purpose)
 
     companion object {
         private const val VERSION: Byte = 1
         private const val IV_LEN = 12
         private const val TAG_BITS = 128
+
+        /** Same derivation without a Spring context (offline restore command). */
+        fun deriveKey(
+            masterKey: ByteArray,
+            purpose: String,
+        ): ByteArray = Crypto.hmacSha256(masterKey, "strategyforge-subkey:$purpose".toByteArray())
 
         fun decodeKey(
             value: String,

@@ -214,6 +214,28 @@
         "required" : [ "condition", "symbol", "threshold" ],
         "type" : "object"
       },
+      "Attribution" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "realizedPnl" : {
+            "type" : "number"
+          },
+          "trades" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "unrealizedPnl" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "key", "label", "realizedPnl", "trades" ],
+        "type" : "object"
+      },
       "BacktestRequest" : {
         "properties" : {
           "applyGlobalRiskProfile" : {
@@ -340,6 +362,103 @@
           }
         },
         "required" : [ "contentHash", "createdAt", "id", "params", "status", "strategyId", "versionId" ],
+        "type" : "object"
+      },
+      "BackupFile" : {
+        "properties" : {
+          "modifiedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sizeBytes" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "modifiedAt", "name", "sizeBytes" ],
+        "type" : "object"
+      },
+      "BackupResult" : {
+        "properties" : {
+          "file" : {
+            "$ref" : "#/components/schemas/BackupFile"
+          },
+          "fingerprint" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "rows" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "schemaVersion" : {
+            "type" : "string"
+          },
+          "sha256" : {
+            "type" : "string"
+          },
+          "tables" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "file", "fingerprint", "rows", "schemaVersion", "sha256", "tables" ],
+        "type" : "object"
+      },
+      "BackupVerification" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "error" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "schemaVersion" : {
+            "type" : [ "string", "null" ]
+          },
+          "tables" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "valid" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "name", "rows", "tables", "valid" ],
+        "type" : "object"
+      },
+      "Benchmark" : {
+        "properties" : {
+          "endClose" : {
+            "type" : [ "number", "null" ]
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "returnPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "startClose" : {
+            "type" : [ "number", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "symbol" ],
         "type" : "object"
       },
       "BootstrapRequest" : {
@@ -599,6 +718,30 @@
           }
         },
         "required" : [ "checkedAt", "component", "data", "detail", "status" ],
+        "type" : "object"
+      },
+      "CostBreakdown" : {
+        "properties" : {
+          "borrow" : {
+            "type" : "number"
+          },
+          "commissions" : {
+            "type" : "number"
+          },
+          "dividends" : {
+            "type" : "number"
+          },
+          "slippage" : {
+            "type" : "number"
+          },
+          "spread" : {
+            "type" : "number"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "borrow", "commissions", "dividends", "slippage", "spread", "total" ],
         "type" : "object"
       },
       "CostModel" : {
@@ -1306,6 +1449,60 @@
         "required" : [ "orderType", "portfolioId", "quantity", "side", "symbol", "timeInForce" ],
         "type" : "object"
       },
+      "OutcomeComparison" : {
+        "properties" : {
+          "byRecommendationDecision" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OutcomeGroup"
+            },
+            "type" : "array"
+          },
+          "bySource" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OutcomeGroup"
+            },
+            "type" : "array"
+          },
+          "declinedHypothetical" : {
+            "items" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "disclaimer" : {
+            "type" : "string"
+          },
+          "portfolioId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "byRecommendationDecision", "bySource", "declinedHypothetical", "disclaimer", "portfolioId" ],
+        "type" : "object"
+      },
+      "OutcomeGroup" : {
+        "properties" : {
+          "averagePnl" : {
+            "type" : [ "number", "null" ]
+          },
+          "count" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "group" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "realizedPnl" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "count", "group", "note", "realizedPnl" ],
+        "type" : "object"
+      },
       "OwnerSettings" : {
         "properties" : {
           "displayCurrency" : {
@@ -1657,6 +1854,72 @@
           }
         },
         "required" : [ "borrowRateAnnualPercent", "commissionPerOrder", "commissionPerShare", "commissionPercent", "cryptoFallbackSpreadPercent", "equityFallbackSpreadPercent", "executionDelaySeconds", "maxPriceDeviationPercent", "participationRatePercent", "shortInitialMarginPercent", "shortMaintenancePercent", "slippageBps", "startingBalance" ],
+        "type" : "object"
+      },
+      "PortfolioReport" : {
+        "properties" : {
+          "benchmarks" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Benchmark"
+            },
+            "type" : "array"
+          },
+          "byAsset" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Attribution"
+            },
+            "type" : "array"
+          },
+          "byStrategy" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Attribution"
+            },
+            "type" : "array"
+          },
+          "closedTrades" : {
+            "items" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "costs" : {
+            "$ref" : "#/components/schemas/CostBreakdown"
+          },
+          "disclaimer" : {
+            "type" : "string"
+          },
+          "drawdown" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SeriesPoint"
+            },
+            "type" : "array"
+          },
+          "equity" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SeriesPoint"
+            },
+            "type" : "array"
+          },
+          "from" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "maxDrawdownPercent" : {
+            "type" : "number"
+          },
+          "periodReturnPercent" : {
+            "type" : [ "number", "null" ]
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/PortfolioSummary"
+          },
+          "to" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "benchmarks", "byAsset", "byStrategy", "closedTrades", "costs", "disclaimer", "drawdown", "equity", "maxDrawdownPercent", "summary" ],
         "type" : "object"
       },
       "PortfolioSummary" : {
@@ -2751,6 +3014,19 @@
         "required" : [ "id", "limits", "scope", "updatedAt", "version" ],
         "type" : "object"
       },
+      "SeriesPoint" : {
+        "properties" : {
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "at", "value" ],
+        "type" : "object"
+      },
       "SessionInfo" : {
         "properties" : {
           "createdAt" : {
@@ -3512,7 +3788,7 @@
     },
     "/v1/backtests" : {
       "get" : {
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "in" : "query",
           "name" : "strategyId",
@@ -3654,6 +3930,67 @@
           }
         },
         "tags" : [ "Strategies" ]
+      }
+    },
+    "/v1/backups" : {
+      "get" : {
+        "operationId" : "list_8",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      },
+      "post" : {
+        "operationId" : "create_6",
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BackupResult"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "tags" : [ "Configuration" ]
+      }
+    },
+    "/v1/backups/{name}/verify" : {
+      "post" : {
+        "operationId" : "verify",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BackupVerification"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Configuration" ]
       }
     },
     "/v1/bootstrap" : {
@@ -4059,7 +4396,7 @@
     },
     "/v1/executions" : {
       "get" : {
-        "operationId" : "list_13",
+        "operationId" : "list_14",
         "parameters" : [ {
           "in" : "query",
           "name" : "portfolioId",
@@ -4100,6 +4437,48 @@
           }
         },
         "tags" : [ "Execution" ]
+      }
+    },
+    "/v1/exports/{dataset}" : {
+      "get" : {
+        "operationId" : "export_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "dataset",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "default" : "json",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "portfolioId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "format" : "byte",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Reports" ]
       }
     },
     "/v1/instruments" : {
@@ -4606,7 +4985,7 @@
     },
     "/v1/notifications" : {
       "get" : {
-        "operationId" : "list_12",
+        "operationId" : "list_13",
         "parameters" : [ {
           "in" : "query",
           "name" : "cursor",
@@ -5686,7 +6065,7 @@
     },
     "/v1/recommendations" : {
       "get" : {
-        "operationId" : "list_11",
+        "operationId" : "list_12",
         "parameters" : [ {
           "in" : "query",
           "name" : "status",
@@ -5917,6 +6296,150 @@
           }
         },
         "tags" : [ "Recommendations" ]
+      }
+    },
+    "/v1/reports/ai-provenance" : {
+      "get" : {
+        "operationId" : "aiProvenance",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "additionalProperties" : { },
+                    "type" : "object"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/v1/reports/portfolios/{id}" : {
+      "get" : {
+        "operationId" : "portfolio",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortfolioReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/v1/reports/portfolios/{id}/outcomes" : {
+      "get" : {
+        "operationId" : "outcomes",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OutcomeComparison"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/v1/reports/portfolios/{id}/risk" : {
+      "get" : {
+        "operationId" : "risk",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/v1/reports/strategies/{id}" : {
+      "get" : {
+        "operationId" : "strategy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Reports" ]
       }
     },
     "/v1/research" : {
@@ -6423,7 +6946,7 @@
     },
     "/v1/sessions" : {
       "get" : {
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "responses" : {
           "200" : {
             "content" : {
@@ -6534,7 +7057,7 @@
     },
     "/v1/signals" : {
       "get" : {
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "parameters" : [ {
           "in" : "query",
           "name" : "strategyId",

@@ -6,6 +6,7 @@ strategyforge:
     enabled: false
   backup:
     directory: build/test-backups
+    scheduled: false
 springdoc:
   api-docs:
     enabled: true

@@ -110,4 +110,35 @@ class AutonomyIT : FreshDatabaseTest() {
         val notes = h.get("/v1/notifications?limit=100").json
         assertThat(notes.toString()).contains("STRATEGY_SUSPENSION")
     }
+
+    @Test
+    fun `FR-101 a protective exit is announced as a stop or target event and closes the position`() {
+        val h = TestOwner.client(baseUrl)
+        val p = Replay.portfolio(h)
+        // Stops so tight that the first move of the replay series triggers one of them.
+        val content = Strategies.alwaysLong("Tight Stops", "1m", symbol = "ETH-USD", quantity = "0.1", maxHoldingBars = 500, stopLossPercent = java.math.BigDecimal("0.01"), takeProfitPercent = java.math.BigDecimal("0.01"))
+        val sid = Strategies.eligible(h, content, "2026-06-22T00:00:00Z", "2026-06-22T13:00:00Z")
+        val version = h.get("/v1/autonomy/disclosure").json["version"].asText()
+        val ok = Strategies.activate(h, sid, p, mapOf("mode" to "AUTONOMOUS", "disclosureAccepted" to true, "disclosureVersion" to version))
+        assertThat(ok.status).`as`(ok.toString()).isEqualTo(201)
+        var exits = emptyList<String>()
+        var steps = 0
+        while (exits.isEmpty() && steps++ < 8) {
+            Replay.advance(h, 1)
+            exits =
+                jdbc
+                    .sql("select s.action from signals s where s.strategy_id = cast(:s as uuid) and s.action = 'EXIT_LONG'")
+                    .param("s", sid)
+                    .query(String::class.java)
+                    .list()
+        }
+        assertThat(exits).`as`("an exit signal within 8 bars").isNotEmpty()
+        val notes =
+            jdbc
+                .sql("select title from notification_events where category = 'STOP_TARGET'")
+                .query(String::class.java)
+                .list()
+        assertThat(notes).anyMatch { it.startsWith("Exit triggered (stop loss)") || it.startsWith("Exit triggered (take profit)") }
+        assertThat(notes.single { it.startsWith("Exit triggered") }).contains("ETH-USD")
+    }
 }

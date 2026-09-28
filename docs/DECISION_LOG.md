@@ -177,3 +177,48 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Boundary.** An architecture test forbids the research module from depending on execution, risk, signals, autonomy or portfolio code (FR-092).
 - **Requirements affected:** FR-030–FR-037, FR-092, MS-06, MS-18.
 - **Reversal plan:** Retrieval for other providers can be added behind `AiClients.retrievalAvailable` once their citation formats are implemented and tested. A paused Anthropic turn could be continued rather than failed.
+
+## D-023 Android architecture, CI-only app build and release signing
+
+- **Date:** 2026-09-28
+- **Context:** D-003 left the Compose app module buildable only where Google Maven is reachable. The master document requires a signed release APK. It also requires the backend to be authoritative, with Room as a cache.
+- **Decision:**
+  - **Split.** `android/core` (pure Kotlin) holds the API client, DTOs, cache policy, formatting, redaction, deep links and presenters; it is tested here and on CI. `android/app` (Compose, Hilt, Room, WorkManager) holds only platform glue and screens.
+  - **Cache.** Room stores serialized API responses keyed by endpoint. It is read first and then replaced by the network copy. Offline data is labelled with its age. Every write goes to the backend (NFR-003). Signing out clears the cache.
+  - **Session.** The session token is kept in an AES-GCM blob whose key lives in the Android Keystore. A 401 response clears it.
+  - **Push.** Firebase is initialised at runtime from `/v1/devices/push-config` (public identifiers only), so there is no `google-services.json` in the repository. Push is optional, and the inbox stays authoritative.
+  - **Screens.** `FLAG_SECURE` is set on all screens. Backup is disabled. Release builds accept only HTTPS server addresses.
+  - **Release signing.** The key comes from repository secrets (`SF_RELEASE_KEYSTORE_B64` and passwords). Without them, CI generates an **ephemeral** key for each run, so the APK is signed and installable. Updating the app later requires the same key, so the owner must configure a permanent key before relying on updates. The CI log records the SHA-256 of every APK and the signing certificate digest.
+- **Evidence:** CI run 36393920240 (commit d92c8a5), android job green: spotless, 14 core tests, 6 Robolectric Compose UI tests, lint, assembleDebug, assembleRelease and CycloneDX SBOM. `app-release.apk` SHA-256 `5816af7ce5085f6f5460e2834ff61d6bb24223e35fc479d2da74c789917119e1`, signed by an ephemeral CI certificate (SHA-256 `f60ecfe4…c41d9b`).
+- **Requirements affected:** RG-03, NFR-003, NFR-005, NFR-009, FR-101, FR-102.
+- **Reversal plan:** Moving the app build to local machines needs only Google Maven access. The build files are unchanged.
+
+## D-024 Backup restore mechanics
+
+- **Date:** 2026-09-28
+- **Context:** D-007 chose in-application COPY backups. Implementing it raised three problems. The schema contains foreign-key cycles (`strategies` ↔ `strategy_versions`). Migrations seed singleton rows. Startup hooks such as provider initialisation would write to a restore target.
+- **Decision:**
+  - **Offline mode.** Restore and verification run as offline commands (`restore <file>`, `verify-backup <file>`) that never start the Spring context. They share `BackupArchive` with the service.
+  - **Restore order.** Flyway migrates the target to the backup's schema version. Then, in one transaction, foreign keys are dropped, seeded rows are cleared (`strategyforge.allow_purge`), the tables are loaded with `COPY … HEADER MATCH`, the deferred double-entry checks run, the foreign keys are re-added (re-validating every row) and the sequences are reset. The fingerprint is then compared, and only afterwards does Flyway upgrade to the latest version.
+  - **Encryption container.** Chunked AES-256-GCM. The chunk index and a final flag are authenticated, so truncation is detectable.
+  - **Target.** Restore only into an empty database. The documented procedure renames the old database, which makes it reversible.
+- **Requirements affected:** FR-112, NFR-008, MS-21, RG-08.
+- **Reversal plan:** Streaming table loads, instead of loading each table into memory, can replace the in-memory load if data grows beyond single-owner scale.
+
+## D-025 Dependency patch overrides
+
+- **Date:** 2026-09-28
+- **Context:** The CI Trivy scan of the backend SBOM reported HIGH and CRITICAL CVEs in versions managed by the Spring Boot 3.5.16 BOM: Tomcat 10.1.55, pgjdbc 42.7.11 and httpcore5 5.3.6, the last one via the Anthropic SDK. RG-06 forbids unresolved HIGH or CRITICAL findings.
+- **Decision:** Override the BOM properties to the fixed releases: `tomcat.version` 10.1.60, `postgresql.version` 42.7.13, `httpcore5.version` 5.4.3. Accepting the findings in `.trivyignore` was rejected because fixed versions exist.
+- **Consequences:** The full backend suite passes on the patched versions. Remove each override when a Spring Boot release manages an equal or newer version.
+- **Requirements affected:** RG-06, NFR-011.
+
+## D-026 Push delivery, stop/target events and daily summary
+
+- **Date:** 2026-09-28
+- **Context:** FR-101 lists the push categories, including stop/target events and a daily summary. FR-102 requires lock-screen redaction.
+- **Decision:**
+  - **Delivery.** Push goes through FCM HTTP v1, authenticated by the service-account credential stored encrypted in the FCM provider. Messages are data-only and carry only the redacted title and body, the channel, the notification id and the deep link. Transient failures (429, 5xx, network) retry with exponential backoff up to 6 attempts. An unregistered token disables push for that device.
+  - **Stop/target events.** A STOP_TARGET notification is raised when a strategy's stop-loss, take-profit or trailing stop fires, and when a STOP or STOP_LIMIT paper order fills.
+  - **Daily summary.** One summary per local day at the owner's `dailySummaryLocalTime` (default 17:00) in the owner's timezone. The local date is the dedupe key, so restarts cannot duplicate it.
+- **Requirements affected:** FR-101, FR-102, MS-16.

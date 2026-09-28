@@ -171,6 +171,14 @@ class OrderExecutionIT : IntegrationTest() {
         val t = h.get("/v1/orders/${trig.json["order"]["id"].asText()}").json["order"]
         assertThat(t["triggered"].asBoolean()).isTrue()
         assertThat(t["status"].asText()).isEqualTo("FILLED")
+        // FR-101: a filled stop order is announced as a stop/target event.
+        val stopEvents =
+            jdbc
+                .sql("select count(*) from notification_events where category = 'STOP_TARGET' and entity_id = :id")
+                .param("id", t["id"].asText())
+                .query(Int::class.java)
+                .single()
+        assertThat(stopEvents).isEqualTo(1)
         h.post("/v1/orders/${stop.json["order"]["id"].asText()}/cancel")
         reconcileOk(h, pid)
     }

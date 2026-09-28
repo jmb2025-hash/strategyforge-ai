@@ -35,7 +35,10 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.time.Instant
 
-/** Compose UI tests (section 17): required states, accessibility cues and decision controls. */
+/**
+ * Compose UI tests (section 17): required states, accessibility cues and decision controls.
+ * Run by the CI android job in the same invocation as assembleDebug and assembleRelease (RG-03).
+ */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34], application = Application::class)
 class ComposeUiTest {

@@ -13,6 +13,8 @@ object Strategies {
         quantity: String = "0.01",
         maxHoldingBars: Int = 3,
         maxConsecutiveLosses: Int = 5,
+        stopLossPercent: Number = 20,
+        takeProfitPercent: Number = 20,
     ): Map<String, Any?> =
         mapOf(
             "schemaVersion" to "1.0",
@@ -25,7 +27,7 @@ object Strategies {
                     "indicators" to listOf(mapOf("id" to "EMA_5", "type" to "EMA", "period" to 5)),
                 ),
             "entryRules" to mapOf("operator" to "ALL", "conditions" to listOf(mapOf("left" to "CLOSE", "comparison" to "GT", "right" to 1))),
-            "exitRules" to mapOf("stopLossPercent" to 20, "takeProfitPercent" to 20, "maximumHoldingBars" to maxHoldingBars),
+            "exitRules" to mapOf("stopLossPercent" to stopLossPercent, "takeProfitPercent" to takeProfitPercent, "maximumHoldingBars" to maxHoldingBars),
             "positionSizing" to mapOf("method" to "FIXED_QUANTITY", "value" to java.math.BigDecimal(quantity)),
             "orderInstructions" to mapOf("orderType" to "MARKET", "timeInForce" to "GTC"),
             "riskLimits" to

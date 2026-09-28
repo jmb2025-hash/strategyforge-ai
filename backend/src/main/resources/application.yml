@@ -71,5 +71,8 @@ strategyforge:
     enabled: ${SF_SCHEDULER_ENABLED:true}
   backup:
     directory: ${SF_BACKUP_DIR:/var/lib/strategyforge/backups}
+    scheduled: ${SF_BACKUP_SCHEDULED:true}
+    cron: ${SF_BACKUP_CRON:0 17 3 * * *}
+    retain: ${SF_BACKUP_RETAIN:14}
   push:
     fcm-credentials-path: ${FCM_CREDENTIALS_PATH:}

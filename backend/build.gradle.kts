@@ -27,6 +27,11 @@ kotlin {
 // Spring Boot 3.5 manages an older Kotlin; align the runtime with the compiler.
 extra["kotlin.version"] = libs.versions.kotlin.get()
 
+// Security patch levels above the Spring Boot 3.5.16 BOM (Trivy findings, decision D-025).
+extra["tomcat.version"] = "10.1.60"
+extra["postgresql.version"] = "42.7.13"
+extra["httpcore5.version"] = "5.4.3"
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
@@ -38,7 +43,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    runtimeOnly("org.postgresql:postgresql")
+    implementation("org.postgresql:postgresql")
     implementation(libs.springdoc.webmvc)
     implementation(libs.bcprov)
     implementation(libs.logstash.encoder)

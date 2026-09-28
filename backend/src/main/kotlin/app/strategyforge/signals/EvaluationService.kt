@@ -419,6 +419,11 @@ class EvaluationService(
                     .update()
             if (inserted == 0) return@execute false
             dispatcher.dispatch(a, id, d)
+            // FR-101: protective exits are announced separately from the order they produce.
+            d.triggered.firstOrNull { it in PROTECTIVE_EXITS }?.let { reason ->
+                val label = reason.lowercase().replace('_', ' ')
+                notifications.notify(NotificationCategory.STOP_TARGET, Severity.WARNING, "Exit triggered ($label): ${d.instrument.symbol}", d.rationale.take(500), "Signal", id, "stop-target:$id")
+            }
             audit.record(AuditCategory.STRATEGY, "SIGNAL_CREATED", entityType = "Signal", entityId = id, details = mapOf("strategyId" to a.strategyId, "hash" to a.contentHash, "action" to d.action, "symbol" to d.instrument.symbol, "mode" to a.mode))
             true
         } ?: false
@@ -426,6 +431,7 @@ class EvaluationService(
     companion object {
         const val MIN_EXPIRY_SECONDS = 300L
         const val MAX_EXPIRY_SECONDS = 1800L
+        val PROTECTIVE_EXITS = setOf("STOP_LOSS", "TAKE_PROFIT", "TRAILING_STOP")
     }
 }
 

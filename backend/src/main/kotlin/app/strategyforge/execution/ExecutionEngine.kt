@@ -322,7 +322,8 @@ class ExecutionEngine(
                 ),
         )
         notifications.notify(
-            NotificationCategory.ORDER_FILL,
+            // A filled stop order is a stop event (FR-101), announced on the same channel.
+            if (o.orderType == OrderType.STOP || o.orderType == OrderType.STOP_LIMIT) NotificationCategory.STOP_TARGET else NotificationCategory.ORDER_FILL,
             Severity.INFO,
             "Paper ${if (full) "fill" else "partial fill"}: ${o.side} $symbol",
             "${o.side} ${qty.stripTrailingZeros().toPlainString()} $symbol at ${fp.price.stripTrailingZeros().toPlainString()} (simulated). Filled ${newFilled.stripTrailingZeros().toPlainString()} of ${o.quantity.stripTrailingZeros().toPlainString()}.",

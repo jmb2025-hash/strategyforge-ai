@@ -49,8 +49,11 @@ data class StrategyForgeProperties(
 
     data class Backup(
         val directory: String = "/var/lib/strategyforge/backups",
-        val pgDumpPath: String = "pg_dump",
-        val pgRestorePath: String = "pg_restore",
+        /** Daily encrypted backup (D-007); disable only when backups are taken another way. */
+        val scheduled: Boolean = true,
+        val cron: String = "0 17 3 * * *",
+        /** Number of most recent backup files kept by the scheduled job. */
+        val retain: Int = 14,
     )
 
     data class Push(

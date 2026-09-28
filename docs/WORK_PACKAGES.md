@@ -85,3 +85,24 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Risks found and fixed:** Java's HTTP client request timeout does not cover the response body, so a whole-response deadline was added. The session was marked idle before its compilation record existed, which was a visible race; it is now completed in the same transaction.
 - **Decisions:** D-022.
 - **Result:** Passed. 138 backend tests green; spotless and detekt clean; traceability 80/114 Passed.
+
+## WP9 — Android application
+
+- **Outcome:** A sideloadable Android app (Kotlin, Compose, Hilt, Room, WorkManager). Screens: first run and sign-in, Home dashboard, strategies, backtests, research, portfolio and orders, recommendations with accept/reject/modify, inbox, emergency controls, diagnostics, and settings. The app uses cache-then-network with labelled offline data, keeps the session in Keystore-encrypted storage, sets `FLAG_SECURE`, uses generic lock-screen text and strict deep links, and initialises FCM at runtime.
+- **Requirements:** NFR-003, NFR-005, NFR-009, FR-101/FR-102 (client), RG-03.
+- **Files:** `android/core` (JVM), `android/app`, `backend/.../identity/Devices.kt` (`/v1/devices/push-config`), `.github/workflows/ci.yml` (android job, signing, checksums), `docs/ANDROID.md`.
+- **Tests:** Core: `ApiClientTest`, `CacheAndFormattingTest`, `PresenterTest`, `PerformanceBudgetTest` (15 tests). App: `ComposeUiTest` (6 Robolectric tests). Backend: `DevicesIT`, `ContractIT` (OpenAPI 3.1 export and coverage).
+- **Risks found and fixed:** `setup-android` failed on the runner, so the job now uses the preinstalled SDK. Compose assertions needed the unmerged semantics tree and scrolling. The formatter configuration was aligned with the backend.
+- **Decisions:** D-023.
+- **Result:** Passed. CI run 36393920240 (commit d92c8a5): spotless, core tests, Compose UI tests, lint, debug and release APKs, and the Android SBOM all passed. `app-release.apk` SHA-256 `5816af7ce5085f6f5460e2834ff61d6bb24223e35fc479d2da74c789917119e1` was signed with the ephemeral CI key; configure owner signing secrets for a permanent key.
+
+## WP10 — Notifications delivery, reports, exports and operations
+
+- **Outcome:** FCM push delivery with redacted data-only payloads, retry and backoff, and unregistered-token handling. Stop/target and daily-summary notifications. Portfolio, outcome, risk, strategy and AI-provenance reports. CSV/JSON exports with stable schemas, totals and reconciliation. Operational diagnostics: scheduler, push queue, recent errors, audit chain and backup age. Encrypted backup and restore with an offline command mode. Runbook and backup/restore documentation.
+- **Requirements:** FR-003, FR-100–FR-105, FR-110–FR-112, NFR-008, MS-16, MS-19, MS-21, RG-08.
+- **Files:** `notifications/PushSender.kt`, `reports/{Reports,Exports,DailySummaryService}.kt`, `operations/OperationalDiagnostics.kt`, `operations/backup/{BackupArchive,BackupService,BackupCommand}.kt`, `docs/RUNBOOK.md`, `docs/BACKUP_RESTORE.md`.
+- **Migrations:** none (existing tables).
+- **Tests:** `PushDeliveryIT`, `ReportsIT` (reports, exports, CSV escaping, daily summary), `BackupRestoreIT` (backup, verify, restore into a clean database, fingerprint, tamper/truncation/wrong-key, diagnostics), `AutonomyIT` (protective-exit notification), `OrderExecutionIT` (stop-fill notification).
+- **Risks found and fixed:** Foreign-key cycles and deferred journal triggers blocked a naive ordered restore (D-024). Primitive `Long` mapping failed in diagnostics. CI Trivy reported HIGH/CRITICAL CVEs in BOM-managed Tomcat, pgjdbc and httpcore5; they are patched through overrides (D-025).
+- **Decisions:** D-024, D-025, D-026.
+- **Result:** Passed. 146 backend tests green; spotless, detekt, bootJar and SBOM clean; traceability 100/114 Passed, with the remainder assigned to WP11.
