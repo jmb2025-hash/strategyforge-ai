@@ -9,9 +9,9 @@ Allowed statuses: Not Started, In Progress, Blocked, Manual Review Required, Fai
 
 | Status | Count |
 |---|---|
-| In Progress | 9 |
+| In Progress | 8 |
 | Not Started | 25 |
-| Passed | 80 |
+| Passed | 81 |
 
 ## Matrix
 
@@ -106,7 +106,7 @@ Allowed statuses: Not Started, In Progress, Blocked, Manual Review Required, Fai
 | **MS-03** Portfolio create, clone, archive, and reset | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/portfolio/PortfolioService.kt | backend/src/test/kotlin/app/strategyforge/portfolio/PortfolioLifecycleIT.kt | Passed | WP3: reset archives old portfolio with ledger intact and creates new ledger |
 | **MS-04** Ledger reconciliation after buys, sells, fees, splits, dividends, shorts, covers, partial fills, and cancellations | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/portfolio/Reconciliation.kt | backend/src/test/kotlin/app/strategyforge/portfolio/LedgerInvariantIT.kt<br>backend/src/test/kotlin/app/strategyforge/execution/EquitySessionIT.kt<br>backend/src/test/kotlin/app/strategyforge/execution/OrderExecutionIT.kt | Passed | WP3: reconciliation OK after buys, sells, fees, splits, dividends, shorts, covers, partial fills, cancellations |
 | **MS-05** Valid and invalid strategy imports | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt<br>backend/src/main/resources/strategy/strategy-schema-1.0.json | backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt | Passed | WP4: size, encoding, BOM, strict JSON (duplicates/comments), schema and semantic validation<br> valid and invalid fixtures |
-| **MS-06** Executable content and prompt-injection rejection | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md |  |  | In Progress | WP4: strategy-side executable and prompt-injection rejection passes<br> AI compilation side in WP8 |
+| **MS-06** Executable content and prompt-injection rejection | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md |  | backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt<br>backend/src/test/kotlin/app/strategyforge/research/ResearchIT.kt | Passed | WP4: 27 import fixtures incl. script/python/sql/url/injection rejected<br> WP8: injected compiler output rejected |
 | **MS-07** Manual Review Required workflow | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/strategy/StrategyValidator.kt<br>backend/src/main/kotlin/app/strategyforge/strategy/StrategyService.kt | backend/src/test/kotlin/app/strategyforge/strategy/StrategyIT.kt | Passed | WP4: unknown fields preserved and listed<br> status MANUAL_REVIEW_REQUIRED blocks explanation/execution until a new version resolves them (D-005) |
 | **MS-08** Backtest look-ahead prevention and missing data | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/backtest/BacktestEngine.kt<br>backend/src/main/kotlin/app/strategyforge/backtest/BacktestService.kt | backend/src/test/kotlin/app/strategyforge/backtest/BacktestEngineTest.kt<br>backend/src/test/kotlin/app/strategyforge/backtest/BacktestIT.kt | Passed | WP5: look-ahead perturbation test<br> missing data => CRITICAL integrity |
 | **MS-09** Real-time/delayed capability states | WP11 | Master §17 mandatory scenarios<br> docs/ARCHITECTURE.md | backend/src/main/kotlin/app/strategyforge/market/provider/TwelveDataProvider.kt<br>backend/src/main/kotlin/app/strategyforge/market/MarketDataController.kt | backend/src/test/kotlin/app/strategyforge/market/LiveProviderIT.kt<br>backend/src/test/kotlin/app/strategyforge/market/TwelveDataProviderTest.kt<br>backend/src/test/kotlin/app/strategyforge/market/MarketDataIT.kt | Passed | WP2: realtime/delayed/unknown/replay states detected and displayed<br> unsupported capabilities explicit |

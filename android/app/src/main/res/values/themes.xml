@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.StrategyForge" parent="android:Theme.Material.NoActionBar" />
+    <style name="Theme.StrategyForge.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FF102A43</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.StrategyForge</item>
+    </style>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StrategyForge</string>
+    <string name="simulated_banner">Simulated paper trading. No real money is used.</string>
+</resources>

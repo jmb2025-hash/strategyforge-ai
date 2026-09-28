@@ -57,16 +57,40 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "21" }
-      - uses: android-actions/setup-android@v3
+      # The hosted runner ships the Android SDK (ANDROID_HOME); AGP installs any missing platform.
       - uses: gradle/actions/setup-gradle@v4
-      - name: Lint, unit and Compose UI tests, debug and release builds, SBOM
-        working-directory: android
+      - name: Release signing key (repository secrets, or an ephemeral CI key)
         env:
           SF_RELEASE_KEYSTORE_B64: ${{ secrets.SF_RELEASE_KEYSTORE_B64 }}
           SF_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.SF_RELEASE_KEYSTORE_PASSWORD }}
           SF_RELEASE_KEY_ALIAS: ${{ secrets.SF_RELEASE_KEY_ALIAS }}
           SF_RELEASE_KEY_PASSWORD: ${{ secrets.SF_RELEASE_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon spotlessCheck :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease cyclonedxBom
+        run: |
+          if [ -n "$SF_RELEASE_KEYSTORE_B64" ]; then
+            echo "$SF_RELEASE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "SF_SIGNING=owner" >> "$GITHUB_ENV"
+          else
+            SF_RELEASE_KEYSTORE_PASSWORD="$(openssl rand -hex 24)"; SF_RELEASE_KEY_PASSWORD="$SF_RELEASE_KEYSTORE_PASSWORD"; SF_RELEASE_KEY_ALIAS=ci-ephemeral
+            echo "::add-mask::$SF_RELEASE_KEYSTORE_PASSWORD"
+            keytool -genkeypair -keystore "$RUNNER_TEMP/release.jks" -storetype PKCS12 -alias "$SF_RELEASE_KEY_ALIAS" -keyalg RSA -keysize 3072 -validity 365 \
+              -storepass "$SF_RELEASE_KEYSTORE_PASSWORD" -keypass "$SF_RELEASE_KEY_PASSWORD" -dname "CN=StrategyForge CI ephemeral" -noprompt
+            echo "SF_SIGNING=ephemeral-ci" >> "$GITHUB_ENV"
+          fi
+          {
+            echo "SF_RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
+            echo "SF_RELEASE_KEYSTORE_PASSWORD=$SF_RELEASE_KEYSTORE_PASSWORD"
+            echo "SF_RELEASE_KEY_ALIAS=$SF_RELEASE_KEY_ALIAS"
+            echo "SF_RELEASE_KEY_PASSWORD=$SF_RELEASE_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+      - name: Format, core tests, unit and Compose UI tests, lint, debug and release builds, SBOM
+        working-directory: android
+        run: ./gradlew --no-daemon spotlessCheck :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:cyclonedxBom
+      - name: APK checksums and signing certificate
+        working-directory: android/app/build/outputs/apk
+        run: |
+          sha256sum debug/*.apk release/*.apk | tee SHA256SUMS
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner verify --print-certs release/*.apk | tee release/SIGNING.txt
+          echo "signing=$SF_SIGNING" >> release/SIGNING.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -74,13 +98,24 @@ jobs:
           path: |
             android/app/build/outputs/
             android/app/build/reports/
+            android/app/build/test-results/
             android/core/build/reports/
+            android/core/build/test-results/
 
   security:
     runs-on: ubuntu-24.04
+    needs: [backend, android]
+    if: always()
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      # SBOMs produced by the build jobs are scanned for known vulnerabilities.
+      - uses: actions/download-artifact@v4
+        with: { name: backend-reports, path: backend/build }
+        continue-on-error: true
+      - uses: actions/download-artifact@v4
+        with: { name: android-outputs, path: android }
+        continue-on-error: true
       - name: Secret, dependency, misconfiguration scans
         run: scripts/security-scan.sh
       - uses: actions/upload-artifact@v4

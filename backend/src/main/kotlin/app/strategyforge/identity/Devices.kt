@@ -53,6 +53,14 @@ data class DeviceView(
     val revokedAt: Instant?,
 )
 
+data class PushClientConfig(
+    val enabled: Boolean,
+    val projectId: String? = null,
+    val applicationId: String? = null,
+    val apiKey: String? = null,
+    val senderId: String? = null,
+)
+
 /** A push target decrypted for delivery only. */
 data class PushTarget(
     val deviceId: UUID,
@@ -162,9 +170,29 @@ class DeviceService(
 @Tag(name = "Identity")
 class DevicesController(
     private val devices: DeviceService,
+    private val jdbc: JdbcClient,
+    private val mapper: com.fasterxml.jackson.databind.ObjectMapper,
 ) {
     @GetMapping
     fun list() = devices.list()
+
+    /**
+     * Public Firebase client identifiers of the active push provider, so the app can initialise FCM
+     * at runtime (FR-101). The service-account credential is never returned.
+     */
+    @GetMapping("/push-config")
+    fun pushConfig(): PushClientConfig {
+        val settings =
+            jdbc
+                .sql("select settings from provider_configurations where kind = 'PUSH' and active and archived_at is null and credential_enc is not null")
+                .query(String::class.java)
+                .optional()
+                .orElse(null)
+                ?.let { mapper.readTree(it) } ?: return PushClientConfig(false)
+
+        fun v(k: String) = settings[k]?.asText()?.takeIf { it.isNotBlank() }
+        return PushClientConfig(true, v("projectId"), v("applicationId"), v("apiKey"), v("senderId"))
+    }
 
     @PostMapping
     fun register(
