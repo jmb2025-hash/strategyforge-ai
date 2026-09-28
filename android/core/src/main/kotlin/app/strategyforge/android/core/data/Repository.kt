@@ -30,6 +30,7 @@ import app.strategyforge.android.core.model.PushConfig
 import app.strategyforge.android.core.model.Recommendation
 import app.strategyforge.android.core.model.RecommendationDetail
 import app.strategyforge.android.core.model.RecoverResponse
+import app.strategyforge.android.core.model.ReportView
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.model.ResearchSession
 import app.strategyforge.android.core.model.SessionResponse
@@ -200,6 +201,15 @@ class Repository(
     fun portfolios(): Flow<Resource<List<Portfolio>>> = cached("portfolios", ListSerializer(Portfolio.serializer())) { api.get("/v1/portfolios").body }
 
     fun portfolioSummary(id: String): Flow<Resource<PortfolioSummary>> = cached("portfolio:$id", PortfolioSummary.serializer()) { api.get("/v1/portfolios/${seg(id)}/summary").body }
+
+    /** FR-103/FR-104: portfolio report and outcome comparison, cached like every other view. */
+    fun report(portfolioId: String): Flow<Resource<ReportView>> =
+        cached("report:$portfolioId", ReportView.serializer()) {
+            buildJsonObject {
+                put("report", api.get("/v1/reports/portfolios/${seg(portfolioId)}").body)
+                put("outcomes", api.get("/v1/reports/portfolios/${seg(portfolioId)}/outcomes").body)
+            }
+        }
 
     fun orders(portfolioId: String): Flow<Resource<Page<Order>>> = cached("orders:$portfolioId", Page.serializer(Order.serializer())) { api.get("/v1/orders?portfolioId=${q(portfolioId)}&limit=100").body }
 

@@ -433,3 +433,66 @@ data class Device(
     val platform: String? = null,
     val pushEnabled: Boolean = false,
 )
+
+// ------------------------------------------------------------------ reports (FR-103, FR-104)
+
+@Serializable
+data class ReportCosts(
+    val commissions: String = "0",
+    val spread: String = "0",
+    val slippage: String = "0",
+    val borrow: String = "0",
+    val dividends: String = "0",
+    val total: String = "0",
+)
+
+@Serializable
+data class ReportAttribution(
+    val key: String,
+    val label: String,
+    val realizedPnl: String = "0",
+    val unrealizedPnl: String? = null,
+    val trades: Int = 0,
+)
+
+@Serializable
+data class ReportBenchmark(
+    val symbol: String,
+    val returnPercent: String? = null,
+    val note: String? = null,
+)
+
+@Serializable
+data class PortfolioReport(
+    val summary: PortfolioSummary,
+    val maxDrawdownPercent: String = "0",
+    val periodReturnPercent: String? = null,
+    val costs: ReportCosts = ReportCosts(),
+    val byAsset: List<ReportAttribution> = emptyList(),
+    val byStrategy: List<ReportAttribution> = emptyList(),
+    val benchmarks: List<ReportBenchmark> = emptyList(),
+    val disclaimer: String,
+)
+
+@Serializable
+data class OutcomeGroup(
+    val group: String,
+    val count: Int = 0,
+    val realizedPnl: String = "0",
+    val averagePnl: String? = null,
+    val note: String = "",
+)
+
+@Serializable
+data class OutcomeComparison(
+    val bySource: List<OutcomeGroup> = emptyList(),
+    val byRecommendationDecision: List<OutcomeGroup> = emptyList(),
+    val disclaimer: String,
+)
+
+/** Portfolio report together with its descriptive outcome comparison. */
+@Serializable
+data class ReportView(
+    val report: PortfolioReport,
+    val outcomes: OutcomeComparison,
+)

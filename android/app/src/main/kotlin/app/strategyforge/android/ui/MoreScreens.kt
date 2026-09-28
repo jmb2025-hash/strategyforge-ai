@@ -35,7 +35,7 @@ fun MoreScreen(
 ) {
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         SectionTitle("More")
-        listOf("settings" to "Settings, providers and privacy", "diagnostics" to "Diagnostics", "emergency" to "Emergency controls", "research" to "AI research").forEach { (route, label) ->
+        listOf("reports" to "Reports", "settings" to "Settings, providers and privacy", "diagnostics" to "Diagnostics", "emergency" to "Emergency controls", "research" to "AI research").forEach { (route, label) ->
             OutlinedButton(onClick = { nav.navigate(route) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
         }
         SectionTitle("About")

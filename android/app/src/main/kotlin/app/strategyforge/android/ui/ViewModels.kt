@@ -19,6 +19,7 @@ import app.strategyforge.android.core.model.Portfolio
 import app.strategyforge.android.core.model.PortfolioSummary
 import app.strategyforge.android.core.model.Provider
 import app.strategyforge.android.core.model.Recommendation
+import app.strategyforge.android.core.model.ReportView
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.model.ResearchSession
 import app.strategyforge.android.core.model.Settings
@@ -38,6 +39,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -466,4 +470,36 @@ class ResearchDetailViewModel
         fun review(approve: Boolean) = act { repo.reviewResearch(id, approve, null) }
 
         fun compile() = act { repo.compileResearch(id) }
+    }
+
+/** FR-103/FR-104: report for the requested portfolio, or the first active one. */
+@HiltViewModel
+class ReportsViewModel
+    @Inject
+    constructor(
+        private val repo: Repository,
+        saved: SavedStateHandle,
+    ) : ResourceViewModel<ReportView>() {
+        private val requested: String? = saved["id"]
+        private val _noPortfolio = MutableStateFlow(false)
+        val noPortfolio: StateFlow<Boolean> = _noPortfolio.asStateFlow()
+
+        override fun source(): Flow<Resource<ReportView>> =
+            flow {
+                val id =
+                    requested ?: run {
+                        val portfolios = repo.portfolios().first { it !is Resource.Loading }
+                        when (portfolios) {
+                            is Resource.Data -> portfolios.value.firstOrNull { it.status == "ACTIVE" }?.id
+                            is Resource.Failure -> return@flow emit(Resource.Failure(portfolios.error))
+                            Resource.Loading -> null
+                        }
+                    }
+                _noPortfolio.value = id == null
+                if (id != null) emitAll(repo.report(id))
+            }
+
+        init {
+            refresh()
+        }
     }

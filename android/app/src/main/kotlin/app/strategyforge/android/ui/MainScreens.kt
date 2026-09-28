@@ -166,6 +166,17 @@ fun MainShell(
                 EmergencyScreen(vm.presenter, fmt, session)
             }
             composable("diagnostics") { DiagnosticsScreen(hiltViewModel(), fmt) }
+            composable(
+                "reports?id={id}",
+                arguments =
+                    listOf(
+                        navArgument("id") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+            ) { ReportsScreen(hiltViewModel(), fmt) }
             composable("settings") { SettingsScreen(hiltViewModel(), fmt, session) }
         }
     }
