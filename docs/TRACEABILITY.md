@@ -9,8 +9,7 @@ Allowed statuses: Not Started, In Progress, Blocked, Manual Review Required, Fai
 
 | Status | Count |
 |---|---|
-| Not Started | 2 |
-| Passed | 112 |
+| Passed | 114 |
 
 ## Matrix
 
@@ -124,9 +123,9 @@ Allowed statuses: Not Started, In Progress, Blocked, Manual Review Required, Fai
 | **RG-01** 100% of Version 1 requirements mapped in traceability | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | scripts/tests/test_repository_policies.py | Passed | scripts/traceability.py and policy test: 114/114 mapped |
 | **RG-02** All mandatory scenarios pass | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | scripts/tests/test_repository_policies.py | Passed | All 21 mandatory scenarios Passed with test references<br> CI runs them on every push |
 | **RG-03** Android debug and release builds succeed | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | android/app/src/test/kotlin/app/strategyforge/android/ComposeUiTest.kt<br>.github/workflows/ci.yml | Passed | CI run 36393920240 (d92c8a5): assembleDebug and assembleRelease signed<br> SHA-256 recorded (D-023) |
-| **RG-04** Backend build, migrations, and containers succeed | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **RG-04** Backend build, migrations, and containers succeed | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | scripts/tests/test_repository_policies.py<br>backend/src/test/kotlin/app/strategyforge/common/BaselineIT.kt | Passed | CI run 36425386927: tests on Flyway-migrated DBs, bootJar and docker build succeeded<br> container hardening policy test |
 | **RG-05** OpenAPI validation passes | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | backend/src/test/kotlin/app/strategyforge/ContractIT.kt | Passed | contracts/openapi.json validated as OpenAPI 3.1<br> every exercised operation documented<br> CI fails on drift |
-| **RG-06** No unresolved critical or high security finding | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  |  | Not Started |  |
+| **RG-06** No unresolved critical or high security finding | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | scripts/tests/test_repository_policies.py | Passed | CI run 36425386927 security job: gitleaks no leaks, Trivy 0 HIGH/CRITICAL (backend+Android SBOMs, IaC)<br> suppressions justified (SECURITY.md) |
 | **RG-07** Replay end-to-end suite passes twice from clean databases | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | backend/src/test/kotlin/app/strategyforge/e2e/ReplayEndToEndIT.kt | Passed | Two app instances on two fresh databases produce identical id/wall-clock-free digests (manual, recommendation, autonomous flows) |
 | **RG-08** Backup/restore drill passes | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | backend/src/test/kotlin/app/strategyforge/operations/BackupRestoreIT.kt | Passed | Drill automated in CI<br> manual procedure in docs/BACKUP_RESTORE.md |
 | **RG-09** Real-money prohibition tests pass | WP11 | Master §17 release gates<br> docs/ARCHITECTURE.md |  | backend/src/test/kotlin/app/strategyforge/safety/RealMoneyProhibitionIT.kt<br>backend/src/test/kotlin/app/strategyforge/safety/RealMoneyPolicyTest.kt<br>backend/src/test/kotlin/app/strategyforge/common/BaselineIT.kt<br>backend/src/test/kotlin/app/strategyforge/ArchitectureTest.kt<br>scripts/tests/test_repository_policies.py | Passed | Env/config startup refusal, 403 audited routes, order/portfolio/settings/provider/strategy field rejection, DB CHECK constraints, architecture rule, no brokerage SDKs |

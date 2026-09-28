@@ -23,6 +23,10 @@ Read it first.
 
 ## Start here
 
+- Release notes, artifacts, limitations and owner acceptance: [`docs/RELEASE.md`](docs/RELEASE.md)
+- Deploy and operate: [`docs/RUNBOOK.md`](docs/RUNBOOK.md) · Backup and restore: [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md)
+- Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Security: [`docs/SECURITY.md`](docs/SECURITY.md) · Android: [`docs/ANDROID.md`](docs/ANDROID.md)
+
 - Toolchain and verification commands: [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)
 - Requirement traceability: [`docs/TRACEABILITY.md`](docs/TRACEABILITY.md)
 - Decisions and resolved conflicts: [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)

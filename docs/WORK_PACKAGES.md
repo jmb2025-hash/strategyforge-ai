@@ -106,3 +106,11 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Risks found and fixed:** Foreign-key cycles and deferred journal triggers blocked a naive ordered restore (D-024). Primitive `Long` mapping failed in diagnostics. CI Trivy reported HIGH/CRITICAL CVEs in BOM-managed Tomcat, pgjdbc and httpcore5; they are patched through overrides (D-025).
 - **Decisions:** D-024, D-025, D-026.
 - **Result:** Passed. 146 backend tests green; spotless, detekt, bootJar and SBOM clean; traceability 100/114 Passed, with the remainder assigned to WP11.
+
+## WP11 — Release candidate
+
+- **Outcome:** The release gates are executable and pass. The replay E2E suite runs twice from clean databases with identical results. Real-money prohibition is proven at every layer. Repository policy tests cover pinning, test isolation and container hardening. Security scans are clean with justified suppressions only. An Android Reports screen was added. Architecture, security, release and acceptance documentation is complete.
+- **Requirements:** FR-113, NFR-001, NFR-004, NFR-010, NFR-011, NFR-012, MS-20, RG-01–RG-09.
+- **Files:** `backend/src/test/.../e2e/ReplayEndToEndIT.kt`, `.../safety/RealMoneyProhibitionIT.kt`, `scripts/tests/test_repository_policies.py`, `.gitleaksignore`, `android/.../ReportsScreen.kt`, `docs/{ARCHITECTURE,SECURITY,RELEASE}.md`.
+- **Risks found and fixed:** `SpringApplicationBuilder.properties` are defaults that `application.yml` overrides, so the E2E datasource is now passed as arguments. Gitleaks flagged seven test and documentation false positives; they are suppressed by fingerprint with justifications, and new findings still fail the gate. RELEASE, RUNBOOK and ARCHITECTURE statements were checked against the code, which corrected the replay API body, an app navigation label and the real-money strategy outcome.
+- **Result:** Passed. CI run 36425386927 on `fd9ef1f`: repository policies (15), backend (148 tests incl. RG-07 E2E and MS-20), Android (16 core + 7 Compose UI tests, lint, signed debug/release APKs, SBOM), security (gitleaks, Trivy) all green. `scripts/traceability.py --release`: 114/114 Passed. Release notes, artifacts and the owner acceptance checklist are in `docs/RELEASE.md`.

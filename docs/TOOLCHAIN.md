@@ -28,6 +28,8 @@ All versions are pinned exactly (NFR-011). Container images are pinned by digest
 | Format | `cd backend && ./gradlew spotlessApply` |
 | Replay fixtures | `python3 scripts/generate_replay_fixtures.py --check` |
 | Traceability | `python3 scripts/traceability.py` (`--release` for the release gate) |
+| Repository policies | `python3 -m unittest discover -s scripts/tests` |
+| Backup commands | `java -jar backend/build/libs/strategyforge-backend.jar verify-backup <file>` (or `restore <file>`) |
 | Backend jar + image | `cd backend && ./gradlew bootJar && docker build -t strategyforge-backend:1.0.0 .` |
 
 Integration tests need a running Docker daemon (Testcontainers). Core tests never call live provider APIs (NFR-012).
