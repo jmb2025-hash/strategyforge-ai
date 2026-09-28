@@ -1,5 +1,6 @@
 package app.strategyforge.risk
 
+import app.strategyforge.common.db.ts
 import app.strategyforge.common.db.uuid
 import app.strategyforge.common.money.Decimals
 import app.strategyforge.execution.OrderSide
@@ -23,13 +24,43 @@ class DefaultRiskContextFactory(
     private val instruments: InstrumentService,
     private val market: MarketDataService,
     private val clock: MarketClock,
+    private val wall: java.time.Clock,
     private val jdbc: JdbcClient,
+    private val profiles: RiskProfileService,
+    private val strategies: app.strategyforge.strategy.StrategyService,
 ) : RiskContextFactory {
     override fun build(intent: OrderIntent): RiskContext {
         val p = portfolios.get(intent.portfolioId)
         val i = instruments.byId(intent.instrumentId)
         val now = clock.now()
-        val quote = market.verifyQuote(i, p.costModel.executionMaxQuoteAgeSeconds, now)
+        val strategyDef = intent.strategyVersionId?.let { runCatching { strategies.definition(it) }.getOrNull() }
+        val allocation =
+            intent.strategyId?.let { sid ->
+                jdbc
+                    .sql("select allocation_percent from strategy_activations where strategy_id = :s and status = 'ACTIVE'")
+                    .param("s", sid)
+                    .query(BigDecimal::class.java)
+                    .optional()
+                    .orElse(null)
+            }
+        val levels = mutableListOf<Pair<RiskLevel, RiskLimits>>(RiskLevel.GLOBAL to profiles.global().limits)
+        profiles.limitsFor("PORTFOLIO", p.id)?.let { levels += RiskLevel.PORTFOLIO to it }
+        intent.strategyId?.let { sid -> profiles.limitsFor("STRATEGY", sid)?.let { levels += RiskLevel.STRATEGY to it } }
+        if (strategyDef != null) {
+            levels +=
+                RiskLevel.STRATEGY to
+                RiskLimits(
+                    maxInstrumentAllocationPercent = strategyDef.risk.maximumPositionPercent,
+                    maxStrategyAllocationPercent = allocation,
+                    maxDailyLossPercent = strategyDef.risk.maximumDailyLossPercent,
+                    maxDrawdownPercent = strategyDef.risk.maximumDrawdownPercent,
+                    shortingAllowed = strategyDef.risk.allowShort,
+                    maxQuoteAgeSeconds = strategyDef.maximumQuoteAgeSeconds,
+                )
+        }
+        val limits = EffectiveLimits.merge(levels)
+        val maxAge = minOf(p.costModel.executionMaxQuoteAgeSeconds, limits.maxQuoteAgeSeconds?.value ?: Long.MAX_VALUE)
+        val quote = market.verifyQuote(i, maxAge, now)
         val q = quote.quote
         val est =
             when {
@@ -55,7 +86,165 @@ class DefaultRiskContextFactory(
                 .query { rs, _ ->
                     OpenOrderInfo(rs.uuid("id"), rs.uuid("instrument_id"), OrderSide.valueOf(rs.getString("side")), rs.getBigDecimal("remaining"), rs.getBigDecimal("reserved"))
                 }.list()
-        return RiskContext(intent, p, portfolios.summary(p.id), i, quote, est, open, now)
+        val summary = portfolios.summary(p.id)
+        return RiskContext(intent, p, summary, i, quote, est, open, now, limits = limits, metrics = metrics(intent, p, summary, i, now, allocation, strategyDef))
+    }
+
+    private fun metrics(
+        intent: OrderIntent,
+        p: app.strategyforge.portfolio.Portfolio,
+        summary: app.strategyforge.portfolio.PortfolioSummary,
+        i: app.strategyforge.market.Instrument,
+        now: java.time.Instant,
+        allocation: BigDecimal?,
+        def: app.strategyforge.strategy.StrategyDefinition?,
+    ): RiskMetrics {
+        val dayStart =
+            MarketCalendar.NEW_YORK.let {
+                now
+                    .atZone(it)
+                    .toLocalDate()
+                    .atStartOfDay(it)
+                    .toInstant()
+            }
+        val dayStartEquity =
+            jdbc
+                .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p and at <= :t order by at desc, id desc limit 1")
+                .param("p", p.id)
+                .param("t", ts(dayStart))
+                .query(BigDecimal::class.java)
+                .optional()
+                .orElse(null)
+                ?: jdbc
+                    .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p order by at, id limit 1")
+                    .param("p", p.id)
+                    .query(BigDecimal::class.java)
+                    .optional()
+                    .orElse(p.startingBalance)
+        val peak = portfolios.peakEquity(p.id)?.max(p.startingBalance) ?: p.startingBalance
+
+        fun ordersSince(
+            since: java.time.Instant,
+            strategy: Boolean = false,
+            instrument: Boolean = false,
+        ): Int =
+            jdbc
+                .sql(
+                    """
+                    select count(*) from order_status_history h join paper_orders o on o.id = h.order_id
+                    where o.portfolio_id = :p and h.to_status = 'PENDING' and h.market_time > :since
+                      and (:strat = false or o.strategy_id = :sid) and (:inst = false or o.instrument_id = :iid)
+                    """.trimIndent(),
+                ).param("p", p.id)
+                .param("since", ts(since))
+                .param("strat", strategy)
+                .param("sid", intent.strategyId)
+                .param("inst", instrument)
+                .param("iid", i.id)
+                .query(Int::class.java)
+                .single()
+        val lastForInstrument =
+            jdbc
+                .sql(
+                    "select max(h.market_time) from order_status_history h join paper_orders o on o.id = h.order_id where o.portfolio_id = :p and o.instrument_id = :i and h.to_status = 'PENDING'",
+                ).param("p", p.id)
+                .param("i", i.id)
+                .query(java.time.OffsetDateTime::class.java)
+                .optional()
+                .orElse(null)
+                ?.toInstant()
+
+        fun consecutiveLosses(strategyOnly: Boolean): Int {
+            val pnls =
+                jdbc
+                    .sql(
+                        """
+                        select e.realized_pnl from paper_executions e join paper_orders o on o.id = e.order_id
+                        where e.portfolio_id = :p and e.side in ('SELL', 'BUY_TO_COVER') and (:strat = false or o.strategy_id = :sid)
+                        order by e.executed_at desc, e.fill_seq desc limit 100
+                        """.trimIndent(),
+                    ).param("p", p.id)
+                    .param("strat", strategyOnly)
+                    .param("sid", intent.strategyId)
+                    .query(BigDecimal::class.java)
+                    .list()
+            return pnls.takeWhile { it.signum() < 0 }.size
+        }
+        val instrumentValue = summary.positions.filter { it.instrumentId == i.id }.fold(BigDecimal.ZERO) { a, x -> a.add((x.marketValue ?: x.costBasis).abs()) }
+        val assetValue = summary.positions.filter { it.assetClass == i.assetClass.name }.fold(BigDecimal.ZERO) { a, x -> a.add((x.marketValue ?: x.costBasis).abs()) }
+        val shortValue = summary.positions.filter { it.quantity.signum() < 0 }.fold(BigDecimal.ZERO) { a, x -> a.add((x.marketValue ?: x.costBasis).abs()) }
+        val strategyLots =
+            if (intent.strategyId == null) {
+                emptyList()
+            } else {
+                jdbc
+                    .sql(
+                        """
+                        select l.instrument_id, l.quantity_remaining, l.side from position_lots l
+                        join paper_executions e on e.id = l.open_execution_id join paper_orders o on o.id = e.order_id
+                        where l.portfolio_id = :p and l.quantity_remaining > 0 and o.strategy_id = :s
+                        """.trimIndent(),
+                    ).param("p", p.id)
+                    .param("s", intent.strategyId)
+                    .query { rs, _ -> Triple(rs.uuid("instrument_id"), rs.getBigDecimal("quantity_remaining"), rs.getString("side")) }
+                    .list()
+            }
+        val prices = summary.positions.associate { it.instrumentId to (it.marketPrice ?: it.averageCost) }
+        val strategyExposure = strategyLots.fold(BigDecimal.ZERO) { a, (iid, q, _) -> a.add(q.multiply(prices[iid] ?: BigDecimal.ZERO)) }
+        val daily = runCatching { market.candles(i, app.strategyforge.market.Timeframe.D1, now.minus(java.time.Duration.ofDays(12)), now, now).bars.takeLast(5) }.getOrDefault(emptyList())
+        val emergency =
+            jdbc
+                .sql("select pause_all, prevent_new_positions from emergency_state")
+                .query { rs, _ -> rs.getBoolean(1) to rs.getBoolean(2) }
+                .optional()
+                .orElse(false to false)
+        val strategyStatus =
+            intent.strategyId?.let { sid ->
+                jdbc
+                    .sql("select status from strategies where id = :s")
+                    .param("s", sid)
+                    .query(String::class.java)
+                    .optional()
+                    .orElse(null)
+            }
+        val drift =
+            runCatching {
+                java.time.Duration
+                    .between(
+                        jdbc
+                            .sql("select now()")
+                            .query(java.time.OffsetDateTime::class.java)
+                            .single()
+                            .toInstant(),
+                        wall.instant(),
+                    ).toMillis()
+            }.getOrDefault(Long.MAX_VALUE)
+        return RiskMetrics(
+            equity = summary.equity,
+            dayStartEquity = dayStartEquity,
+            peakEquity = peak,
+            ordersLastMinute = ordersSince(now.minusSeconds(60)),
+            ordersLastHour = ordersSince(now.minusSeconds(3600)),
+            ordersToday = ordersSince(dayStart),
+            lastOrderForInstrumentAt = lastForInstrument,
+            consecutiveLosses = consecutiveLosses(false),
+            openPositions = summary.positions.size,
+            instrumentValue = instrumentValue,
+            assetClassValue = assetValue,
+            shortExposure = shortValue,
+            averageDailyVolume = daily.takeIf { it.isNotEmpty() }?.let { d -> d.fold(BigDecimal.ZERO) { a, b -> a.add(b.volume) }.divide(BigDecimal(d.size), Decimals.MC) },
+            previousClose = daily.lastOrNull()?.close,
+            pauseAll = emergency.first,
+            preventNewPositions = emergency.second,
+            strategyStatus = strategyStatus,
+            strategyAllocationPercent = allocation,
+            strategyExposure = strategyExposure,
+            strategyOpenPositions = strategyLots.map { it.first }.distinct().size,
+            strategyOrdersToday = if (intent.strategyId == null) 0 else ordersSince(dayStart, strategy = true),
+            strategyConsecutiveLosses = if (intent.strategyId == null) 0 else consecutiveLosses(true),
+            strategyLimits = def?.let { StrategyLimitView(it.risk.maximumOpenPositions, it.risk.maximumDailyTrades, it.risk.maximumConsecutiveLosses, it.risk.allowShort) },
+            clockDriftMs = drift,
+        )
     }
 }
 

@@ -74,6 +74,43 @@ class RiskContext(
     val openOrders: List<OpenOrderInfo>,
     val now: Instant,
     val attributes: MutableMap<String, Any?> = mutableMapOf(),
+    val limits: EffectiveLimits? = null,
+    val metrics: RiskMetrics? = null,
+)
+
+/** Point-in-time measurements used by limit rules; all derived from the ledger, orders and verified data. */
+data class RiskMetrics(
+    val equity: BigDecimal,
+    val dayStartEquity: BigDecimal,
+    val peakEquity: BigDecimal,
+    val ordersLastMinute: Int,
+    val ordersLastHour: Int,
+    val ordersToday: Int,
+    val lastOrderForInstrumentAt: Instant?,
+    val consecutiveLosses: Int,
+    val openPositions: Int,
+    val instrumentValue: BigDecimal,
+    val assetClassValue: BigDecimal,
+    val shortExposure: BigDecimal,
+    val averageDailyVolume: BigDecimal?,
+    val previousClose: BigDecimal?,
+    val pauseAll: Boolean,
+    val preventNewPositions: Boolean,
+    val strategyStatus: String?,
+    val strategyAllocationPercent: BigDecimal?,
+    val strategyExposure: BigDecimal,
+    val strategyOpenPositions: Int,
+    val strategyOrdersToday: Int,
+    val strategyConsecutiveLosses: Int,
+    val strategyLimits: StrategyLimitView?,
+    val clockDriftMs: Long,
+)
+
+data class StrategyLimitView(
+    val maxOpenPositions: Int,
+    val maxDailyTrades: Int,
+    val maxConsecutiveLosses: Int?,
+    val allowShort: Boolean,
 )
 
 /**

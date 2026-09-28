@@ -2,6 +2,7 @@ package app.strategyforge.execution
 
 import app.strategyforge.support.FreshDatabaseTest
 import app.strategyforge.support.Replay
+import app.strategyforge.support.TestHttp
 import app.strategyforge.support.TestOwner
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.MethodOrderer
@@ -73,6 +74,13 @@ class EquitySessionIT : FreshDatabaseTest() {
         val pid = Replay.portfolio(h, name = "Shorts", costModel = mapOf("shortMaintenancePercent" to "200", "shortInitialMarginPercent" to "50"))
         h.post("/v1/auth/reauthenticate", mapOf("password" to TestOwner.PASSWORD))
         h.put("/v1/portfolios/$pid/shorting", mapOf("enabled" to true))
+        // The default global profile blocks a 68% short; loosening it is a risk increase (recent auth held above).
+        val global = h.get("/v1/risk/profiles/global")
+        val limits = TestHttp.mapper.convertValue(global.json["limits"], MutableMap::class.java) as MutableMap<String, Any?>
+        limits["maxTradePercentOfEquity"] = "90"
+        limits["maxShortExposurePercent"] = "90"
+        limits["maxInstrumentAllocationPercent"] = "90"
+        assertThat(h.put("/v1/risk/profiles/global", limits, mapOf("If-Match" to global.header("ETag")!!)).status).isEqualTo(200)
         // Short enough that equity < 200% of short value triggers the forced cover.
         val r = Replay.order(h, pid, "SPY", "SELL_SHORT", "200")
         assertThat(r.json["order"]["status"].asText()).`as`(r.body).isEqualTo("PENDING")

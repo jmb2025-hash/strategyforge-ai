@@ -405,7 +405,25 @@ class PortfolioService(
                 .toSet()
         return positions.filter { it.quantity.signum() != 0 }.map { pos ->
             val i = byId.getValue(pos.instrumentId)
-            val v = market.verifyQuote(i, p.costModel.executionMaxQuoteAgeSeconds.coerceAtLeast(VALUATION_MAX_AGE), now)
+            // While a market is closed, the last session's closing print is a verified valuation mark.
+            val closedSince =
+                if (app.strategyforge.market.MarketCalendar
+                        .state(i.assetClass, now) == app.strategyforge.market.SessionState.CLOSED
+                ) {
+                    app.strategyforge.market.MarketCalendar
+                        .currentOrPreviousSession(now)
+                        ?.close
+                        ?.takeIf { !it.isAfter(now) }
+                } else {
+                    null
+                }
+            val maxAge =
+                closedSince?.let {
+                    java.time.Duration
+                        .between(it, now)
+                        .seconds + VALUATION_CLOSE_GRACE
+                } ?: VALUATION_MAX_AGE
+            val v = market.verifyQuote(i, maxAge.coerceAtLeast(p.costModel.executionMaxQuoteAgeSeconds), now)
             val q = v.quote
             val price = q?.let { if (pos.quantity.signum() > 0) it.bid ?: it.last else it.ask ?: it.last }
             val mv = price?.let { Decimals.money(pos.quantity.multiply(it)) }
@@ -525,5 +543,6 @@ class PortfolioService(
     companion object {
         const val MAX_ACTIVE = 10
         const val VALUATION_MAX_AGE = 3600L
+        const val VALUATION_CLOSE_GRACE = 120L
     }
 }
