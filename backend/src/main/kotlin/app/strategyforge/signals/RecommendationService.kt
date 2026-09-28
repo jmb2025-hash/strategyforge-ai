@@ -9,6 +9,7 @@ import app.strategyforge.common.db.ts
 import app.strategyforge.common.db.uuid
 import app.strategyforge.common.db.uuidOrNull
 import app.strategyforge.common.money.Decimals
+import app.strategyforge.common.web.CommittedRejection
 import app.strategyforge.common.web.Cursor
 import app.strategyforge.common.web.PageResponse
 import app.strategyforge.common.web.Paging
@@ -34,7 +35,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
@@ -137,7 +137,7 @@ class RecommendationService(
     private val marketClock: MarketClock,
     txManager: PlatformTransactionManager,
 ) {
-    private val independent = TransactionTemplate(txManager).apply { propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW }
+    private val tx = TransactionTemplate(txManager)
 
     fun detail(id: UUID): RecommendationDetail {
         val r = get(id)
@@ -146,8 +146,29 @@ class RecommendationService(
         return RecommendationDetail(r, token, decisions(id), DISCLAIMER)
     }
 
-    @Transactional
+    /**
+     * Expiry and price-deviation failures are recorded and committed in the same transaction as the
+     * token consumption (the locked row cannot be updated from a second transaction), and the error
+     * is raised only after the commit.
+     */
     fun accept(
+        id: UUID,
+        req: AcceptRequest,
+    ): DecisionResult {
+        // Only a CommittedRejection commits; any other exception rolls the transaction back. When an
+        // outer owner (the idempotency service) holds the transaction it commits before rethrowing.
+        val outcome =
+            tx.execute {
+                try {
+                    Result.success(acceptLocked(id, req))
+                } catch (e: CommittedRejection) {
+                    Result.failure(e)
+                }
+            }!!
+        return outcome.getOrThrow()
+    }
+
+    private fun acceptLocked(
         id: UUID,
         req: AcceptRequest,
     ): DecisionResult {
@@ -158,8 +179,8 @@ class RecommendationService(
         tokens.consume(req.actionToken, PURPOSE, id.toString())
         val now = marketClock.now()
         if (!now.isBefore(r.expiresAt)) {
-            finalizeIndependently(r, RecommendationStatus.EXPIRED, "EXPIRE", "Expired at ${r.expiresAt} before acceptance")
-            throw Problems.conflict("recommendation-expired", "The recommendation expired at ${r.expiresAt}")
+            finalize(r, RecommendationStatus.EXPIRED, "EXPIRE", "Expired at ${r.expiresAt} before acceptance", AuditOutcome.FAILURE)
+            throw CommittedRejection(Problems.conflict("recommendation-expired", "The recommendation expired at ${r.expiresAt}"))
         }
         val instrument = instruments.byId(r.instrumentId)
         market.refreshQuote(instrument)
@@ -175,8 +196,11 @@ class RecommendationService(
                 .multiply(Decimals.HUNDRED)
                 .divide(r.referencePrice, Decimals.MC)
         if (deviation > r.maxDeviationPercent) {
-            finalizeIndependently(r, RecommendationStatus.FAILED, "FAIL", "Price moved ${Decimals.percent(deviation).stripTrailingZeros().toPlainString()}% from ${r.referencePrice.toPlainString()} (limit ${r.maxDeviationPercent.toPlainString()}%)")
-            throw Problems.conflict("price-deviation", "The market price moved ${deviation.setScale(2, java.math.RoundingMode.HALF_EVEN)}% since the recommendation; limit ${r.maxDeviationPercent.toPlainString()}%")
+            val reason = "Price moved ${Decimals.percent(deviation).stripTrailingZeros().toPlainString()}% from ${r.referencePrice.toPlainString()} (limit ${r.maxDeviationPercent.toPlainString()}%)"
+            finalize(r, RecommendationStatus.FAILED, "FAIL", reason, AuditOutcome.FAILURE)
+            throw CommittedRejection(
+                Problems.conflict("price-deviation", "The market price moved ${deviation.setScale(2, java.math.RoundingMode.HALF_EVEN)}% since the recommendation; limit ${r.maxDeviationPercent.toPlainString()}%"),
+            )
         }
         val (qty, limit, modified) = applyModification(r, req.modification, instrument.minQuantity, instrument.quantityIncrement)
         val signal =
@@ -418,25 +442,9 @@ class RecommendationService(
         status: RecommendationStatus,
         decision: String,
         reason: String,
+        outcome: AuditOutcome = AuditOutcome.SUCCESS,
     ) {
-        jdbc
-            .sql("update recommendations set status = :s, status_reason = :r, decided_at = :now, updated_at = :now, version = version + 1 where id = :id and status = 'PENDING'")
-            .param("s", status.name)
-            .param("r", reason.take(1000))
-            .param("now", ts(clock.instant()))
-            .param("id", r.id)
-            .update()
-        record(r.id, decision, mapOf("reason" to reason))
-        audit.record(AuditCategory.RECOMMENDATION, "RECOMMENDATION_$decision", entityType = "Recommendation", entityId = r.id, details = mapOf("reason" to reason))
-    }
-
-    private fun finalizeIndependently(
-        r: Recommendation,
-        status: RecommendationStatus,
-        decision: String,
-        reason: String,
-    ) {
-        independent.executeWithoutResult {
+        val changed =
             jdbc
                 .sql("update recommendations set status = :s, status_reason = :r, decided_at = :now, updated_at = :now, version = version + 1 where id = :id and status = 'PENDING'")
                 .param("s", status.name)
@@ -444,9 +452,9 @@ class RecommendationService(
                 .param("now", ts(clock.instant()))
                 .param("id", r.id)
                 .update()
-            record(r.id, decision, mapOf("reason" to reason))
-        }
-        audit.recordIndependently(AuditCategory.RECOMMENDATION, "RECOMMENDATION_$decision", AuditOutcome.FAILURE, "Recommendation", r.id, mapOf("reason" to reason))
+        if (changed == 0) return // already decided (e.g. closed by a strategy pause in the same transaction)
+        record(r.id, decision, mapOf("reason" to reason))
+        audit.record(AuditCategory.RECOMMENDATION, "RECOMMENDATION_$decision", outcome, "Recommendation", r.id, mapOf("reason" to reason))
     }
 
     private fun record(

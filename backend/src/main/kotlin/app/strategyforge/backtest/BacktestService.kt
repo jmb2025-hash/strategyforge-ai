@@ -22,6 +22,10 @@ import app.strategyforge.market.data.DataStatus
 import app.strategyforge.market.data.MarketDataService
 import app.strategyforge.market.provider.MarketProviderRegistry
 import app.strategyforge.portfolio.CostModel
+import app.strategyforge.risk.EffectiveLimits
+import app.strategyforge.risk.RiskLevel
+import app.strategyforge.risk.RiskLimits
+import app.strategyforge.risk.RiskProfileService
 import app.strategyforge.settings.SettingsService
 import app.strategyforge.strategy.StrategyService
 import app.strategyforge.strategy.StrategyStatus
@@ -65,6 +69,9 @@ data class BacktestRequest(
     val executionDelayBars: Int = 1,
     val benchmarkSymbol: String? = null,
     val symbols: List<String>? = null,
+    /** Extra risk limits for this run; merged strictest-wins with the global profile when [applyGlobalRiskProfile] (FR-051). */
+    val riskProfile: RiskLimits? = null,
+    val applyGlobalRiskProfile: Boolean = true,
 )
 
 data class IntegrityIssue(
@@ -119,6 +126,7 @@ class BacktestService(
     private val audit: AuditService,
     private val mapper: ObjectMapper,
     private val events: org.springframework.context.ApplicationEventPublisher,
+    private val profiles: RiskProfileService,
     txManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -147,7 +155,19 @@ class BacktestService(
                 if (req.executionDelayBars !in 1..10) throw Problems.badRequest("invalid-delay", "executionDelayBars must be 1-10")
                 val capital = req.startingCapital ?: settings.get().portfolioDefaults.startingBalance
                 if (capital < BigDecimal(100) || capital > BigDecimal(100_000_000)) throw Problems.badRequest("invalid-capital", "startingCapital must be 100 - 100,000,000")
-                val params = req.copy(versionId = versionId, startingCapital = capital, costModel = req.costModel ?: CostModel.from(settings.get().portfolioDefaults))
+                req.riskProfile?.let { profiles.validate(it) }
+                val levels =
+                    listOfNotNull(
+                        profiles
+                            .global()
+                            .limits
+                            .takeIf { req.applyGlobalRiskProfile }
+                            ?.let { RiskLevel.GLOBAL to it },
+                        req.riskProfile?.let { RiskLevel.PORTFOLIO to it },
+                    )
+                // The stored parameters record the exact merged limits the run used.
+                val risk = if (levels.isEmpty()) RiskLimits() else RiskProfileService.toLimits(EffectiveLimits.merge(levels))
+                val params = req.copy(versionId = versionId, startingCapital = capital, costModel = req.costModel ?: CostModel.from(settings.get().portfolioDefaults), riskProfile = risk)
                 val id = UUID.randomUUID()
                 jdbc
                     .sql("insert into backtests(id, strategy_id, version_id, content_hash, status, params, created_at) values (:id, :s, :v, :h, 'QUEUED', cast(:p as jsonb), :now)")
@@ -278,7 +298,7 @@ class BacktestService(
         }
         val benchSymbol = req.benchmarkSymbol ?: if (def.assetClass == AssetClass.CRYPTO) "BTC-USD" else "SPY"
         val benchmark = benchmark(benchSymbol, req.from, asOf, issues)
-        val out = BacktestEngine(def, BacktestParams(req.from, asOf, req.startingCapital!!, req.costModel!!, req.executionDelayBars)).run(series)
+        val out = BacktestEngine(def, BacktestParams(req.from, asOf, req.startingCapital!!, req.costModel!!, req.executionDelayBars, req.riskProfile ?: RiskLimits())).run(series)
         val metrics = BacktestMetrics.compute(out, req.startingCapital, req.from, asOf, benchmark?.get("returnFraction") as BigDecimal?)
         val status =
             when {

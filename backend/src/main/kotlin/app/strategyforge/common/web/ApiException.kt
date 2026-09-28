@@ -13,6 +13,16 @@ open class ApiException(
     val properties: Map<String, Any?> = emptyMap(),
 ) : RuntimeException(message)
 
+/**
+ * A rejection whose recorded outcome (for example "recommendation expired") must be committed
+ * together with the work done so far, instead of rolling it back. Transaction owners that
+ * understand it (the idempotency service) commit and then rethrow; everyone else sees a normal
+ * [ApiException].
+ */
+class CommittedRejection(
+    error: ApiException,
+) : ApiException(error.status, error.code, error.message, error.properties)
+
 object Problems {
     fun badRequest(
         code: String,

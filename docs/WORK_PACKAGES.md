@@ -59,3 +59,19 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Migrations:** `V7__backtests.sql`.
 - **Tests:** `IndicatorsTest` (hand values + jqwik causality), `BacktestEngineTest` (look-ahead perturbation, determinism, stop-first), `BacktestIT` (promotion, missing data, future range, corporate-action MRR).
 - **Result:** Passed — 101 tests green; spotless and detekt clean.
+
+## WP6 — Risk limits, signals and recommendations
+
+- **Outcome:** Global/portfolio/strategy risk profiles merged strictest-wins with the supplying level reported; limit rules for emergency controls, strategy status, clock drift, symbol lists, trade value, instrument/asset-class/strategy allocation, open positions, trade frequency and cooldown, daily loss, drawdown and loss streaks, short exposure, quote age, spread, liquidity and abnormal moves (UNVERIFIED fails closed). Loosening a profile requires recent authentication. Backend evaluation of active strategies once per closed bar, claimed through a unique row. Fail-closed verification of strategy state, reconciliation, quotes and bars. Signals with full provenance. Recommendations created only after a recorded risk evaluation, with accept (single-use token), risk-reducing modify, decline, snooze, pause, expiry, supersession, price-deviation rejection and an append-only decision log. Consecutive-loss and error-rate suspension. Backtest risk-profile parameter (FR-051).
+- **Requirements:** FR-051, FR-060–FR-066, FR-090, FR-091, FR-093, FR-094, NFR-006, NFR-007, MS-10, MS-12, MS-13.
+- **Migrations:** `V8__risk_signals_recommendations.sql`.
+- **Tests:** `LimitRulesTest` (every rule), `RecommendationLifecycleIT`, `RecommendationExpiryIT`, `StrategySafetyIT` (concurrent scheduler workers, loss and error suspension, 25-active cap), `RiskDecisionLatencyIT`, `BacktestIT` (risk profile).
+- **Risks found and fixed:** a self-deadlock when a rejection was recorded in a second transaction while the recommendation row was locked. Rejections now commit with the idempotency record (`CommittedRejection`).
+- **Decisions:** D-019, D-020, D-021.
+
+## WP7 — Autonomous mode and emergency controls
+
+- **Outcome:** Recommendation Mode by default. Autonomous activation gated on a validated immutable version, an eligible backtest for the exact hash, an active reconciled portfolio, allocation within 100%, a loadable risk profile, the versioned disclosure and recent authentication. An authorization fingerprint is re-checked before every autonomous order and whenever a risk profile or portfolio changes. Autonomous orders are created only after risk passes. Automatic pause on stale data, unverifiable risk state, loss/drawdown blocks and reconciliation failure. Emergency controls: Pause All, Prevent New Positions, Cancel Pending Orders, Disable Autonomous Mode, and a separate Close All Simulated Positions (recent authentication plus a typed confirmation). Releasing a control requires recent authentication. Everything is audited and raises critical notifications.
+- **Requirements:** FR-047 (active cap), FR-070–FR-075, MS-11, MS-15.
+- **Tests:** `AutonomyIT`, `EmergencyControlsIT`.
+- **Result (WP6 + WP7):** Passed. 124 backend tests green; spotless and detekt clean; traceability 71/114 Passed.

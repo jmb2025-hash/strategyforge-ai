@@ -4,6 +4,7 @@ import app.strategyforge.common.audit.AuditService
 import app.strategyforge.common.db.ts
 import app.strategyforge.common.json.JsonConfig
 import app.strategyforge.common.web.ApiException
+import app.strategyforge.common.web.CommittedRejection
 import app.strategyforge.common.web.PROBLEM_BASE
 import app.strategyforge.common.web.Problems
 import app.strategyforge.common.web.problem
@@ -47,29 +48,56 @@ class IdempotencyService(
         val k = validateKey(key)
         val requestHash = AuditService.sha256(scope + "|" + JsonConfig.canonical(mapper, mapper.valueToTree(request ?: emptyMap<String, Any>())))
         try {
-            return tx.execute {
-                val inserted =
-                    jdbc
-                        .sql(
-                            """
-                            insert into idempotency_records(scope, idem_key, request_hash, status, created_at)
-                            values (:scope, :key, :hash, 'IN_PROGRESS', :now)
-                            on conflict (scope, idem_key) do nothing
-                            """.trimIndent(),
-                        ).param("scope", scope)
-                        .param("key", k)
-                        .param("hash", requestHash)
-                        .param("now", ts(clock.instant()))
-                        .update()
-                if (inserted == 0) return@execute replay(scope, k, requestHash)
-                val result = action()
-                val body = mapper.writeValueAsString(result)
-                complete(scope, k, successStatus.value(), body)
-                ResponseEntity.status(successStatus).contentType(MediaType.APPLICATION_JSON).body(result as Any)
-            }!!
+            var committed: CommittedRejection? = null
+            val response =
+                tx.execute {
+                    val inserted =
+                        jdbc
+                            .sql(
+                                """
+                                insert into idempotency_records(scope, idem_key, request_hash, status, created_at)
+                                values (:scope, :key, :hash, 'IN_PROGRESS', :now)
+                                on conflict (scope, idem_key) do nothing
+                                """.trimIndent(),
+                            ).param("scope", scope)
+                            .param("key", k)
+                            .param("hash", requestHash)
+                            .param("now", ts(clock.instant()))
+                            .update()
+                    if (inserted == 0) return@execute replay(scope, k, requestHash)
+                    val result =
+                        try {
+                            action()
+                        } catch (e: CommittedRejection) {
+                            // The recorded outcome commits with the key so a retry observes the same rejection.
+                            complete(scope, k, e.status.value(), mapper.writeValueAsString(problem(e.status, e.code, e.message, null, e.properties)))
+                            committed = e
+                            return@execute null
+                        }
+                    val body = mapper.writeValueAsString(result)
+                    complete(scope, k, successStatus.value(), body)
+                    ResponseEntity.status(successStatus).contentType(MediaType.APPLICATION_JSON).body(result as Any)
+                }
+            committed?.let { throw it }
+            return response!!
+        } catch (e: CommittedRejection) {
+            throw e
         } catch (e: ApiException) {
-            // Deterministic business rejections are stored so a retry observes the same outcome.
-            // Auth/precondition/rate-limit/server failures are not stored: the caller may fix and retry.
+            throw storeFailure(scope, k, requestHash, e)
+        }
+    }
+
+    /**
+     * Deterministic business rejections are stored so a retry observes the same outcome.
+     * Auth/precondition/rate-limit/server failures are not stored: the caller may fix and retry.
+     */
+    private fun storeFailure(
+        scope: String,
+        k: String,
+        requestHash: String,
+        e: ApiException,
+    ): ApiException {
+        run {
             if (e.status.value() in STORABLE_FAILURES) {
                 val body = mapper.writeValueAsString(problem(e.status, e.code, e.message, null, e.properties))
                 newTx.execute {
@@ -89,8 +117,8 @@ class IdempotencyService(
                         .update()
                 }
             }
-            throw e
         }
+        return e
     }
 
     private fun complete(

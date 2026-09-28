@@ -104,6 +104,33 @@ class BacktestIT : FreshDatabaseTest() {
     }
 
     @Test
+    fun `FR-051 FR-091 a backtest risk profile is merged strictest-wins and recorded with the run`() {
+        val h = TestOwner.client(baseUrl)
+        val id = create(h, fixture("valid_crypto_rsi.json"))
+        // The strategy buys 5,000 per entry; a 1,000 trade-value cap blocks every entry.
+        val body =
+            mapOf(
+                "strategyId" to id,
+                "from" to "2026-02-01T00:00:00Z",
+                "to" to "2026-06-20T00:00:00Z",
+                "startingCapital" to "100000",
+                "riskProfile" to mapOf("maxTradeValue" to "1000", "maxOpenPositions" to 50),
+            )
+        val r = h.post("/v1/backtests", body)
+        assertThat(r.status).`as`(r.toString()).isEqualTo(202)
+        val b = await(h, r.json["id"].asText())
+        assertThat(b["status"].asText()).isEqualTo("COMPLETED")
+        assertThat(b["metrics"]["trades"].asInt()).isZero()
+        assertThat(b["metrics"]["riskBlockedEntries"].asInt()).isGreaterThan(0)
+        val applied = b["params"]["riskProfile"]
+        assertThat(java.math.BigDecimal(applied["maxTradeValue"].asText())).isEqualByComparingTo("1000")
+        // The global profile (25 open positions) is stricter than the requested 50.
+        assertThat(applied["maxOpenPositions"].asInt()).isEqualTo(25)
+        val invalid = h.post("/v1/backtests", body + ("riskProfile" to mapOf("maxTradeValue" to "-1")))
+        assertThat(invalid.status).isEqualTo(400)
+    }
+
+    @Test
     fun `FR-050 backtests cannot read data after the current market time`() {
         val h = TestOwner.client(baseUrl)
         val id = create(h, fixture("valid_crypto_rsi.json"))

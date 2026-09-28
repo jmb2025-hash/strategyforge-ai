@@ -146,3 +146,21 @@ When a conflict is unresolved, the safest reversible option is selected.
 
 - **Decision:** Annualized return is reported only for windows of at least one year (otherwise null with a note). Volatility is annualized from the observed bar frequency. Critical integrity: no bars in window, more than 5% missing bars, or a data-quality flag. Corporate-action data unavailable for an equity makes the result Manual Review Required. Only OK/WARNINGS results for the exact current version promote a strategy to Paper Eligible. Limit entries are valid for one bar; unfilled remainders are dropped. Backtests cannot request data after the current market time. Running backtests interrupted by a restart are marked failed.
 - **Requirements affected:** FR-050..FR-055, FR-025.
+
+## D-019 Default risk profile values
+
+- **Context:** The master document requires a global risk profile but does not give numeric defaults for every limit.
+- **Decision:** A seeded GLOBAL profile uses conservative values (20% of equity per trade, 25% per instrument, 100% equities / 50% crypto per asset class, 25 open positions, 5/60/200 orders per minute/hour/day, 5% daily loss, 25% drawdown, 6 consecutive losses, 50% short exposure, 60 s quote age, 1% spread, 10% participation, 15% move from the previous close, 3 consecutive evaluation errors). Tightening any level is immediate; loosening requires recent authentication and is audited. Portfolio and strategy profiles are optional overlays; the strictest applicable value wins and each block names the level that supplied it.
+- **Requirements affected:** FR-090, FR-091, FR-093.
+
+## D-020 Signal evaluation, expiry and supersession
+
+- **Context:** The master document requires scheduled evaluation, signal expiry and supersession without fixing the cadence or expiry length.
+- **Decision:** Each active strategy is evaluated once per closed bar of its timeframe. The claim is a unique `(strategy, bucket)` row, so concurrent workers, retries and restarts cannot duplicate work. Signals expire after the bar length clamped to 5–30 minutes. A newer signal for the same strategy and instrument supersedes a pending recommendation. A strategy never trades an instrument that is held outside the strategy. A symbol that fails verification blocks the whole evaluation and nothing is traded.
+- **Requirements affected:** FR-060, FR-061, FR-066, NFR-007, MS-13.
+
+## D-021 Automatic pauses, suspensions and emergency controls
+
+- **Context:** The master document lists the pause triggers and emergency controls but not the resulting states.
+- **Decision:** Stale or unavailable data, reconciliation failure, an unavailable risk engine or unverifiable risk state, a loss or drawdown limit, and any material change to the authorization fingerprint (strategy version, portfolio cost model or shorting, allocation, or any applicable risk profile) move an autonomous strategy to Paused. Repeated evaluation errors (the effective `maxConsecutiveErrors`, default 3) and the strategy's consecutive-loss limit move it to Suspended, which the owner must review before re-activating. Pending recommendations are closed on every pause or suspension. Engaging an emergency control is immediate. Releasing Pause All or Prevent New Positions requires recent authentication. Pause All also pauses every active strategy so nothing resumes on release, and blocks every order except Close All Simulated Positions, which requires recent authentication plus the typed phrase `CLOSE ALL SIMULATED POSITIONS`.
+- **Requirements affected:** FR-072, FR-074, FR-075, FR-094, MS-11, MS-15.

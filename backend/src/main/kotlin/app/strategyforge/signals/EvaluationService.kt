@@ -83,7 +83,7 @@ data class EvaluationSummary(
     val detail: String,
 )
 
-private data class SignalDraft(
+data class SignalDraft(
     val instrument: Instrument,
     val action: String,
     val side: OrderSide,
@@ -109,15 +109,12 @@ class EvaluationService(
     private val instruments: InstrumentService,
     private val market: MarketDataService,
     private val portfolios: PortfolioService,
-    private val risk: RiskEngine,
-    private val recommendations: RecommendationService,
-    private val orders: OrderService,
+    private val dispatcher: SignalDispatcher,
     private val notifications: NotificationService,
     private val audit: AuditService,
     private val mapper: ObjectMapper,
     private val clock: Clock,
     private val marketClock: MarketClock,
-    private val props: StrategyForgeProperties,
     private val events: ApplicationEventPublisher,
     txManager: PlatformTransactionManager,
 ) {
@@ -176,7 +173,7 @@ class EvaluationService(
                     details += "$sym bars ${series.status}: ${series.detail}"
                     return@forEach
                 }
-                draft(a, def, i, series.bars, quote.quote!!.last, now)?.let { drafts += it }
+                draft(a, def, i, series.bars, quote.quote!!.last)?.let { drafts += it }
             }
         }
         if (blocks.isNotEmpty()) {
@@ -265,7 +262,6 @@ class EvaluationService(
         i: Instrument,
         bars: List<app.strategyforge.market.CandleData>,
         last: BigDecimal,
-        now: Instant,
     ): SignalDraft? {
         val ev = RuleEvaluator(bars, Indicators.compute(def.indicators, bars))
         val idx = bars.lastIndex
@@ -278,13 +274,7 @@ class EvaluationService(
                 .param("i", i.id)
                 .query(Int::class.java)
                 .single() > 0
-        val pendingRec =
-            jdbc
-                .sql("select count(*) from recommendations where strategy_id = :s and instrument_id = :i and status = 'PENDING'")
-                .param("s", a.strategyId)
-                .param("i", i.id)
-                .query(Int::class.java)
-                .single() > 0
+        // A newer signal supersedes any pending recommendation for this instrument (FR-066).
         if (openOrder) return null
         val limitFor = { price: BigDecimal, buy: Boolean ->
             def.order.limitOffsetPercent?.takeIf { def.order.orderType == "LIMIT" }?.let { off ->
@@ -309,12 +299,10 @@ class EvaluationService(
                     def.exit.conditions?.let { ev.evaluate(it, idx) } == true -> "EXIT_RULE"
                     else -> null
                 } ?: return null
-            if (pendingRec) return null
             val side = if (short) OrderSide.BUY_TO_COVER else OrderSide.SELL
             val rationale = "Exit ($reason): last ${last.stripTrailingZeros().toPlainString()} vs average cost ${avgCost.setScale(4, RoundingMode.HALF_EVEN).toPlainString()} after $barsSince bar(s)."
             return SignalDraft(i, if (short) "EXIT_SHORT" else "EXIT_LONG", side, qty, if (limitFor(last, side.buys) != null) OrderType.LIMIT else OrderType.MARKET, limitFor(last, side.buys), last, listOf(reason), rationale)
         }
-        if (pendingRec) return null
         val position = portfolios.positionViews(portfolios.get(a.portfolioId)).firstOrNull { it.instrumentId == i.id }
         if (position != null) return null // the instrument is held outside this strategy; do not mix
         if (!ev.evaluate(def.entry, idx)) return null
@@ -377,7 +365,8 @@ class EvaluationService(
             .query { rs, _ ->
                 val q = rs.getBigDecimal("q")
                 if (q == null || q.signum() == 0) null else Triple(q, rs.getBigDecimal("c").divide(q, Decimals.MC), rs.getObject("t", java.time.OffsetDateTime::class.java).toInstant())
-            }.single()
+            }.list()
+            .firstOrNull()
 
     /** Persists the signal, evaluates risk, then either recommends (default) or executes autonomously. */
     private fun emit(
@@ -429,91 +418,10 @@ class EvaluationService(
                     .param("now", ts(clock.instant()))
                     .update()
             if (inserted == 0) return@execute false
-            if (a.mode == ActivationMode.AUTONOMOUS) {
-                executeAutonomously(a, id, d)
-            } else {
-                val decision =
-                    risk.evaluate(
-                        OrderIntent(a.portfolioId, d.instrument.id, d.side, d.orderType, d.quantity, d.limitPrice, null, TimeInForce.DAY, OrderSource.RECOMMENDATION, a.strategyId, a.versionId),
-                    )
-                jdbc
-                    .sql("update signals set risk_evaluation_id = :r, disposition = :d where id = :id")
-                    .param("r", decision.id)
-                    .param("d", if (decision.allowed) "RECOMMENDED" else "BLOCKED")
-                    .param("id", id)
-                    .update()
-                val maxDev = portfolios.get(a.portfolioId).costModel.maxPriceDeviationPercent
-                recommendations.create(id, decision.allowed, decision.id, decision.reasons, maxDev)
-            }
+            dispatcher.dispatch(a, id, d)
             audit.record(AuditCategory.STRATEGY, "SIGNAL_CREATED", entityType = "Signal", entityId = id, details = mapOf("strategyId" to a.strategyId, "hash" to a.contentHash, "action" to d.action, "symbol" to d.instrument.symbol, "mode" to a.mode))
             true
         } ?: false
-
-    /** Autonomous execution only after the authorization fingerprint still matches and risk passes (FR-072, FR-073). */
-    private fun executeAutonomously(
-        a: Activation,
-        signalId: UUID,
-        d: SignalDraft,
-    ) {
-        val current = activations.fingerprint(a.strategyId, a.versionId, a.portfolioId, a.allocationPercent)
-        if (current != a.fingerprint) {
-            jdbc.sql("update signals set disposition = 'BLOCKED' where id = :id").param("id", signalId).update()
-            events.publishEvent(ReauthorizationRequired(a.strategyId, a.id, "Material change since autonomy was authorized"))
-            return
-        }
-        val r =
-            orders.create(
-                OrderRequest(a.portfolioId, d.instrument.symbol, d.side, d.orderType, d.quantity, d.limitPrice, null, TimeInForce.DAY),
-                OrderSource.AUTONOMOUS,
-                OrderLinks(a.strategyId, a.versionId, null, signalId),
-            )
-        jdbc
-            .sql("update signals set risk_evaluation_id = :r, disposition = :d where id = :id")
-            .param("r", r.risk.id)
-            .param("d", if (r.risk.allowed) "AUTO_EXECUTED" else "BLOCKED")
-            .param("id", signalId)
-            .update()
-        if (!r.risk.allowed) {
-            // FR-074: loss/drawdown limits and an unavailable risk engine or unverifiable data stop autonomy.
-            val unverified =
-                r.risk.results
-                    .filter { it.rule in r.risk.blocking && it.outcome == app.strategyforge.risk.RuleOutcome.UNVERIFIED }
-                    .map { it.rule }
-            val conditions =
-                buildSet {
-                    if ("LOSS_LIMITS" in r.risk.blocking) add("LOSS_OR_DRAWDOWN_LIMIT")
-                    if ("RISK_ENGINE_AVAILABLE" in unverified) add("RISK_ENGINE_UNAVAILABLE")
-                    if (unverified.any { it != "RISK_ENGINE_AVAILABLE" }) add("UNVERIFIED_RISK_STATE")
-                }
-            if (conditions.isNotEmpty()) events.publishEvent(EvaluationBlocked(a.strategyId, a.id, a.mode, conditions, r.risk.reasons.joinToString("; ")))
-            notifications.notify(NotificationCategory.RISK_EVENT, Severity.WARNING, "Autonomous order blocked: ${d.instrument.symbol}", "Risk blocked the simulated order: ${r.risk.reasons.joinToString("; ").take(500)}", "PaperOrder", r.order.id, "auto-blocked:${r.order.id}")
-        }
-    }
-
-    @Scheduled(fixedDelayString = "\${strategyforge.scheduler.evaluation-interval-ms:20000}", initialDelay = 15000)
-    fun scheduled() {
-        if (!props.scheduler.enabled || marketClock.mode() != ClockMode.LIVE) return
-        CorrelationIdFilter.withCorrelation("eval") { evaluateAll() }
-    }
-
-    /** Replay mode: evaluation after ingestion, execution and maintenance; then recommendation expiry. */
-    @EventListener
-    @Order(30)
-    fun onReplayStep(e: MarketClockAdvanced) {
-        evaluateAll()
-    }
-
-    @EventListener
-    @Order(40)
-    fun expireOnReplayStep(e: MarketClockAdvanced) {
-        recommendations.expireDue()
-    }
-
-    @Scheduled(fixedDelayString = "\${strategyforge.scheduler.expiry-interval-ms:15000}", initialDelay = 15000)
-    fun scheduledExpiry() {
-        if (!props.scheduler.enabled || marketClock.mode() != ClockMode.LIVE) return
-        CorrelationIdFilter.withCorrelation("expiry") { recommendations.expireDue() }
-    }
 
     companion object {
         const val MIN_EXPIRY_SECONDS = 300L

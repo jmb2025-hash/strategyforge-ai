@@ -159,6 +159,35 @@ class RiskProfileService(
 ) {
     fun global(): RiskProfileView = find("GLOBAL", null) ?: error("Global risk profile missing")
 
+    companion object {
+        /** Flattens merged limits back into a profile (used to record exactly what a backtest applied). */
+        fun toLimits(e: EffectiveLimits) =
+            RiskLimits(
+                e.maxTradeValue?.value,
+                e.maxTradePercentOfEquity?.value,
+                e.maxInstrumentAllocationPercent?.value,
+                e.maxAssetClassAllocationPercent.mapValues { it.value.value }.ifEmpty { null },
+                e.maxStrategyAllocationPercent?.value,
+                e.maxOpenPositions?.value,
+                e.maxTradesPerMinute?.value,
+                e.maxTradesPerHour?.value,
+                e.maxTradesPerDay?.value,
+                e.cooldownSeconds?.value,
+                e.maxDailyLossPercent?.value,
+                e.maxDrawdownPercent?.value,
+                e.maxConsecutiveLosses?.value,
+                e.maxShortExposurePercent?.value,
+                e.shortingAllowed?.value,
+                e.maxQuoteAgeSeconds?.value,
+                e.maxSpreadPercent?.value,
+                e.maxParticipationPercent?.value,
+                e.maxPriceDeviationPercent?.value,
+                e.maxConsecutiveErrors?.value,
+                e.allowSymbols?.value?.sorted(),
+                e.denySymbols.sorted().ifEmpty { null },
+            )
+    }
+
     fun find(
         scope: String,
         scopeId: UUID?,
@@ -270,7 +299,7 @@ class RiskProfileService(
         return numeric || cooldown || shorting || assets || deny || allow
     }
 
-    private fun validate(l: RiskLimits) {
+    fun validate(l: RiskLimits) {
         fun pct(
             name: String,
             v: BigDecimal?,

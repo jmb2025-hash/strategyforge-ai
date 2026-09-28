@@ -8,6 +8,7 @@ import app.strategyforge.market.CandleData
 import app.strategyforge.market.CorporateActionType
 import app.strategyforge.market.MarketCalendar
 import app.strategyforge.portfolio.CostModel
+import app.strategyforge.risk.RiskLimits
 import app.strategyforge.strategy.Direction
 import app.strategyforge.strategy.Indicators
 import app.strategyforge.strategy.RuleEvaluator
@@ -45,6 +46,8 @@ data class BacktestParams(
     val startingCapital: BigDecimal,
     val costModel: CostModel,
     val executionDelayBars: Int = 1,
+    /** Portfolio-level risk profile applied on top of the strategy's own limits (FR-051). */
+    val riskProfile: RiskLimits = RiskLimits(),
 )
 
 data class BacktestTrade(
@@ -84,6 +87,7 @@ data class BacktestOutput(
     val barsWithExposure: Int,
     val timelineBars: Int,
     val tradedNotional: BigDecimal,
+    val riskBlockedEntries: Int = 0,
 )
 
 /**
@@ -110,6 +114,15 @@ private class Simulation(
     private val mc = MathContext(34, RoundingMode.HALF_EVEN)
     private val m = params.costModel
     private val short = def.direction == Direction.SHORT_ONLY
+    private val rp = params.riskProfile
+
+    // Strictest of the strategy's limits and the risk profile (FR-091).
+    private val maxOpen = minOf(def.risk.maximumOpenPositions, rp.maxOpenPositions ?: Int.MAX_VALUE)
+    private val maxDayTrades = minOf(def.risk.maximumDailyTrades, rp.maxTradesPerDay ?: Int.MAX_VALUE)
+    private val maxDailyLoss = listOfNotNull(def.risk.maximumDailyLossPercent, rp.maxDailyLossPercent).min()
+    private val maxDrawdown = listOfNotNull(def.risk.maximumDrawdownPercent, rp.maxDrawdownPercent).minOrNull()
+    private val maxTradePercent = listOfNotNull(rp.maxTradePercentOfEquity, rp.maxInstrumentAllocationPercent).minOrNull()
+    private val shortingAllowed = rp.shortingAllowed != false
 
     private class Pos(
         val symbol: String,
@@ -159,6 +172,9 @@ private class Simulation(
     private var dayStartEquity = params.startingCapital
     private var dayTrades = 0
     private var halted = false
+    private var drawdownHalted = false
+    private var peakEquity = params.startingCapital
+    private var riskBlocked = 0
     private val appliedActions = mutableSetOf<Pair<String, LocalDate>>()
 
     fun run(): BacktestOutput {
@@ -209,7 +225,12 @@ private class Simulation(
     private fun checkDailyLoss(eq: BigDecimal) {
         if (halted || dayStartEquity.signum() <= 0) return
         val lossPct = dayStartEquity.subtract(eq).multiply(Decimals.HUNDRED).divide(dayStartEquity, mc)
-        if (lossPct >= def.risk.maximumDailyLossPercent) halted = true
+        if (lossPct >= maxDailyLoss) halted = true
+        peakEquity = peakEquity.max(eq)
+        if (maxDrawdown != null && peakEquity.signum() > 0) {
+            val dd = peakEquity.subtract(eq).multiply(Decimals.HUNDRED).divide(peakEquity, mc)
+            if (dd >= maxDrawdown) drawdownHalted = true
+        }
     }
 
     private fun applyCorporateActions(
@@ -397,8 +418,8 @@ private class Simulation(
             return
         }
         val blocked =
-            halted || i + 1 < def.minimumHistoryBars || positions.size + pending.count { it.entry } >= def.risk.maximumOpenPositions ||
-                dayTrades >= def.risk.maximumDailyTrades
+            halted || drawdownHalted || (short && !shortingAllowed) || i + 1 < def.minimumHistoryBars ||
+                positions.size + pending.count { it.entry } >= maxOpen || dayTrades >= maxDayTrades
         if (blocked || !ev.evaluate(def.entry, i)) return
         val close = s.bars[i].close
         val qty =
@@ -412,6 +433,14 @@ private class Simulation(
                 val f = off.divide(Decimals.HUNDRED, mc)
                 Pricing.roundToIncrement(if (short) close.multiply(BigDecimal.ONE.add(f)) else close.multiply(BigDecimal.ONE.subtract(f)), s.priceIncrement, RoundingMode.HALF_EVEN)
             }
+        val notional = qty.multiply(close)
+        val tooLarge =
+            (rp.maxTradeValue != null && notional > rp.maxTradeValue) ||
+                (maxTradePercent != null && eq.signum() > 0 && notional.multiply(Decimals.HUNDRED).divide(eq, mc) > maxTradePercent)
+        if (tooLarge) {
+            riskBlocked++
+            return
+        }
         pending += Pending(s.symbol, fillAt, true, Decimals.floorToStep(qty, s.quantityIncrement), limit, "ENTRY_RULE")
     }
 
@@ -452,7 +481,7 @@ private class Simulation(
                 if (pt.v > peak) peak = pt.v
                 SeriesPoint(pt.t, if (peak.signum() == 0) BigDecimal.ZERO else Decimals.percent(peak.subtract(pt.v).multiply(Decimals.HUNDRED).divide(peak, mc)))
             }
-        return BacktestOutput(trades, equity, dd, Decimals.money(cash), Decimals.money(openValue), unfilled, partialFills, adjustments, exposureBars, timeline.size, Decimals.money(turnover))
+        return BacktestOutput(trades, equity, dd, Decimals.money(cash), Decimals.money(openValue), unfilled, partialFills, adjustments, exposureBars, timeline.size, Decimals.money(turnover), riskBlocked)
     }
 }
 
@@ -512,6 +541,7 @@ object BacktestMetrics {
             "volatilityAnnualizedPercent" to pct(volatility),
             "maxDrawdownPercent" to (out.drawdown.maxOfOrNull { it.v } ?: BigDecimal.ZERO),
             "trades" to out.trades.size,
+            "riskBlockedEntries" to out.riskBlockedEntries,
             "closedTrades" to closed.size,
             "winRatePercent" to if (closed.isEmpty()) null else Decimals.percent(BigDecimal(wins.size).multiply(Decimals.HUNDRED).divide(BigDecimal(closed.size), mc)),
             "lossRatePercent" to if (closed.isEmpty()) null else Decimals.percent(BigDecimal(losses.size).multiply(Decimals.HUNDRED).divide(BigDecimal(closed.size), mc)),
