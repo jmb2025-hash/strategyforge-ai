@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -73,7 +75,7 @@ class ScorecardsUiTest {
         rule.onNodeWithText("Not backtested yet").assertExists()
         rule.onNodeWithText("nothing to judge", substring = true).assertExists()
         assertEquals(2, rule.onAllNodesWithTag("scorecard").fetchSemanticsNodes().size)
-        rule.onNodeWithText("1. Chart Champions BTC").performClick()
+        rule.onNodeWithText("1. Chart Champions BTC").performScrollTo().performClick()
         assertEquals(listOf("st1"), opened)
     }
 
@@ -94,5 +96,16 @@ class ScorecardsUiTest {
         show(cards.take(1))
         rule.onNodeWithTag("build-better").performScrollTo().assertIsNotEnabled()
         rule.onNodeWithText("Needs at least two tested strategies.").assertExists()
+    }
+
+    @Test
+    fun `D-038 strategies are compared side by side on the chosen measure`() {
+        show(cards)
+        rule.onNodeWithTag("comparison").assertExists()
+        // Once in the comparison bars and once on the strategy's own card.
+        rule.onAllNodesWithText("▲ +$812.40").assertCountEquals(2)
+        rule.onNodeWithTag("metric-bt").performScrollTo().performClick()
+        rule.onAllNodesWithText("6.20%").assertCountEquals(2)
+        rule.onAllNodesWithText("no data").fetchSemanticsNodes().let { assertEquals(1, it.size) }
     }
 }

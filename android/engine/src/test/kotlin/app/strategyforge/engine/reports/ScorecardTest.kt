@@ -47,6 +47,12 @@ class ScorecardTest {
         assertThat(c.live.wins + c.live.losses).isLessThanOrEqualTo(c.live.closedTrades)
         assertThat(c.live.maxDrawdown.signum()).isGreaterThanOrEqualTo(0)
         assertThat(c.live.firstTradeAt).isNotNull()
+        assertThat(c.live.pnlSeries).hasSize(pnls.size)
+        assertThat(
+            c.live.pnlSeries
+                .last()
+                .value,
+        ).isEqualByComparingTo(c.live.realizedPnl)
         assertThat(c.backtest).`as`("the eligibility backtest is shown").isNotNull()
         assertThat(c.backtest!!.trades).isNotNull()
         assertThat(c.sampleWarning).contains("not yet meaningful").contains("${pnls.size} paper trade")

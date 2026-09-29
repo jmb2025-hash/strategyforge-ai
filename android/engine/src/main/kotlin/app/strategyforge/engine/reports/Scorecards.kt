@@ -35,6 +35,8 @@ data class LiveStats(
     val activeDays: BigDecimal,
     val firstTradeAt: Instant?,
     val lastTradeAt: Instant?,
+    /** Cumulative realized P&L after each closed trade, thinned for charts (D-038). */
+    val pnlSeries: List<EquityPoint> = emptyList(),
 )
 
 data class BacktestStats(
@@ -169,7 +171,16 @@ class ScorecardService(
             BigDecimal(activeMillis).divide(BigDecimal(DAY_MS), 1, RoundingMode.HALF_EVEN),
             closes.firstOrNull()?.second,
             closes.lastOrNull()?.second,
+            ChartService.thin(cumulative(closes)),
         )
+    }
+
+    private fun cumulative(closes: List<Pair<BigDecimal, Instant>>): List<EquityPoint> {
+        var running = BigDecimal.ZERO
+        return closes.map { (p, at) ->
+            running = running.add(p)
+            EquityPoint(at, Decimals.money(running))
+        }
     }
 
     private fun latestBacktest(s: StrategyView): BacktestStats? {

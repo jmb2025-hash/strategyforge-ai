@@ -127,12 +127,12 @@ class DefaultRiskContextFactory(
             }
         val dayStartEquity =
             db
-                .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p and at <= :t order by at desc, id desc limit 1")
+                .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p and at <= :t and source <> 'PERIODIC' order by at desc, id desc limit 1")
                 .param("p", p.id)
                 .param("t", (dayStart))
                 .firstOrNull { it.dec("equity") }
                 ?: db
-                    .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p order by at, id limit 1")
+                    .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p and source <> 'PERIODIC' order by at, id limit 1")
                     .param("p", p.id)
                     .firstOrNull { it.dec("equity") }
                 ?: p.startingBalance

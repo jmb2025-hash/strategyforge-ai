@@ -181,10 +181,15 @@ fun StrategyDetailScreen(
     vm: StrategyDetailViewModel,
     fmt: Formatters,
     session: SessionViewModel,
+    onChart: (symbol: String, strategyId: String, timeframe: String) -> Unit = { _, _, _ -> },
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
     val backtests by vm.backtests.collectAsStateWithLifecycle()
+    val price by vm.price.collectAsStateWithLifecycle()
+    val priceSymbol by vm.priceSymbol.collectAsStateWithLifecycle()
+    val priceTf by vm.priceTimeframe.collectAsStateWithLifecycle()
+    val priceError by vm.priceError.collectAsStateWithLifecycle()
     val disclosure by vm.disclosure.collectAsStateWithLifecycle()
     val portfolios by vm.portfolios.collectAsStateWithLifecycle()
     val conflict by vm.slotConflict.collectAsStateWithLifecycle()
@@ -220,6 +225,14 @@ fun StrategyDetailScreen(
             d.explanation?.let {
                 SectionTitle("How it works")
                 Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
+            val syms = symbols(d)
+            if (syms.isNotEmpty()) {
+                LaunchedEffect(d.strategy.id) { vm.initPrice(syms.first(), timeframe(d) ?: "1h") }
+                SectionTitle("Price and trades")
+                if (syms.size > 1) ChoiceRow(syms.take(12).map { it to it }, priceSymbol ?: syms.first(), { vm.loadPrice(it, priceTf) }, "sym")
+                PriceChartCard(price, priceTf, { vm.loadPrice(priceSymbol ?: syms.first(), it) }, fmt, priceError, title = priceSymbol ?: syms.first())
+                TextButton(onClick = { onChart(priceSymbol ?: syms.first(), d.strategy.id, priceTf) }) { Text("Open full chart") }
             }
             scorecard?.let {
                 SectionTitle("Results so far")
@@ -320,3 +333,8 @@ private fun timeframe(d: app.strategyforge.android.core.model.StrategyDetail): S
     ((d.currentVersion?.content as? kotlinx.serialization.json.JsonObject)?.get("metadata") as? kotlinx.serialization.json.JsonObject)
         ?.get("timeframe")
         ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+
+private fun symbols(d: app.strategyforge.android.core.model.StrategyDetail): List<String> =
+    (((d.currentVersion?.content as? kotlinx.serialization.json.JsonObject)?.get("universe") as? kotlinx.serialization.json.JsonObject)?.get("symbols") as? kotlinx.serialization.json.JsonArray)
+        ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+        .orEmpty()

@@ -1,13 +1,24 @@
 package app.strategyforge.android.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -19,8 +30,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,12 +38,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,29 +59,13 @@ import app.strategyforge.android.core.state.ActionState
 import java.time.Instant
 import java.time.ZoneId
 
-// Colours meet WCAG AA contrast on their backgrounds; P/L never relies on colour alone (NFR-009).
-private val Navy = Color(0xFF102A43)
-private val Mint = Color(0xFF1B7F52)
-private val Loss = Color(0xFFB3261E)
-
-@Composable
-fun SfTheme(content: @Composable () -> Unit) {
-    val scheme =
-        if (isSystemInDarkTheme()) {
-            darkColorScheme(primary = Color(0xFF9CD8BA), secondary = Color(0xFFB8C7D9))
-        } else {
-            lightColorScheme(primary = Navy, secondary = Mint)
-        }
-    MaterialTheme(colorScheme = scheme) { Surface(Modifier.fillMaxSize(), content = content) }
-}
-
 @Composable
 fun SectionTitle(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp).semantics { heading() },
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.padding(top = 20.dp, bottom = 8.dp).semantics { heading() },
     )
 }
 
@@ -79,8 +74,93 @@ fun SfCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Card(modifier.fillMaxWidth().padding(vertical = 4.dp), colors = CardDefaults.cardColors()) {
-        Column(Modifier.padding(12.dp)) { content() }
+    Card(
+        modifier.fillMaxWidth().padding(vertical = 5.dp),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, Sf.colors.cardBorder),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) { content() }
+    }
+}
+
+/** The large number at the top of a screen (portfolio value), with its change and an optional chart below. */
+@Composable
+fun HeroCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    change: @Composable (() -> Unit)? = null,
+    content: @Composable () -> Unit = {},
+) {
+    Card(
+        modifier.fillMaxWidth().padding(vertical = 6.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, Sf.colors.cardBorder),
+    ) {
+        Column(
+            Modifier
+                .background(Brush.verticalGradient(listOf(Sf.colors.heroStart, Sf.colors.heroEnd)))
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 2.dp).testTag("hero-value"))
+            change?.let { Box(Modifier.padding(top = 6.dp)) { it() } }
+            content()
+        }
+    }
+}
+
+/** "▲ +$12.30 (+1.20%)" in a tinted pill; readable without colour. */
+@Composable
+fun ChangePill(
+    amount: String?,
+    percent: String?,
+    fmt: Formatters,
+    suffix: String = "",
+) {
+    val p = fmt.pnl(amount)
+    val color =
+        when (p.direction) {
+            PnlDirection.GAIN -> Sf.colors.gain
+            PnlDirection.LOSS -> Sf.colors.loss
+            else -> Sf.colors.neutral
+        }
+    val pct = percent?.let { fmt.decimal(it) }?.let { " (" + (if (it.signum() > 0) "+" else "") + fmt.percent(it.toPlainString()) + ")" } ?: ""
+    Surface(color = color.copy(alpha = 0.14f), shape = RoundedCornerShape(50)) {
+        Text(
+            p.text
+                .substringBefore(" gain")
+                .substringBefore(" loss")
+                .substringBefore(" unchanged") + pct + suffix,
+            color = color,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp).semantics { contentDescription = p.contentDescription + pct + suffix },
+        )
+    }
+}
+
+/** A row of single-choice pills (ranges, timeframes, metrics). */
+@Composable
+fun ChoiceRow(
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    tagPrefix: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { (value, label) ->
+            val on = value == selected
+            Surface(
+                onClick = { onSelect(value) },
+                shape = RoundedCornerShape(50),
+                color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("$tagPrefix-$value").semantics { this.selected = on },
+            ) { Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)) }
+        }
     }
 }
 
@@ -91,8 +171,8 @@ fun LabelValue(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier.fillMaxWidth().padding(vertical = 2.dp).semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -106,15 +186,15 @@ fun PnlValue(
     val p = fmt.pnl(value)
     val color =
         when (p.direction) {
-            PnlDirection.GAIN -> Mint
-            PnlDirection.LOSS -> Loss
+            PnlDirection.GAIN -> Sf.colors.gain
+            PnlDirection.LOSS -> Sf.colors.loss
             else -> MaterialTheme.colorScheme.onSurface
         }
     Row(
         Modifier.fillMaxWidth().padding(vertical = 2.dp).semantics(mergeDescendants = true) { contentDescription = "$label: ${p.contentDescription}" },
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(p.text, color = color, fontWeight = FontWeight.Medium, modifier = Modifier.testTag("pnl"))
     }
 }
@@ -128,14 +208,22 @@ fun Banner(
     kind: BannerKind = BannerKind.INFO,
     modifier: Modifier = Modifier,
 ) {
-    val (bg, prefix) =
+    val (accent, prefix) =
         when (kind) {
-            BannerKind.INFO -> MaterialTheme.colorScheme.secondaryContainer to "Info"
-            BannerKind.WARNING -> MaterialTheme.colorScheme.tertiaryContainer to "Warning"
-            BannerKind.ERROR -> MaterialTheme.colorScheme.errorContainer to "Error"
+            BannerKind.INFO -> MaterialTheme.colorScheme.secondary to "Info"
+            BannerKind.WARNING -> MaterialTheme.colorScheme.tertiary to "Warning"
+            BannerKind.ERROR -> MaterialTheme.colorScheme.error to "Error"
         }
-    Surface(color = bg, shape = MaterialTheme.shapes.small, modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text("$prefix: $text", modifier = Modifier.padding(10.dp).semantics { liveRegion = LiveRegionMode.Polite }.testTag("banner"), style = MaterialTheme.typography.bodyMedium)
+    Surface(color = accent.copy(alpha = 0.12f), shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
+            Text(
+                "$prefix: $text",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).semantics { liveRegion = LiveRegionMode.Polite }.testTag("banner"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 
@@ -227,15 +315,19 @@ fun StatusChip(status: String) {
             "PAUSED" -> "Paused" to BannerKind.WARNING
             else -> status.lowercase().replace('_', ' ') to BannerKind.INFO
         }
-    Surface(
-        color =
-            when (kind) {
-                BannerKind.INFO -> MaterialTheme.colorScheme.surfaceVariant
-                BannerKind.WARNING -> MaterialTheme.colorScheme.tertiaryContainer
-                BannerKind.ERROR -> MaterialTheme.colorScheme.errorContainer
-            },
-        shape = MaterialTheme.shapes.small,
-    ) { Text(text, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = MaterialTheme.typography.labelMedium) }
+    val accent =
+        when (kind) {
+            BannerKind.INFO -> if (status.startsWith("ACTIVE") || status in setOf("OK", "FILLED", "COMPLETED", "VALIDATED", "PAPER_ELIGIBLE", "SUCCEEDED", "COMPILED")) Sf.colors.gain else Sf.colors.neutral
+            BannerKind.WARNING -> MaterialTheme.colorScheme.tertiary
+            BannerKind.ERROR -> MaterialTheme.colorScheme.error
+        }
+    Surface(color = accent.copy(alpha = 0.14f), shape = RoundedCornerShape(50)) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(6.dp).background(accent, CircleShape))
+            Spacer(Modifier.width(6.dp))
+            Text(text, style = MaterialTheme.typography.labelMedium, color = accent)
+        }
+    }
 }
 
 @Composable

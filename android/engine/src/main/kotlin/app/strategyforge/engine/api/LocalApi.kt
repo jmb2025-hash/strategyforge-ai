@@ -487,6 +487,34 @@ class LocalApi(
                 )
         }
         post("/v1/strategies/{id}/deactivate") { r, g -> engine.strategyControl.deactivate(uuid(g[0]), obj(r).str("reason"))?.let { activation(it) } ?: mapOf("status" to "NOT_ACTIVE") }
+        get("/v1/charts/candles") { r, _ ->
+            val c =
+                engine.charts.candles(
+                    r.query["symbol"] ?: throw Problems.badRequest("missing-field", "symbol is required"),
+                    r.query["timeframe"] ?: "1h",
+                    r.query["bars"]?.toIntOrNull() ?: app.strategyforge.engine.reports.ChartService.DEFAULT_BARS,
+                    r.query["portfolioId"]?.let { uuid(it) },
+                    r.query["strategyId"]?.let { uuid(it) },
+                )
+            mapOf(
+                "symbol" to c.symbol,
+                "timeframe" to c.timeframe,
+                "status" to c.status,
+                "detail" to c.detail,
+                "bars" to c.bars.map { b -> mapOf("t" to b.openTime, "o" to b.open, "h" to b.high, "l" to b.low, "c" to b.close, "v" to b.volume) },
+                "trades" to c.trades.map { t -> mapOf("at" to t.at, "side" to t.side, "price" to t.price, "quantity" to t.quantity, "strategyId" to t.strategyId) },
+            )
+        }
+        get("/v1/charts/equity/{id}") { r, g ->
+            val c = engine.charts.equity(uuid(g[0]), r.query["range"] ?: "1M")
+            mapOf(
+                "portfolioId" to c.portfolioId,
+                "range" to c.range,
+                "points" to c.points.map { mapOf("at" to it.at, "value" to it.value) },
+                "change" to c.change,
+                "changePercent" to c.changePercent,
+            )
+        }
         get("/v1/scorecards") { r, _ -> engine.scorecards.all(r.query["assetClass"]).map { scorecard(it) } }
         get("/v1/strategies/{id}/scorecard") { _, g -> scorecard(engine.scorecards.scorecard(uuid(g[0]))) }
         post("/v1/scorecards/combine", 201) { r, _ ->
@@ -534,6 +562,7 @@ class LocalApi(
                         "activeDays" to l.activeDays,
                         "firstTradeAt" to l.firstTradeAt,
                         "lastTradeAt" to l.lastTradeAt,
+                        "pnlSeries" to l.pnlSeries.map { mapOf("at" to it.at, "value" to it.value) },
                     )
                 },
             "backtest" to

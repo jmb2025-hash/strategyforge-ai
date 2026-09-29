@@ -9,8 +9,10 @@ import app.strategyforge.android.core.data.Dashboard
 import app.strategyforge.android.core.data.OrderDraft
 import app.strategyforge.android.core.data.Repository
 import app.strategyforge.android.core.model.Backtest
+import app.strategyforge.android.core.model.CandleChart
 import app.strategyforge.android.core.model.Diagnostics
 import app.strategyforge.android.core.model.Disclosure
+import app.strategyforge.android.core.model.EquityChart
 import app.strategyforge.android.core.model.Notification
 import app.strategyforge.android.core.model.Order
 import app.strategyforge.android.core.model.Page
@@ -135,8 +137,17 @@ class HomeViewModel
     ) : ResourceViewModel<Dashboard>() {
         override fun source() = repo.dashboard()
 
+        private val _equity = MutableStateFlow<EquityChart?>(null)
+
+        /** The primary portfolio's last week, for the sparkline on the home card (D-038). */
+        val equity: StateFlow<EquityChart?> = _equity.asStateFlow()
+
         init {
             refresh()
+        }
+
+        fun loadEquity(portfolioId: String) {
+            viewModelScope.launch { runCatching { _equity.value = repo.equityChart(portfolioId, "1W") } }
         }
     }
 
@@ -185,6 +196,56 @@ class StrategiesViewModel
                 val r = repo.importStrategy(json)
                 _imported.value = r.strategy.id
             }
+    }
+
+/** One symbol's price chart with simulated trades on it (D-038); refreshes while open. */
+@HiltViewModel
+class ChartViewModel
+    @Inject
+    constructor(
+        private val repo: Repository,
+        saved: SavedStateHandle,
+    ) : ViewModel() {
+        val symbol: String = checkNotNull(saved["symbol"])
+        private val portfolioId: String? = saved["portfolioId"]
+        private val strategyId: String? = saved["strategyId"]
+        private val _timeframe = MutableStateFlow(saved.get<String>("timeframe") ?: "1h")
+        val timeframe: StateFlow<String> = _timeframe.asStateFlow()
+        private val _chart = MutableStateFlow<CandleChart?>(null)
+        val chart: StateFlow<CandleChart?> = _chart.asStateFlow()
+        private val _error = MutableStateFlow<String?>(null)
+        val error: StateFlow<String?> = _error.asStateFlow()
+
+        init {
+            viewModelScope.launch {
+                while (true) {
+                    load()
+                    kotlinx.coroutines.delay(REFRESH_MS)
+                }
+            }
+        }
+
+        fun setTimeframe(tf: String) {
+            _timeframe.value = tf
+            _chart.value = null
+            viewModelScope.launch { load() }
+        }
+
+        private suspend fun load() {
+            val tf = _timeframe.value
+            runCatching { repo.candles(symbol, tf, BARS, portfolioId, strategyId) }
+                .onSuccess {
+                    if (_timeframe.value == tf) {
+                        _chart.value = it
+                        _error.value = null
+                    }
+                }.onFailure { _error.value = it.message ?: "Price data is unavailable" }
+        }
+
+        companion object {
+            const val BARS = 120
+            private const val REFRESH_MS = 20_000L
+        }
     }
 
 /** Scorecards per asset class and the "build me a better strategy" request (D-037). */
@@ -258,6 +319,39 @@ class StrategyDetailViewModel
         val disclosure: StateFlow<Disclosure?> = _disclosure.asStateFlow()
         private val _portfolios = MutableStateFlow<List<Portfolio>>(emptyList())
         val portfolios: StateFlow<List<Portfolio>> = _portfolios.asStateFlow()
+        private val _price = MutableStateFlow<CandleChart?>(null)
+
+        /** The strategy's price chart with its own trades marked (D-038). */
+        val price: StateFlow<CandleChart?> = _price.asStateFlow()
+        private val _priceSymbol = MutableStateFlow<String?>(null)
+        val priceSymbol: StateFlow<String?> = _priceSymbol.asStateFlow()
+        private val _priceTimeframe = MutableStateFlow("1h")
+        val priceTimeframe: StateFlow<String> = _priceTimeframe.asStateFlow()
+        private val _priceError = MutableStateFlow<String?>(null)
+        val priceError: StateFlow<String?> = _priceError.asStateFlow()
+
+        fun initPrice(
+            symbol: String,
+            timeframe: String,
+        ) {
+            if (_priceSymbol.value == null) loadPrice(symbol, timeframe)
+        }
+
+        fun loadPrice(
+            symbol: String,
+            timeframe: String,
+        ) {
+            _priceSymbol.value = symbol
+            _priceTimeframe.value = timeframe
+            _price.value = null
+            _priceError.value = null
+            viewModelScope.launch {
+                runCatching { repo.candles(symbol, timeframe, 90, strategyId = id) }
+                    .onSuccess { if (_priceSymbol.value == symbol && _priceTimeframe.value == timeframe) _price.value = it }
+                    .onFailure { _priceError.value = it.message ?: "Price data is unavailable" }
+            }
+        }
+
         private val _scorecard = MutableStateFlow<Scorecard?>(null)
 
         /** This strategy's paper and backtest results (D-037). */
@@ -385,6 +479,12 @@ class PortfolioViewModel
         val selected: StateFlow<String?> = _selected.asStateFlow()
         private val _orders = MutableStateFlow<Resource<Page<Order>>>(Resource.Loading)
         val orders: StateFlow<Resource<Page<Order>>> = _orders.asStateFlow()
+        private val _range = MutableStateFlow("1W")
+        val range: StateFlow<String> = _range.asStateFlow()
+        private val _equity = MutableStateFlow<EquityChart?>(null)
+
+        /** The selected portfolio's equity curve for [range] (D-038). */
+        val equity: StateFlow<EquityChart?> = _equity.asStateFlow()
 
         override fun source(): Flow<Resource<PortfolioSummary>> {
             val id = _selected.value
@@ -411,10 +511,22 @@ class PortfolioViewModel
             reload()
         }
 
+        fun setRange(r: String) {
+            _range.value = r
+            loadEquity()
+        }
+
+        private fun loadEquity() {
+            val id = _selected.value ?: return
+            val r = _range.value
+            viewModelScope.launch { runCatching { repo.equityChart(id, r) }.onSuccess { if (_selected.value == id && _range.value == r) _equity.value = it } }
+        }
+
         fun reload() {
             refresh()
             val id = _selected.value ?: return
             viewModelScope.launch { repo.orders(id).collect { _orders.value = it } }
+            loadEquity()
         }
 
         fun createPortfolio(

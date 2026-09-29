@@ -433,6 +433,39 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-038 candles with trade markers and the equity curve through the app's calls`() {
+        start()
+        runBlocking {
+            val p = repo.createPortfolio("Charts", "100000")
+            advance(60)
+            repo.placeOrder(
+                app.strategyforge.android.core.data
+                    .OrderDraft(p.id, "BTC-USD", "BUY", "MARKET", "0.1"),
+            )
+            advance(30)
+            val c = repo.candles("BTC-USD", "1m", 40, portfolioId = p.id)
+            assertThat(c.bars).isNotEmpty().hasSizeLessThanOrEqualTo(40)
+            assertThat(
+                c.bars
+                    .first()
+                    .h
+                    .toBigDecimal(),
+            ).isGreaterThanOrEqualTo(
+                c.bars
+                    .first()
+                    .l
+                    .toBigDecimal(),
+            )
+            assertThat(c.trades.single().side).isEqualTo("BUY")
+            val eq = repo.equityChart(p.id, "1D")
+            assertThat(eq.points.size).isGreaterThanOrEqualTo(2)
+            assertThat(eq.range).isEqualTo("1D")
+            val bad = assertThrows<ApiError.Http> { runBlocking { repo.equityChart(p.id, "5Y") } }
+            assertThat(bad.code).isEqualTo("invalid-range")
+        }
+    }
+
+    @Test
     fun `D-035 activating a second crypto strategy asks keep or close through the app's calls`() {
         start()
         runBlocking {

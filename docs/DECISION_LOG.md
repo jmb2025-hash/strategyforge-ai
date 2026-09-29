@@ -376,3 +376,30 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Normal research path.** The AI proposes a combination and the owner refines it. It is then compiled, validated and backtested like any research, so the AI never activates anything and the budget limits apply as usual.
   - **Why not an automatic optimizer.** A search that tunes rules to past results would overfit the owner's small trade history. An AI proposal that can be explained and then backtested keeps the owner in control.
 - **Requirements affected:** FR-046, FR-060 to FR-064, FR-032 to FR-037.
+
+## D-038 Modern look and charts
+
+- **Date:** 2026-10-01
+- **Context:** The owner asked for a more modern interface with graphs. They picked three: the portfolio equity curve, candlesticks with trade markers, and a strategy comparison. They had no preference on the overall look.
+- **Decision:**
+  - **Design system.** A dark "trading terminal" theme with a matching light theme, following the phone setting.
+    - Tabular figures, rounded cards and pill-shaped chips, with gain and loss colours as tokens.
+    - A header card for the headline number, custom icons, and a "PAPER" badge in the top bar.
+    - Gains and losses still carry an arrow and a sign, not colour alone (NFR-009).
+  - **Charts on Compose Canvas.** The charts are drawn with Compose Canvas, not a chart library: no new dependency, a small APK, and a themed, exact candlestick and trade-marker rendering.
+    - Every chart has a spoken summary.
+    - Dragging or tapping reads values. Horizontal drags scrub the chart; vertical drags still scroll the screen.
+  - **Charts shown.**
+    - Home: an equity sparkline.
+    - Portfolio: an equity curve (1D, 1W, 1M, 3M, All) with the change over the range, and an allocation ring.
+    - Positions open a full-screen candlestick chart with that portfolio's fills.
+    - Strategy page: candlesticks for its symbols at its timeframe, with its own trades.
+    - Scorecards: comparison bars (paper P&L, win rate, backtest return, drawdown, profit factor), cumulative paper P&L lines, and a sparkline per strategy.
+  - **Engine endpoints.**
+    - `GET /v1/charts/candles` returns recent bars plus markers from simulated executions. It can be filtered by portfolio or strategy. Stock look-back is widened for closed hours.
+    - `GET /v1/charts/equity/{id}` returns the equity curve thinned to at most 400 points, keeping the first and latest.
+    - Scorecards gain a cumulative realized-P&L series.
+  - **Equity snapshots.** Equity snapshots used to be written only on fills and funding, too sparse for a curve. The engine now also writes one every 5 minutes of market time per active portfolio.
+    - These are tagged `PERIODIC`.
+    - Risk rules (daily-loss start equity and peak equity for drawdown) ignore them, so risk limits behave exactly as before.
+- **Requirements affected:** FR-100 to FR-104, NFR-009.

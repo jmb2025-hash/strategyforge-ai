@@ -230,6 +230,52 @@ data class Slot(
     val holdings: List<SlotHolding> = emptyList(),
 )
 
+/** One point of a time series; [value] is exact decimal text (D-038). */
+@Serializable
+data class ChartPoint(
+    val at: String,
+    val value: String,
+)
+
+@Serializable
+data class EquityChart(
+    val portfolioId: String,
+    val range: String,
+    val points: List<ChartPoint> = emptyList(),
+    val change: String? = null,
+    val changePercent: String? = null,
+)
+
+/** One candle: open time and open/high/low/close/volume as exact decimal text. */
+@Serializable
+data class Candle(
+    val t: String,
+    val o: String,
+    val h: String,
+    val l: String,
+    val c: String,
+    val v: String = "0",
+)
+
+@Serializable
+data class TradeMarker(
+    val at: String,
+    val side: String,
+    val price: String,
+    val quantity: String,
+    val strategyId: String? = null,
+)
+
+@Serializable
+data class CandleChart(
+    val symbol: String,
+    val timeframe: String,
+    val status: String = "VERIFIED",
+    val detail: String = "",
+    val bars: List<Candle> = emptyList(),
+    val trades: List<TradeMarker> = emptyList(),
+)
+
 /** Simulated trading results of one strategy (D-037). Money and percentages are exact decimal text. */
 @Serializable
 data class LiveStats(
@@ -246,6 +292,7 @@ data class LiveStats(
     val activeDays: String = "0",
     val firstTradeAt: String? = null,
     val lastTradeAt: String? = null,
+    val pnlSeries: List<ChartPoint> = emptyList(),
 )
 
 @Serializable

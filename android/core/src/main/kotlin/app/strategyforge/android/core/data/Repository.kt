@@ -15,6 +15,7 @@ import app.strategyforge.android.core.model.BackupResult
 import app.strategyforge.android.core.model.BackupVerification
 import app.strategyforge.android.core.model.BootstrapResponse
 import app.strategyforge.android.core.model.BootstrapStatus
+import app.strategyforge.android.core.model.CandleChart
 import app.strategyforge.android.core.model.ClockView
 import app.strategyforge.android.core.model.CountResult
 import app.strategyforge.android.core.model.DecisionResult
@@ -23,6 +24,7 @@ import app.strategyforge.android.core.model.Diagnostics
 import app.strategyforge.android.core.model.Disclosure
 import app.strategyforge.android.core.model.EmergencyResult
 import app.strategyforge.android.core.model.EmergencyState
+import app.strategyforge.android.core.model.EquityChart
 import app.strategyforge.android.core.model.FxRate
 import app.strategyforge.android.core.model.Me
 import app.strategyforge.android.core.model.Notification
@@ -328,7 +330,30 @@ class Repository(
         return api.decode(api.post("/v1/strategies/${seg(strategyId)}/activate", body).body, Activation.serializer())
     }
 
-    /** The crypto and stock strategy slots (D-035). */
+    /** Recent candles for [symbol] with simulated fills as markers, optionally only one portfolio's or strategy's (D-038). */
+    suspend fun candles(
+        symbol: String,
+        timeframe: String,
+        bars: Int = 120,
+        portfolioId: String? = null,
+        strategyId: String? = null,
+    ): CandleChart =
+        api.decode(
+            api
+                .get(
+                    "/v1/charts/candles?symbol=${q(symbol)}&timeframe=${q(timeframe)}&bars=$bars" +
+                        (portfolioId?.let { "&portfolioId=${q(it)}" } ?: "") +
+                        (strategyId?.let { "&strategyId=${q(it)}" } ?: ""),
+                ).body,
+            CandleChart.serializer(),
+        )
+
+    /** A portfolio's equity curve for 1D, 1W, 1M, 3M or ALL (D-038). */
+    suspend fun equityChart(
+        portfolioId: String,
+        range: String,
+    ): EquityChart = api.decode(api.get("/v1/charts/equity/${seg(portfolioId)}?range=${q(range)}").body, EquityChart.serializer())
+
     suspend fun scorecards(assetClass: String? = null): List<Scorecard> = api.decode(api.get("/v1/scorecards" + (assetClass?.let { "?assetClass=${q(it)}" } ?: "")).body, ListSerializer(Scorecard.serializer()))
 
     suspend fun scorecard(strategyId: String): Scorecard = api.decode(api.get("/v1/strategies/${seg(strategyId)}/scorecard").body, Scorecard.serializer())
@@ -350,6 +375,7 @@ class Repository(
             ResearchDetail.serializer(),
         )
 
+    /** The crypto and stock strategy slots (D-035). */
     suspend fun slots(): List<Slot> = api.get("/v1/slots", ListSerializer(Slot.serializer()))
 
     suspend fun deactivate(strategyId: String) {

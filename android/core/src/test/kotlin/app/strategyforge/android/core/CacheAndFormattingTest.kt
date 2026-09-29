@@ -148,4 +148,20 @@ class CacheAndFormattingTest {
         assertNull(DeepLinks.parse("strategyforge://unknown/$id"))
         assertEquals(Route.Research(id), DeepLinks.parse(DeepLinks.toUri(Route.Research(id))))
     }
+
+    @Test
+    fun `D-038 chart axis labels follow the span and show prices compactly`() {
+        val f = Formatters(ZoneId.of("UTC"))
+        val t = Instant.parse("2026-10-01T14:05:00Z").toEpochMilli()
+        assertEquals("14:05", f.chartTime(t, 3_600_000))
+        assertEquals("Oct 1", f.chartTime(t, 7L * 86_400_000))
+        assertEquals("Oct 2026", f.chartTime(t, 365L * 86_400_000))
+        assertEquals("64,512", f.chartNumber(64_512.34))
+        assertEquals("187.25", f.chartNumber(187.25))
+        assertEquals("1.2346", f.chartNumber(1.23456))
+        assertEquals("0.004512", f.chartNumber(0.004512))
+        assertEquals("2.5M", f.chartNumber(2_500_000.0))
+        assertEquals(t, f.epochMillis("2026-10-01T14:05:00Z"))
+        assertNull(f.epochMillis("not a time"))
+    }
 }

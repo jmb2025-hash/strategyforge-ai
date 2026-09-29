@@ -96,6 +96,37 @@ class Formatters(
         }
     }
 
+    /** Chart axis time (D-038): clock time for spans under 36 hours, day for shorter than 4 months, else month. */
+    fun chartTime(
+        epochMillis: Long,
+        spanMillis: Long,
+    ): String {
+        val pattern =
+            when {
+                spanMillis < Duration.ofHours(36).toMillis() -> "HH:mm"
+                spanMillis < Duration.ofDays(120).toMillis() -> "MMM d"
+                else -> "MMM yyyy"
+            }
+        return DateTimeFormatter.ofPattern(pattern, locale).withZone(zone).format(Instant.ofEpochMilli(epochMillis))
+    }
+
+    /** Short chart price label: "64,512", "1.2346", "0.004512", "$1.25M" style magnitudes without the symbol. */
+    fun chartNumber(v: Double): String {
+        val a = kotlin.math.abs(v)
+        return when {
+            a >= 1_000_000_000 -> DecimalFormat("0.##", symbols).format(v / 1_000_000_000) + "B"
+            a >= 1_000_000 -> DecimalFormat("0.##", symbols).format(v / 1_000_000) + "M"
+            a >= 10_000 -> DecimalFormat("#,##0", symbols).format(v)
+            a >= 100 -> DecimalFormat("#,##0.00", symbols).format(v)
+            a >= 1 -> DecimalFormat("0.0000", symbols).format(v)
+            a == 0.0 -> "0"
+            else -> DecimalFormat("0.000000", symbols).format(v)
+        }
+    }
+
+    /** Epoch millis of an ISO instant, for plotting; null when it cannot be parsed. */
+    fun epochMillis(iso: String?): Long? = parse(iso)?.toEpochMilli()
+
     private fun parse(iso: String?): Instant? = iso?.let { runCatching { Instant.parse(it) }.getOrNull() }
 
     companion object {

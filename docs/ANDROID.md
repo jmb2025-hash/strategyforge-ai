@@ -61,7 +61,14 @@ APKs signed with different keys cannot update each other.
    - a warning when it has too few trades to judge.
 
    **Build me a better strategy** starts an AI research conversation with every tested strategy's rules and results. You refine and compile it like any other research, and it must be backtested before it runs (D-037).
-8. **Keep it running in the background.** On the same market-data screen:
+8. **Read the charts.**
+   - Portfolio shows your value over 1D to All, with the change over that period, and an allocation ring.
+   - Tap a position to open its candlestick chart; ▲ marks simulated buys and ▼ simulated sells.
+   - A strategy's page shows its price chart with its own trades.
+   - Scorecards compare strategies with bars and P&L lines.
+
+   Drag across any chart to read values (D-038).
+9. **Keep it running in the background.** On the same market-data screen:
    - Leave **Keep paper trading when the app is closed** on. A small persistent notification shows that the engine is running.
    - Tap **Allow unrestricted battery use**.
    - If your phone still closes the app, open the recent-apps screen, press and hold StrategyForge and choose **Lock** or **Keep open**.

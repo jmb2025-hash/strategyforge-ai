@@ -1,5 +1,6 @@
 package app.strategyforge.android.ui
 
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,13 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,17 +23,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -49,6 +53,7 @@ import androidx.navigation.navArgument
 import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.data.Dashboard
 import app.strategyforge.android.core.format.Formatters
+import app.strategyforge.android.core.model.EquityChart
 import app.strategyforge.android.core.notify.Route
 import app.strategyforge.android.core.state.ActionState
 import app.strategyforge.android.core.state.EmergencyPresenter
@@ -63,8 +68,8 @@ private data class Tab(
 private val tabs =
     listOf(
         Tab("home", "Home", Icons.Filled.Home),
-        Tab("strategies", "Strategies", Icons.AutoMirrored.Filled.List),
-        Tab("portfolio", "Portfolio", Icons.Filled.Star),
+        Tab("strategies", "Strategies", SfIcons.Candles),
+        Tab("portfolio", "Portfolio", SfIcons.Wallet),
         Tab("activity", "Activity", Icons.Filled.Notifications),
         Tab("more", "More", Icons.Filled.MoreVert),
     )
@@ -104,7 +109,23 @@ fun MainShell(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("StrategyForge") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(SfIcons.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(6.dp))
+                        Text("StrategyForge", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.width(8.dp))
+                        Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
+                            Text(
+                                "PAPER",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                },
                 actions = {
                     if (anyActive && !paused) {
                         TextButton(onClick = { nav.navigate("emergency") }, modifier = Modifier.testTag("pause-all-shortcut")) { Text("Pause all") }
@@ -115,9 +136,15 @@ fun MainShell(
         bottomBar = {
             val entry by nav.currentBackStackEntryAsState()
             val current = entry?.destination?.route
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp) {
                 tabs.forEach { t ->
                     NavigationBarItem(
+                        colors =
+                            NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                            ),
                         selected = current?.substringBefore('?') == t.route,
                         onClick = {
                             nav.navigate(t.route) {
@@ -136,7 +163,9 @@ fun MainShell(
         NavHost(nav, startDestination = "home", modifier = Modifier.padding(padding)) {
             composable("home") { HomeScreen(home, fmt, nav) }
             composable("strategies") { StrategiesScreen(hiltViewModel(), fmt, nav) }
-            composable("strategy/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { StrategyDetailScreen(hiltViewModel(), fmt, session) }
+            composable("strategy/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
+                StrategyDetailScreen(hiltViewModel(), fmt, session, onChart = { sym, sid, tf -> nav.navigate("chart/${Uri.encode(sym)}?strategyId=$sid&timeframe=$tf") })
+            }
             composable("scorecards") { ScorecardsScreen(hiltViewModel(), fmt, nav) }
             composable("research") { ResearchListScreen(hiltViewModel(), fmt, nav) }
             composable("research/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { ResearchDetailScreen(hiltViewModel(), fmt, nav) }
@@ -150,7 +179,29 @@ fun MainShell(
                             defaultValue = null
                         },
                     ),
-            ) { PortfolioScreen(hiltViewModel(), fmt) }
+            ) { PortfolioScreen(hiltViewModel(), fmt, onChart = { sym, pid -> nav.navigate("chart/${Uri.encode(sym)}?portfolioId=$pid") }) }
+            composable(
+                "chart/{symbol}?portfolioId={portfolioId}&strategyId={strategyId}&timeframe={timeframe}",
+                arguments =
+                    listOf(
+                        navArgument("symbol") { type = NavType.StringType },
+                        navArgument("portfolioId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                        navArgument("strategyId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                        navArgument("timeframe") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+            ) { ChartScreen(hiltViewModel(), fmt) }
             composable("activity") { ActivityScreen(hiltViewModel(), hiltViewModel(), fmt, nav) }
             composable("recommendation/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                 val vm: RecommendationDetailViewModel = hiltViewModel()
@@ -190,8 +241,16 @@ fun HomeScreen(
     nav: NavHostController,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val equity by vm.equity.collectAsStateWithLifecycle()
+    val primaryId =
+        (state as? Resource.Data<Dashboard>)
+            ?.value
+            ?.primary
+            ?.portfolio
+            ?.id
+    LaunchedEffect(primaryId) { primaryId?.let { vm.loadEquity(it) } }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-        ResourceContent(state, fmt, onRetry = vm::refresh) { d -> DashboardContent(d, fmt, onOpen = { nav.navigate(it) }) }
+        ResourceContent(state, fmt, onRetry = vm::refresh) { d -> DashboardContent(d, fmt, equity, onOpen = { nav.navigate(it) }) }
         TextButton(onClick = vm::refresh) { Text("Refresh") }
     }
 }
@@ -200,6 +259,7 @@ fun HomeScreen(
 fun DashboardContent(
     d: Dashboard,
     fmt: Formatters,
+    equity: EquityChart? = null,
     onOpen: (String) -> Unit,
 ) {
     if (d.emergency.pauseAll) Banner("Pause All is engaged: no strategies are evaluated and no orders are placed.", BannerKind.ERROR)
@@ -211,12 +271,20 @@ fun DashboardContent(
         Text("No active paper portfolio yet.", modifier = Modifier.testTag("empty"))
         Button(onClick = { onOpen("portfolio") }) { Text("Create a portfolio") }
     } else {
-        SfCard(Modifier.clickable { onOpen("portfolio?id=${p.portfolio.id}") }) {
-            Text(p.portfolio.name, style = MaterialTheme.typography.titleSmall)
-            LabelValue("Equity", fmt.money(p.equity))
-            LabelValue("Cash", fmt.money(p.cash))
+        HeroCard(
+            label = p.portfolio.name,
+            value = fmt.money(p.equity),
+            modifier = Modifier.clickable { onOpen("portfolio?id=${p.portfolio.id}") },
+            change = { ChangePill(p.totalReturn, p.totalReturnPercent, fmt, suffix = " all time") },
+        ) {
+            val line = equity?.points?.toLine(fmt).orEmpty()
+            if (line.size >= 2) {
+                val up = line.last().y >= line.first().y
+                Sparkline(line.map { it.y }, if (up) Sf.colors.gain else Sf.colors.loss, Modifier.padding(vertical = 10.dp).testTag("home-sparkline"), height = 56.dp)
+            }
             PnlValue("Total return", p.totalReturn, fmt)
             PnlValue("Unrealized", p.unrealizedPnl, fmt)
+            LabelValue("Cash", fmt.money(p.cash))
             LabelValue("As of", fmt.dateTime(p.asOf))
             if (!p.fullyPriced) Banner("Some positions are carried at cost because a verified price is unavailable.", BannerKind.WARNING)
             if (p.portfolio.reconciliationStatus != "OK") Banner("Reconciliation ${p.portfolio.reconciliationStatus}: trading on this portfolio is blocked.", BannerKind.ERROR)

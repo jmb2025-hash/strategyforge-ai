@@ -76,7 +76,10 @@ fun Scorecards(
         when {
             cards == null -> Loading()
             cards.isEmpty() -> Text("No tested ${if (asset == "CRYPTO") "crypto" else "stock"} strategies yet. Create one with AI research and backtest it.")
-            else -> cards.forEachIndexed { i, c -> ScorecardCard(i + 1, c, fmt) { onOpen(c.strategy.id) } }
+            else -> {
+                if (cards.size >= 2) ComparisonCharts(cards, fmt)
+                cards.forEachIndexed { i, c -> ScorecardCard(i + 1, c, fmt) { onOpen(c.strategy.id) } }
+            }
         }
         SectionTitle("Build me a better strategy")
         Text(
@@ -106,6 +109,10 @@ fun ScorecardCard(
         StatusChip(c.strategy.status)
         val l = c.live
         Text("Paper trading", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+        if (l.pnlSeries.size >= 2) {
+            val up = (l.realizedPnl.toDoubleOrNull() ?: 0.0) >= 0
+            Sparkline(l.pnlSeries.mapNotNull { it.value.toDoubleOrNull() }, if (up) Sf.colors.gain else Sf.colors.loss, Modifier.padding(vertical = 6.dp), height = 36.dp)
+        }
         if (l.closedTrades == 0) {
             Text("No closed paper trades yet" + if (l.openPositions > 0) " (${l.openPositions} open)" else "", style = MaterialTheme.typography.bodyMedium)
         } else {

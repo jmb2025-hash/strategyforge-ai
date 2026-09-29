@@ -37,6 +37,7 @@ class EngineScheduler(
             Triple("reconciliation-all", Duration.ofMinutes(5), { engine.reconciliation.runAll() }),
             Triple("evaluation", Duration.ofSeconds(20), { engine.evaluation.evaluateAll() }),
             Triple("expiry", Duration.ofSeconds(15), { engine.recommendations.expireDue() }),
+            Triple("equity", Duration.ofSeconds(60), { engine.portfolios.recordPeriodicEquity() }),
         )
 
     /** Replay minutes per tick in demo mode; 0 pauses the demo clock. Persisted. */

@@ -33,6 +33,7 @@ import androidx.navigation.NavHostController
 import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.data.OrderDraft
 import app.strategyforge.android.core.format.Formatters
+import app.strategyforge.android.core.model.PortfolioSummary
 import app.strategyforge.android.core.notify.DeepLinks
 import app.strategyforge.android.core.state.ActionState
 import app.strategyforge.android.core.state.RecommendationPresenter
@@ -42,8 +43,11 @@ import app.strategyforge.android.core.state.RecommendationState
 fun PortfolioScreen(
     vm: PortfolioViewModel,
     fmt: Formatters,
+    onChart: (symbol: String, portfolioId: String) -> Unit = { _, _ -> },
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val equity by vm.equity.collectAsStateWithLifecycle()
+    val range by vm.range.collectAsStateWithLifecycle()
     val portfolios by vm.portfolios.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     val orders by vm.orders.collectAsStateWithLifecycle()
@@ -61,6 +65,8 @@ fun PortfolioScreen(
             Text("Create your first simulated portfolio.")
         } else {
             ResourceContent(state, fmt, vm::reload) { s ->
+                EquityCard(equity, range, vm::setRange, fmt, s.equity, s.portfolio.name)
+                AllocationCard(s, fmt)
                 SfCard {
                     LabelValue("Equity", fmt.money(s.equity))
                     LabelValue("Cash", fmt.money(s.cash))
@@ -76,9 +82,11 @@ fun PortfolioScreen(
                 SectionTitle("Positions")
                 if (s.positions.isEmpty()) Text("No open positions.")
                 s.positions.forEach { p ->
-                    SfCard {
-                        Row {
+                    SfCard(Modifier.clickable { onChart(p.symbol, s.portfolio.id) }.testTag("position-${p.symbol}")) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("${p.symbol} · ${p.side}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            Text("Chart ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
                             if (p.priceStatus != "VERIFIED") StatusChip(if (p.priceStatus == "STALE") "Stale data" else p.priceStatus)
                         }
                         LabelValue("Quantity", fmt.quantity(p.quantity))
@@ -279,5 +287,26 @@ fun RecommendationContent(
             }
         }
         ActionFeedback(s.action)
+    }
+}
+
+/** Where the portfolio's value sits: cash and each position at market value (cost when unpriced). */
+@Composable
+fun AllocationCard(
+    s: PortfolioSummary,
+    fmt: Formatters,
+) {
+    val palette = Sf.colors.series
+    val cash = s.cash.toDoubleOrNull() ?: 0.0
+    val slices =
+        listOf(DonutSlice("Cash", cash.coerceAtLeast(0.0), Sf.colors.neutral)) +
+            s.positions
+                .map { p -> p.symbol to kotlin.math.abs(p.marketValue?.toDoubleOrNull() ?: p.costBasis.toDoubleOrNull() ?: 0.0) }
+                .sortedByDescending { it.second }
+                .mapIndexed { i, (sym, v) -> DonutSlice(sym, v, palette[i % palette.size]) }
+    if (s.positions.isEmpty()) return
+    SfCard(Modifier.testTag("allocation")) {
+        Text("Allocation", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 10.dp))
+        DonutChart(slices, "Positions", s.positions.size.toString())
     }
 }

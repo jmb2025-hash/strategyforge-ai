@@ -381,6 +381,22 @@ class PortfolioService(
             .update()
     }
 
+    /**
+     * Records a chart snapshot for each active portfolio at most once per [every] of market time
+     * (D-038). Tagged [PERIODIC] so risk limits keep using trade and funding snapshots only.
+     */
+    fun recordPeriodicEquity(every: Duration = Duration.ofMinutes(5)) {
+        val now = marketClock.now()
+        list(false).forEach { p ->
+            val last =
+                db
+                    .sql("select max(at) at from portfolio_equity_snapshots where portfolio_id = :p")
+                    .param("p", p.id)
+                    .firstOrNull { it.instantOrNull("at") }
+            if (last == null || !now.isBefore(last.plus(every))) runCatching { recordEquity(p.id, PERIODIC) }
+        }
+    }
+
     fun equityHistory(
         id: UUID,
         limit: Int,
@@ -395,7 +411,7 @@ class PortfolioService(
     /** Highest priced equity snapshot; compared in Kotlin because amounts are decimal text. */
     fun peakEquity(id: UUID): BigDecimal? =
         db
-            .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p and priced = 1")
+            .sql("select equity from portfolio_equity_snapshots where portfolio_id = :p and priced = 1 and source <> '$PERIODIC'")
             .param("p", id)
             .list { it.dec("equity") }
             .maxOrNull()
@@ -459,6 +475,9 @@ class PortfolioService(
 
     companion object {
         const val MAX_ACTIVE = 10
+
+        /** Snapshot source for chart-only periodic snapshots (D-038). */
+        const val PERIODIC = "PERIODIC"
         const val VALUATION_MAX_AGE = 3600L
         const val VALUATION_CLOSE_GRACE = 120L
     }

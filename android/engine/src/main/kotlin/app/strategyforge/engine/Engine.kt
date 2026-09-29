@@ -171,6 +171,11 @@ class Engine(
     // ------------------------------------------------------------------ reports and exports
     val reports = ReportService(db, portfolios)
 
+    /** Candles with trade markers and equity curves for the phone's charts (D-038). */
+    val charts =
+        app.strategyforge.engine.reports
+            .ChartService(db, instruments, market, marketClock)
+
     /** Per-strategy results and the "build me a better strategy" brief (D-037). */
     val scorecards =
         app.strategyforge.engine.reports
@@ -226,6 +231,7 @@ class Engine(
         stage("reconciliation") { reconciliation.runDirty() }
         stage("evaluation") { evaluation.evaluateAll() }
         stage("expiry") { recommendations.expireDue() }
+        stage("equity") { portfolios.recordPeriodicEquity() }
         stepStages.forEach { (name, f) -> stage(name) { f(from, to) } }
     }
 
