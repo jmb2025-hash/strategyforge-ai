@@ -316,3 +316,16 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **App lock.** The app opens behind the phone's own screen lock (fingerprint, face or PIN) and locks again after 5 minutes in the background. Unlocking also counts as the recent confirmation for protected actions (D-029).
   - **Distribution.** CI publishes the signed release APK as the `phone-latest` pre-release. Without the owner's signing secrets each build uses a new CI key, so updating means uninstalling first. The owner saves a backup copy first ("Save a copy") and restores it afterwards ("Restore from a file").
 - **Requirements affected:** FR-101, FR-102, FR-112, NFR-001, section 14.
+
+## D-034 Research as a conversation; Gemini web search; schema migrations
+
+- **Date:** 2026-10-01
+- **Context:** The owner found the research form confusing. It asked for symbols, timeframe, horizon, approach, a research question, a request cap and a cost cap before anything happened. The owner wants to name an investor, group or strategy, work with the AI on it, and then turn the result into a strategy.
+- **Decision:**
+  - **Research as a conversation.** Research starts from one message plus a crypto or stocks choice. The AI proposes the symbols (from the app's tradable list), the timeframe and the rules. The owner replies, and every turn sends the earlier turns with it; when the conversation is too long for the input ceiling, the oldest turns are dropped first.
+  - **Budget.** The monthly AI budget and the daily request limit still apply to every call. The per-session request and cost caps are no longer asked; a conversation allows up to 100 requests within the monthly budget.
+  - **Compile.** "Compile research into a strategy" records the owner's review and then compiles the whole conversation (most recent turns first if it is long). The AI chooses the timeframe and names the strategy. It summarizes the strategy in `metadata.description` and lists there what could not be expressed. The regular validator still decides whether the result is accepted.
+  - **Gemini web search.** Gemini uses Google Search grounding by default, and sources come from `groundingMetadata`. On free-tier prices, searches are treated as free. It can be turned off with `webSearchEnabled=false`.
+  - **Sources.** A conversation turn without web results is recorded and shown as such, not failed. Form-based research that required retrieval still needs citations before approval (MS-18 unchanged for it).
+  - **Schema migrations.** Versioned, forward-only migrations run on every start. Fresh installs apply the base schema and then every migration, so new and existing phones follow one path. Migration 2 adds `research_runs.owner_message`. Backups record `engine-N`, and restore accepts backups from the same or older versions.
+- **Requirements affected:** FR-032 to FR-037, FR-112.

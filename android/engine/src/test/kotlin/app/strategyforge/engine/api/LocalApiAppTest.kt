@@ -360,6 +360,50 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-034 a research conversation runs through the app's calls with Gemini web search`() {
+        start()
+        runBlocking {
+            val gemini = repo.providerTypes().single { it.providerType == "GEMINI" }
+            repo.createProvider("GEMINI", "Gemini", gemini.presets + ("baseUrl" to ai.url("/").toString().trimEnd('/')), "AIza-test-not-real")
+            ai.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(Fixtures.geminiGrounded("They trade Bitcoin and Ethereum.")))
+            var d = repo.startConversation("Research the crypto group Chart Champions", "CRYPTO")
+            assertThat(d.session.conversation).isTrue()
+            assertThat(d.runs.single().ownerMessage).isEqualTo("Research the crypto group Chart Champions")
+            assertThat(
+                d.runs
+                    .single()
+                    .sources
+                    .map { it.title },
+            ).contains("chartchampions.com")
+
+            ai.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(Fixtures.gemini("Use the 4h chart.", "STOP")))
+            d = repo.sendResearchMessage(d.session.id, "Focus on Bitcoin")
+            assertThat(d.runs.map { it.ownerMessage }).containsExactly("Research the crypto group Chart Champions", "Focus on Bitcoin")
+
+            // The app's compile button: review, then compile.
+            repo.reviewResearch(d.session.id, true, "Reviewed in the conversation")
+            val strategy = JacksonCanonical.mapper.writeValueAsString(Strategies.alwaysLong("Chart Champions BTC", "4h"))
+            ai.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(Fixtures.gemini(strategy, "STOP")))
+            d = repo.compileResearch(d.session.id)
+            val c = d.compilations.single()
+            assertThat(c.status).isEqualTo("COMPILED")
+            assertThat(
+                repo
+                    .strategy(c.strategyId!!)
+                    .value()
+                    .strategy.name,
+            ).isEqualTo("Chart Champions BTC")
+            assertThat(
+                repo
+                    .research()
+                    .value()
+                    .single()
+                    .conversation,
+            ).isTrue()
+        }
+    }
+
+    @Test
     fun `unknown routes and engine errors come back as problem documents`() {
         start()
         runBlocking {

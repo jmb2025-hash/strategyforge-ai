@@ -30,6 +30,7 @@ import app.strategyforge.android.core.state.toFailure
 import app.strategyforge.android.platform.LocalConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -365,53 +366,40 @@ class SettingsViewModel
         fun testProvider(id: String) = act("Provider diagnostics finished") { repo.testProvider(id) }
     }
 
+/** Research conversations (D-034): the list, and starting one from a single message. */
 @HiltViewModel
 class ResearchListViewModel
     @Inject
     constructor(
         private val repo: Repository,
     ) : ResourceViewModel<List<ResearchSession>>() {
-        private val _providers = MutableStateFlow<List<Provider>>(emptyList())
-        val providers: StateFlow<List<Provider>> = _providers.asStateFlow()
+        private val _started = MutableStateFlow<String?>(null)
+
+        /** The conversation just started, so the screen can open it. */
+        val started: StateFlow<String?> = _started.asStateFlow()
 
         override fun source() = repo.research()
 
         init {
             refresh()
-            viewModelScope.launch { repo.providers().collect { r -> if (r is Resource.Data) _providers.value = r.value.filter { it.kind == "AI" } } }
         }
 
-        fun create(
-            providerId: String,
-            title: String,
+        fun start(
+            message: String,
             assetClass: String,
-            symbols: List<String>,
-            timeframe: String,
-            horizon: String,
-            approach: String,
-            prompt: String,
-            retrieval: Boolean,
-            maxRequests: Int,
-            maxCost: String,
-        ) = act("Research session created") {
-            repo.createResearch(
-                buildJsonObject {
-                    put("providerId", providerId)
-                    put("title", title)
-                    put("assetClass", assetClass)
-                    put("universe", JsonArray(symbols.map { JsonPrimitive(it) }))
-                    put("timeframe", timeframe)
-                    put("horizon", horizon)
-                    put("approach", approach)
-                    put("prompt", prompt)
-                    put("retrieval", retrieval)
-                    put("maxRequests", maxRequests)
-                    put("maxCostUsd", maxCost)
-                },
-            )
+        ) = act("Research started") {
+            _started.value = repo.startConversation(message.trim(), assetClass).session.id
+        }
+
+        fun consumeStarted() {
+            _started.value = null
         }
     }
 
+/**
+ * One research conversation. The AI answers in the background, so while a turn is running the
+ * screen checks again every few seconds.
+ */
 @HiltViewModel
 class ResearchDetailViewModel
     @Inject
@@ -424,31 +412,69 @@ class ResearchDetailViewModel
         val detail: StateFlow<ResearchDetail?> = _detail.asStateFlow()
         private val _action = MutableStateFlow<ActionState>(ActionState.Idle)
         val action: StateFlow<ActionState> = _action.asStateFlow()
+        private var polling: Job? = null
 
         init {
             load()
         }
 
         fun load() {
-            viewModelScope.launch { runCatching { _detail.value = repo.researchDetail(id) }.onFailure { _action.value = it.toFailure() } }
+            viewModelScope.launch {
+                runCatching { show(repo.researchDetail(id)) }.onFailure { _action.value = it.toFailure() }
+            }
         }
 
-        private fun act(block: suspend () -> ResearchDetail) {
+        private fun show(d: ResearchDetail) {
+            _detail.value = d
+            if (d.session.status == "RUNNING") poll()
+        }
+
+        private fun poll() {
+            if (polling?.isActive == true) return
+            polling =
+                viewModelScope.launch {
+                    while (true) {
+                        delay(POLL_MS)
+                        val d = runCatching { repo.researchDetail(id) }.getOrNull() ?: continue
+                        _detail.value = d
+                        if (d.session.status != "RUNNING") break
+                    }
+                }
+        }
+
+        private fun act(
+            done: String,
+            block: suspend () -> ResearchDetail,
+        ) {
             _action.value = ActionState.Running
             viewModelScope.launch {
                 runCatching { block() }
                     .onSuccess {
-                        _detail.value = it
-                        _action.value = ActionState.Done("Request accepted; refresh to see the result")
+                        show(it)
+                        _action.value = ActionState.Done(done)
                     }.onFailure { _action.value = it.toFailure() }
             }
         }
 
-        fun run() = act { repo.runResearch(id) }
+        fun send(message: String) = act("Sent") { repo.sendResearchMessage(id, message.trim()) }
 
-        fun review(approve: Boolean) = act { repo.reviewResearch(id, approve, null) }
+        /** Re-sends the last message (after a failed or interrupted answer). */
+        fun retry() = act("Sent again") { repo.runResearch(id) }
 
-        fun compile() = act { repo.compileResearch(id) }
+        /** The owner confirms the research is reviewed, then it is compiled into a strategy. */
+        fun compile() =
+            act("Building the strategy…") {
+                if (_detail.value?.session?.reviewStatus != "REVIEWED") repo.reviewResearch(id, true, "Reviewed in the conversation")
+                repo.compileResearch(id)
+            }
+
+        fun clearAction() {
+            _action.value = ActionState.Idle
+        }
+
+        private companion object {
+            const val POLL_MS = 3000L
+        }
     }
 
 /** FR-103/FR-104: report for the requested portfolio, or the first active one. */

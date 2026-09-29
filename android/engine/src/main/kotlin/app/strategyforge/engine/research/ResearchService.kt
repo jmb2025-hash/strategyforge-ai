@@ -47,6 +47,17 @@ data class ResearchCreate(
     val maxCostUsd: BigDecimal = BigDecimal("2"),
 )
 
+/**
+ * Starts a research conversation (D-034): just the owner's first message and whether it is for crypto
+ * or stocks. The AI proposes symbols, timeframe and rules; the provider defaults to the first usable one.
+ */
+data class ConversationStart(
+    val message: String,
+    val assetClass: String = "CRYPTO",
+    val providerId: UUID? = null,
+    val title: String? = null,
+)
+
 data class ResearchSession(
     val id: UUID,
     val title: String,
@@ -98,6 +109,8 @@ data class ResearchRunView(
     val sources: List<AiSource>,
     val startedAt: Instant,
     val completedAt: Instant?,
+    /** The owner's message this research turn answers (conversations); null for form-based runs. */
+    val ownerMessage: String? = null,
 )
 
 data class ResearchEditView(
@@ -221,6 +234,121 @@ class ResearchService(
         return get(id)
     }
 
+    // ------------------------------------------------------------------ conversations (D-034)
+
+    /** Creates a conversation from the owner's first message and sends it to the AI. */
+    fun startConversation(req: ConversationStart): ResearchDetail {
+        val message = checkedMessage(req.message)
+        val asset = runCatching { AssetClass.valueOf(req.assetClass) }.getOrElse { throw Problems.badRequest("invalid-asset-class", "assetClass must be US_EQUITY or CRYPTO") }
+        val p = req.providerId?.let { aiProvider(it) } ?: defaultProvider()
+        val title = (req.title?.trim()?.takeIf { it.isNotEmpty() } ?: message.lineSequence().first().trim()).let { if (it.length > MAX_TITLE) it.take(MAX_TITLE - 1) + "…" else it }
+        val id = UUID.randomUUID()
+        val now = clock.instant()
+        val retrieval = clients.retrievalAvailable(p) && p.webSearchPrice() != null
+        db.tx {
+            db
+                .sql(
+                    """
+                    insert into research_sessions(id, title, provider_id, provider_type, model, asset_class, universe, horizon, timeframe, approach, prompt, retrieval,
+                      max_requests, max_cost_usd, status, review_status, created_at, updated_at)
+                    values (:id, :t, :p, :pt, :m, :a, '[]', '', '', '', :pr, :r, :mr, :mc, 'DRAFT', 'UNVERIFIED', :now, :now)
+                    """.trimIndent(),
+                ).param("id", id)
+                .param("t", title)
+                .param("p", p.id)
+                .param("pt", p.type.name)
+                .param("m", p.string("model"))
+                .param("a", asset.name)
+                .param("pr", message)
+                .param("r", retrieval)
+                .param("mr", CONVERSATION_MAX_REQUESTS)
+                // The monthly AI budget is the ceiling; a conversation has no separate cost cap.
+                .param("mc", Decimals.money(budgets.get().monthlyCostLimitUsd))
+                .param("now", now)
+                .update()
+            audit.record(AuditCategory.RESEARCH, "RESEARCH_SESSION_CREATED", entityType = "ResearchSession", entityId = id, details = mapOf("provider" to p.type, "model" to p.string("model"), "retrieval" to retrieval, "conversation" to true))
+        }
+        return turn(id, message)
+    }
+
+    /** Sends the owner's next message in a conversation; the AI sees the earlier turns. */
+    fun message(
+        id: UUID,
+        text: String,
+    ): ResearchDetail = turn(id, checkedMessage(text))
+
+    private fun checkedMessage(text: String): String {
+        val m = text.trim()
+        if (m.isEmpty() || m.length > MAX_PROMPT) throw Problems.badRequest("invalid-message", "Write a message of 1-$MAX_PROMPT characters")
+        return m
+    }
+
+    /** The first active provider with a key, Gemini first. */
+    private fun defaultProvider(): AiProviderConfig {
+        val candidates = providers.list().sortedBy { if (it.providerType == AiProviderType.GEMINI) 0 else 1 }
+        val usable = candidates.firstOrNull { it.active && it.keyConfigured } ?: throw Problems.unprocessable("no-ai-provider", "Add an AI provider and its key first (More → AI providers and keys)")
+        return aiProvider(usable.id)
+    }
+
+    private fun turn(
+        id: UUID,
+        message: String,
+    ): ResearchDetail {
+        val runId =
+            reserving {
+                val s = lock(id)
+                if (s.status == "RUNNING") throw Problems.conflict("research-running", "The AI is still answering the previous message")
+                val p = aiProvider(s.providerId)
+                val retrieval = clients.retrievalAvailable(p) && p.webSearchPrice() != null
+                val context = legacyContext(s)
+                val base = ResearchPrompts.conversationPrompt(s.assetClass, tradable(s.assetClass), context, emptyList(), message)
+                val room = budgets.get().maxInputChars - ResearchPrompts.CONVERSATION_SYSTEM.length - base.length - PROMPT_MARGIN
+                val prompt = ResearchPrompts.conversationPrompt(s.assetClass, tradable(s.assetClass), context, fittingHistory(id, s, room), message)
+                val request = AiRequest(ResearchPrompts.CONVERSATION_SYSTEM, prompt, 0, retrieval, if (retrieval) p.int("maxSearchesPerRequest", DEFAULT_SEARCHES) else 0)
+                start(s, p, "RESEARCH", ResearchPrompts.CONVERSATION_VERSION, request, ownerMessage = message)
+            }
+        launch(runId)
+        return detail(id)
+    }
+
+    /** Earlier successful turns, newest kept first when they do not all fit, returned oldest first. */
+    private fun fittingHistory(
+        id: UUID,
+        s: ResearchSession,
+        room: Int,
+    ): List<Pair<String, String>> {
+        val all = conversation(id, s)
+        val kept = ArrayDeque<Pair<String, String>>()
+        var used = 0
+        for (turn in all.asReversed()) {
+            val size = turn.first.length + turn.second.length + TURN_OVERHEAD
+            if (used + size > room) break
+            kept.addFirst(turn)
+            used += size
+        }
+        return kept.toList()
+    }
+
+    /** (owner message, AI answer) for every successful research turn, oldest first. */
+    private fun conversation(
+        id: UUID,
+        s: ResearchSession,
+    ): List<Pair<String, String>> =
+        db
+            .sql("select owner_message, response_text from research_runs where session_id = :s and purpose = 'RESEARCH' and status = 'SUCCEEDED' order by started_at, id")
+            .param("s", id)
+            .list { rs -> (rs.string("owner_message") ?: s.prompt) to rs.str("response_text") }
+
+    /** Form-based sessions from before conversations keep their original parameters as context. */
+    private fun legacyContext(s: ResearchSession): String? =
+        if (s.timeframe.isBlank()) {
+            null
+        } else {
+            "Owner's original parameters: symbols ${s.universe.joinToString(", ")}; horizon ${s.horizon}; timeframe ${s.timeframe}; approach ${s.approach}"
+        }
+
+    private fun tradable(assetClass: String): List<String> = instruments.list(null, assetClass, true).map { it.symbol }
+
     /** Runs the reservation transaction; a budget refusal is audited after the rollback so it is never lost. */
     private fun reserving(block: () -> UUID): UUID =
         try {
@@ -230,20 +358,32 @@ class ResearchService(
             throw e
         }
 
-    /** Starts a research run; the provider call happens asynchronously after the reservation commits. */
+    /**
+     * Runs research. Form-based sessions (from before conversations) keep their one-shot prompt until
+     * their first answer; after that, and for conversations, it re-sends the owner's latest message
+     * (for example after a failed or interrupted turn).
+     */
     fun run(id: UUID): ResearchDetail {
+        val s = get(id)
+        if (s.timeframe.isBlank() || latestResearchRun(id) != null) return turn(id, lastOwnerMessage(id) ?: s.prompt)
         val runId =
             reserving {
-                val s = lock(id)
-                if (s.status == "RUNNING") throw Problems.conflict("research-running", "A request for this session is already running")
-                val p = aiProvider(s.providerId)
-                val prompt = ResearchPrompts.researchPrompt(s.assetClass, s.universe, s.horizon, s.timeframe, s.approach, s.prompt)
-                val request = AiRequest(ResearchPrompts.RESEARCH_SYSTEM, prompt, 0, s.retrieval, if (s.retrieval) p.int("maxSearchesPerRequest", DEFAULT_SEARCHES) else 0)
-                start(s, p, "RESEARCH", ResearchPrompts.RESEARCH_VERSION, request)
+                val locked = lock(id)
+                if (locked.status == "RUNNING") throw Problems.conflict("research-running", "A request for this session is already running")
+                val p = aiProvider(locked.providerId)
+                val prompt = ResearchPrompts.researchPrompt(locked.assetClass, locked.universe, locked.horizon, locked.timeframe, locked.approach, locked.prompt)
+                val request = AiRequest(ResearchPrompts.RESEARCH_SYSTEM, prompt, 0, locked.retrieval, if (locked.retrieval) p.int("maxSearchesPerRequest", DEFAULT_SEARCHES) else 0)
+                start(locked, p, "RESEARCH", ResearchPrompts.RESEARCH_VERSION, request)
             }
         launch(runId)
         return detail(id)
     }
+
+    private fun lastOwnerMessage(id: UUID): String? =
+        db
+            .sql("select owner_message from research_runs where session_id = :s and purpose = 'RESEARCH' and owner_message is not null order by started_at desc, id limit 1")
+            .param("s", id)
+            .firstOrNull { it.string("owner_message") }
 
     /** Owner edit of the research text; any edit returns the session to UNVERIFIED. */
     fun edit(
@@ -284,7 +424,8 @@ class ResearchService(
         db.tx {
             val s = lock(id)
             val run = latestResearchRun(id) ?: throw Problems.conflict("no-research", "There is no successful research to review")
-            if (target == "REVIEWED" && runSources(run).isEmpty() && s.retrieval) {
+            // Form-based research that required retrieval must cite; conversation turns show whether they cited instead.
+            if (target == "REVIEWED" && runSources(run).isEmpty() && s.retrieval && sourcesRequired(run)) {
                 throw Problems.conflict("missing-sources", "Research that required retrieval has no cited sources and cannot be approved")
             }
             setReview(s, target, req.note?.take(MAX_FIELD))
@@ -300,10 +441,25 @@ class ResearchService(
                 val s = lock(id)
                 if (s.reviewStatus != "REVIEWED") throw Problems.conflict("research-not-reviewed", "Only research reviewed and approved by the owner can be compiled")
                 if (s.status == "RUNNING") throw Problems.conflict("research-running", "A request for this session is already running")
-                val (text, _, _) = compileSource(id)
+                val (text, editId, _) = compileSource(id)
                 val p = aiProvider(s.providerId)
-                val request = AiRequest(ResearchPrompts.compileSystem(schema), ResearchPrompts.compilePrompt(s.assetClass, s.timeframe, s.universe, text), 0, false)
-                start(s, p, "COMPILE", ResearchPrompts.COMPILE_VERSION, request)
+                if (s.timeframe.isBlank()) {
+                    val system = ResearchPrompts.conversationCompileSystem(schema)
+                    val empty = ResearchPrompts.conversationCompilePrompt(s.assetClass, tradable(s.assetClass), "")
+                    val room = budgets.get().maxInputChars - system.length - empty.length - PROMPT_MARGIN
+                    // The most recent turns that fit; the owner's latest corrections matter most.
+                    val research =
+                        if (editId != null || text.length <= room) {
+                            text
+                        } else {
+                            fittingHistory(id, s, room).joinToString("\n\n") { (owner, ai) -> "Owner:\n$owner\n\nResearch assistant:\n$ai" }
+                        }
+                    val request = AiRequest(system, ResearchPrompts.conversationCompilePrompt(s.assetClass, tradable(s.assetClass), research), 0, false)
+                    start(s, p, "COMPILE", ResearchPrompts.CONVERSATION_COMPILE_VERSION, request)
+                } else {
+                    val request = AiRequest(ResearchPrompts.compileSystem(schema), ResearchPrompts.compilePrompt(s.assetClass, s.timeframe, s.universe, text), 0, false)
+                    start(s, p, "COMPILE", ResearchPrompts.COMPILE_VERSION, request)
+                }
             }
         launch(runId)
         return detail(id)
@@ -316,6 +472,7 @@ class ResearchService(
         purpose: String,
         promptVersion: String,
         base: AiRequest,
+        ownerMessage: String? = null,
     ): UUID {
         val reservation = budgets.reserve(s, p, base)
         val request = base.copy(maxOutputTokens = reservation.maxOutputTokens)
@@ -333,10 +490,11 @@ class ResearchService(
             .sql(
                 """
                 insert into research_runs(id, session_id, purpose, provider_id, provider_type, model, prompt_version, system_prompt, user_prompt, parameters, status,
-                  reserved_cost_usd, sources_required, started_at)
-                values (:id, :s, :pu, :p, :pt, :m, :pv, :sys, :usr, :par, 'RUNNING', :res, :src, :now)
+                  reserved_cost_usd, sources_required, started_at, owner_message)
+                values (:id, :s, :pu, :p, :pt, :m, :pv, :sys, :usr, :par, 'RUNNING', :res, :src, :now, :om)
                 """.trimIndent(),
             ).param("id", runId)
+            .param("om", ownerMessage)
             .param("s", s.id)
             .param("pu", purpose)
             .param("p", p.id)
@@ -347,7 +505,8 @@ class ResearchService(
             .param("usr", request.prompt)
             .param("par", params.toJsonElement().toString())
             .param("res", reservation.worstCaseUsd)
-            .param("src", purpose == "RESEARCH" && request.retrieval)
+            // Only form-based research requires citations per run; conversation turns show their sources instead.
+            .param("src", purpose == "RESEARCH" && request.retrieval && ownerMessage == null)
             .param("now", clock.instant())
             .update()
         db
@@ -616,6 +775,12 @@ class ResearchService(
                 .param("r", run)
                 .firstOrNull { rs -> rs.uuid("id") to rs.str("content") }
         if (edit != null) return Triple(edit.second, edit.first, run)
+        val s = get(sessionId)
+        if (s.timeframe.isBlank()) {
+            // A conversation compiles from every turn, so the owner's corrections are included.
+            val transcript = conversation(sessionId, s).joinToString("\n\n") { (owner, ai) -> "Owner:\n$owner\n\nResearch assistant:\n$ai" }
+            return Triple(transcript, null, run)
+        }
         val text =
             db
                 .sql("select response_text from research_runs where id = :id")
@@ -623,6 +788,8 @@ class ResearchService(
                 .single { it.str("response_text") }
         return Triple(text, null, run)
     }
+
+    private fun sourcesRequired(runId: UUID): Boolean = db.sql("select sources_required from research_runs where id = :id").param("id", runId).single { it.bool("sources_required") }
 
     private fun latestResearchRun(sessionId: UUID): UUID? =
         db
@@ -751,6 +918,7 @@ class ResearchService(
             sources,
             rs.instant("started_at"),
             rs.instantOrNull("completed_at"),
+            rs.string("owner_message"),
         )
     }
 
@@ -806,6 +974,13 @@ class ResearchService(
         const val MAX_URL = 2000
         const val MAX_CANDIDATE = 200_000
         const val DEFAULT_SEARCHES = 5
+
+        /** Messages plus compiles in one conversation; the monthly AI budget still applies. */
+        const val CONVERSATION_MAX_REQUESTS = 100
+
+        /** Characters kept free for delimiters when fitting the conversation into the input ceiling. */
+        private const val PROMPT_MARGIN = 200
+        private const val TURN_OVERHEAD = 60
         const val DISCLAIMER =
             "AI research is unverified until you review it. It is informational only, cannot place orders or change risk limits, " +
                 "and compiled strategies must pass validation and a backtest before paper trading. All trading is simulated."

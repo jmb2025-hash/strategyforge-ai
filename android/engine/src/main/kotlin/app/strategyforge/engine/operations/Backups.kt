@@ -126,7 +126,10 @@ class BackupService(
             } catch (e: BackupInvalid) {
                 throw Problems.unprocessable("backup-invalid", e.message ?: "The backup is not valid")
             }
-        if (doc.schemaVersion != SCHEMA_VERSION) throw Problems.unprocessable("backup-schema-mismatch", "This backup was made by a different app version (${doc.schemaVersion})")
+        val backupVersion = doc.schemaVersion.removePrefix("engine-").toIntOrNull()
+        if (backupVersion == null || backupVersion > Db.SCHEMA_VERSION) {
+            throw Problems.unprocessable("backup-schema-mismatch", "This backup was made by a newer app version (${doc.schemaVersion}); update the app first")
+        }
         val safety = create().file.name
         db.tx {
             // Foreign keys are checked once at commit, after every table is back in place.
@@ -137,6 +140,8 @@ class BackupService(
             TABLES.asReversed().forEach { db.sql("delete from $it").update() }
             TABLES.forEach { load(it, doc.tables.getValue(it)) }
             Db.schemaStatements().filter { it.trimStart().startsWith("create trigger", ignoreCase = true) }.forEach { db.sql(it).update() }
+            // Older backups load into the current tables (new columns stay empty); keep the current version.
+            db.setSchemaVersion(Db.SCHEMA_VERSION)
         }
         audit.record(AuditCategory.OPERATIONS, "BACKUP_RESTORED", AuditOutcome.SUCCESS, details = mapOf("name" to name, "safetyBackup" to safety, "rows" to doc.rows))
         return RestoreResult(name, safety, doc.tables.size, doc.rows)
@@ -236,8 +241,8 @@ class BackupService(
     companion object {
         const val FORMAT = "strategyforge-backup"
 
-        /** Bumped whenever schema.sql changes incompatibly; restore refuses other versions. */
-        const val SCHEMA_VERSION = "engine-1"
+        /** Written into every backup; restore accepts this or any older version (D-034). */
+        val SCHEMA_VERSION: String get() = "engine-${Db.SCHEMA_VERSION}"
 
         private val NAME = Regex("^strategyforge-[0-9]{8}-[0-9]{6}-[a-z0-9]{1,8}\\.sfbk$")
         private val STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(ZoneOffset.UTC)

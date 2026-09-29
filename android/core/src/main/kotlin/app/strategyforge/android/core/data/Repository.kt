@@ -513,6 +513,30 @@ class Repository(
 
     suspend fun createResearch(body: JsonObject): ResearchSession = api.decode(api.post("/v1/research", body).body, ResearchSession.serializer())
 
+    /** Starts research as a conversation: one message, for crypto or stocks (D-034). */
+    suspend fun startConversation(
+        message: String,
+        assetClass: String,
+        providerId: String? = null,
+    ): ResearchDetail =
+        api.decode(
+            api
+                .post(
+                    "/v1/research/conversations",
+                    buildJsonObject {
+                        put("message", message)
+                        put("assetClass", assetClass)
+                        providerId?.let { put("providerId", it) }
+                    },
+                ).body,
+            ResearchDetail.serializer(),
+        )
+
+    suspend fun sendResearchMessage(
+        id: String,
+        message: String,
+    ): ResearchDetail = api.decode(api.post("/v1/research/${seg(id)}/messages", buildJsonObject { put("message", message) }).body, ResearchDetail.serializer())
+
     suspend fun runResearch(id: String): ResearchDetail = api.decode(api.post("/v1/research/${seg(id)}/run").body, ResearchDetail.serializer())
 
     suspend fun reviewResearch(

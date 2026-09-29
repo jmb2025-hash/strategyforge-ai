@@ -803,6 +803,17 @@ class LocalApi(
                 ),
             )
         }
+        // Research conversations (D-034): a first message, then replies.
+        post("/v1/research/conversations", 201) { r, _ ->
+            val b = obj(r)
+            researchDetail(
+                engine.research.startConversation(
+                    app.strategyforge.engine.research
+                        .ConversationStart(b.req("message"), b.str("assetClass") ?: "CRYPTO", b.str("providerId")?.let { uuid(it) }, b.str("title")),
+                ),
+            )
+        }
+        post("/v1/research/{id}/messages", 202) { r, g -> researchDetail(engine.research.message(uuid(g[0]), obj(r).req("message"))) }
         get("/v1/research/{id}") { _, g -> researchDetail(engine.research.detail(uuid(g[0]))) }
         post("/v1/research/{id}/run", 202) { _, g -> researchDetail(engine.research.run(uuid(g[0]))) }
         post("/v1/research/{id}/review") { r, g -> researchDetail(engine.research.review(uuid(g[0]), ReviewRequest(obj(r).req("decision"), obj(r).str("note")))) }
@@ -841,6 +852,8 @@ class LocalApi(
             "maxCostUsd" to s.maxCostUsd,
             "createdAt" to s.createdAt,
             "updatedAt" to s.updatedAt,
+            // Conversations have no fixed timeframe; the AI proposes it (D-034).
+            "conversation" to s.timeframe.isBlank(),
         )
 
     private fun researchDetail(d: ResearchDetail) =
@@ -866,6 +879,7 @@ class LocalApi(
                         "sources" to r.sources.map { s -> mapOf("url" to s.url, "title" to s.title, "citedText" to s.citedText) },
                         "startedAt" to r.startedAt,
                         "completedAt" to r.completedAt,
+                        "ownerMessage" to r.ownerMessage,
                     )
                 },
             "edits" to d.edits.map { e -> mapOf("id" to e.id, "baseRunId" to e.baseRunId, "content" to e.content, "note" to e.note, "createdAt" to e.createdAt) },

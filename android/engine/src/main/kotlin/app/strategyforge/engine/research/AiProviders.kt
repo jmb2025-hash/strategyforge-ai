@@ -95,8 +95,15 @@ enum class AiProviderType(
 ) {
     GEMINI(
         "Google Gemini (free tier available)",
-        aiSettings(retrieval = false),
-        mapOf("model" to "gemini-2.5-flash", "inputPricePerMillionTokensUsd" to "0", "outputPricePerMillionTokensUsd" to "0"),
+        aiSettings(retrieval = true),
+        // Google Search grounding is on by default; on the free tier it is within the daily free quota.
+        mapOf(
+            "model" to "gemini-2.5-flash",
+            "inputPricePerMillionTokensUsd" to "0",
+            "outputPricePerMillionTokensUsd" to "0",
+            "webSearchEnabled" to "true",
+            "webSearchPricePerThousandUsd" to "0",
+        ),
         "https://aistudio.google.com/apikey",
     ),
     OPENROUTER(
@@ -129,6 +136,23 @@ data class AiProviderConfig(
     fun decimal(k: String): BigDecimal? = settings[k]?.let { BigDecimal(it) }
 
     fun bool(k: String): Boolean = settings[k]?.toBoolean() ?: false
+
+    /** Web search is on for Gemini unless turned off (D-034); Anthropic needs it switched on. */
+    fun webSearchEnabled(): Boolean =
+        when (type) {
+            AiProviderType.GEMINI -> settings["webSearchEnabled"] != "false"
+            AiProviderType.ANTHROPIC -> bool("webSearchEnabled")
+            else -> false
+        }
+
+    /**
+     * Price per thousand web searches. A Gemini provider on free-tier prices (0 per token) that
+     * predates the web-search setting is treated as free, like its tokens; otherwise the price must
+     * be configured so cost ceilings stay verifiable (D-010).
+     */
+    fun webSearchPrice(): BigDecimal? =
+        decimal("webSearchPricePerThousandUsd")
+            ?: if (type == AiProviderType.GEMINI && decimal("inputPricePerMillionTokensUsd")?.signum() == 0) BigDecimal.ZERO else null
 }
 
 data class AiProviderView(

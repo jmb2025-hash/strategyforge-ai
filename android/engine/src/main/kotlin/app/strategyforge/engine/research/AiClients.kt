@@ -201,7 +201,11 @@ class OpenAiCompatibleClient(
     }
 }
 
-/** Google Gemini `generateContent` (the default, free-tier friendly provider). No grounding, so no sources are claimed. */
+/**
+ * Google Gemini `generateContent` (the default, free-tier friendly provider). With retrieval, the
+ * Google Search grounding tool is attached and the sources come from `groundingMetadata`; without
+ * it, no sources are claimed (FR-033).
+ */
 class GeminiClient(
     http: OkHttpClient,
 ) : HttpAiClient(http) {
@@ -211,15 +215,18 @@ class GeminiClient(
         provider: AiProviderConfig,
         request: AiRequest,
     ): AiResponse {
-        require(!request.retrieval) { "Gemini adapter does not support retrieval" }
         val model = provider.string("model")!!
         val url = AiEndpoints.baseUrl(provider) + "/v1beta/models/" + URLEncoder.encode(model, "UTF-8") + ":generateContent"
+        val generation = mutableMapOf<String, Any?>("maxOutputTokens" to request.maxOutputTokens)
+        // Thinking tokens count against the output ceiling on 2.5 models; keep room for the answer.
+        if (model.startsWith("gemini-2.5")) generation["thinkingConfig"] = mapOf("thinkingBudget" to minOf(THINKING_BUDGET, request.maxOutputTokens / 4))
         val body =
-            mapOf(
-                "systemInstruction" to mapOf("parts" to listOf(mapOf("text" to request.system))),
-                "contents" to listOf(mapOf("role" to "user", "parts" to listOf(mapOf("text" to request.prompt)))),
-                "generationConfig" to mapOf("maxOutputTokens" to request.maxOutputTokens),
-            )
+            buildMap<String, Any?> {
+                put("systemInstruction", mapOf("parts" to listOf(mapOf("text" to request.system))))
+                put("contents", listOf(mapOf("role" to "user", "parts" to listOf(mapOf("text" to request.prompt)))))
+                put("generationConfig", generation)
+                if (request.retrieval) put("tools", listOf(mapOf("google_search" to emptyMap<String, Any>())))
+            }
         val (json, raw) = post(provider, url, mapOf("x-goog-api-key" to (provider.key ?: "")), body)
         json["promptFeedback"]?.get("blockReason")?.let { throw AiException(AiFailure.REFUSED, "The provider blocked the prompt (${it.asText()})", raw.take(RAW_LIMIT)) }
         val candidate = json["candidates"]?.takeIf { it.isArray && it.size() > 0 }?.get(0) ?: throw AiException(AiFailure.MALFORMED_RESPONSE, "The provider response has no candidates", raw.take(RAW_LIMIT))
@@ -232,18 +239,43 @@ class GeminiClient(
         if (finish == "MAX_TOKENS") throw AiException(AiFailure.TRUNCATED, "The response hit the output-token ceiling and is incomplete", raw.take(RAW_LIMIT))
         val usage = json["usageMetadata"]
         val thoughts = usage?.get("thoughtsTokenCount")?.asLong() ?: 0
+        val grounding = candidate["groundingMetadata"]
+        val sources = if (request.retrieval) groundingSources(grounding) else emptyList()
+        val searched = (grounding?.get("webSearchQueries")?.size() ?: 0) > 0 || sources.isNotEmpty()
         return AiResponse(
             text,
-            emptyList(),
+            sources,
             requireLong(usage?.get("promptTokenCount"), raw, "usageMetadata.promptTokenCount"),
-            requireLong(usage?.get("candidatesTokenCount"), raw, "usageMetadata.candidatesTokenCount") + thoughts,
-            0,
+            // A reply without text candidates (for example a search-only turn) reports no candidate tokens.
+            (usage?.get("candidatesTokenCount")?.asLong() ?: 0) + thoughts,
+            // Grounding is billed per grounded prompt, not per query.
+            if (searched) 1 else 0,
             finish,
             json["modelVersion"]?.asText() ?: model,
             raw.take(RAW_LIMIT),
             null,
-            mapOf("maxOutputTokens" to request.maxOutputTokens),
+            mapOf("maxOutputTokens" to request.maxOutputTokens, "googleSearch" to request.retrieval),
         )
+    }
+
+    /** Web sources from `groundingChunks`, with the answer text each one supports where given. */
+    private fun groundingSources(grounding: JsonNode?): List<AiSource> {
+        val chunks = grounding?.get("groundingChunks")?.takeIf { it.isArray } ?: return emptyList()
+        val supported = mutableMapOf<Int, MutableList<String>>()
+        grounding["groundingSupports"]?.forEach { s ->
+            val segment = s["segment"]?.get("text")?.asText() ?: return@forEach
+            s["groundingChunkIndices"]?.forEach { i -> supported.getOrPut(i.asInt()) { mutableListOf() } += segment }
+        }
+        return chunks.mapIndexedNotNull { i, c ->
+            val web = c["web"] ?: return@mapIndexedNotNull null
+            val uri = web["uri"]?.asText()?.takeIf { it.startsWith("https://") || it.startsWith("http://") } ?: return@mapIndexedNotNull null
+            AiSource(uri, web["title"]?.asText(), supported[i]?.joinToString(" … ")?.take(MAX_CITED))
+        }
+    }
+
+    private companion object {
+        const val THINKING_BUDGET = 2048
+        const val MAX_CITED = 1000
     }
 }
 
@@ -254,7 +286,7 @@ class AiClients(
     fun forType(type: AiProviderType): AiClient = clients.firstOrNull { it.supports(type) } ?: error("No AI adapter for $type")
 
     /** Retrieval with citations is offered only by adapters that implement it and only when enabled. */
-    fun retrievalAvailable(p: AiProviderConfig): Boolean = p.type == AiProviderType.ANTHROPIC && p.bool("webSearchEnabled")
+    fun retrievalAvailable(p: AiProviderConfig): Boolean = p.webSearchEnabled()
 
     companion object {
         fun default(http: OkHttpClient = defaultHttp()): AiClients = AiClients(listOf(GeminiClient(http), OpenAiCompatibleClient(http), AnthropicAiClient()))

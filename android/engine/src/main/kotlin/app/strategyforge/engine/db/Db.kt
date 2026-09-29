@@ -53,14 +53,58 @@ class Db(
 
     fun <T> tx(block: () -> T): T = backend.transaction(block)
 
-    /** Creates the schema on first use; statements come from db/schema.sql. */
+    /**
+     * Creates the base schema (db/schema.sql) on first use, then applies every newer [Migration] in
+     * order. New installs and upgraded phones take the same path, each step in its own transaction.
+     */
     fun migrate() {
         val exists = sql("select count(*) n from sqlite_master where type = 'table' and name = 'settings'").long() > 0
-        if (exists) return
-        tx { schemaStatements().forEach { backend.execute(it, emptyList()) } }
+        if (!exists) tx { schemaStatements().forEach { backend.execute(it, emptyList()) } }
+        val current = schemaVersion()
+        MIGRATIONS.filter { it.version > current }.sortedBy { it.version }.forEach { m ->
+            tx {
+                m.apply(this)
+                setSchemaVersion(m.version)
+            }
+        }
     }
 
+    fun schemaVersion(): Int = sql("select value from settings where key = :k").param("k", SCHEMA_VERSION_KEY).firstOrNull { it.str("value").toIntOrNull() } ?: 1
+
+    fun setSchemaVersion(version: Int) {
+        sql("insert or replace into settings(key, value) values (:k, :v)").param("k", SCHEMA_VERSION_KEY).param("v", version.toString()).update()
+    }
+
+    /** Adds a column unless it exists already (restored backups and re-runs stay safe). */
+    fun addColumn(
+        table: String,
+        column: String,
+        definition: String,
+    ) {
+        val present = sql("pragma table_info($table)").list { it.str("name") }
+        if (column !in present) sql("alter table $table add column $column $definition").update()
+    }
+
+    /** One forward-only schema change; [version] must increase with every new migration. */
+    class Migration(
+        val version: Int,
+        val description: String,
+        val apply: (Db) -> Unit,
+    )
+
     companion object {
+        const val SCHEMA_VERSION_KEY = "schema_version"
+
+        /** Changes after the base schema (version 1). Never edit a released migration; add a new one. */
+        val MIGRATIONS: List<Migration> =
+            listOf(
+                Migration(2, "Research conversations: the owner's message for each research turn") { db ->
+                    db.addColumn("research_runs", "owner_message", "TEXT")
+                },
+            )
+
+        val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1
+
         /** Splits the schema into statements; a statement ends at a line ending with ';'. */
         fun schemaStatements(): List<String> {
             val text =

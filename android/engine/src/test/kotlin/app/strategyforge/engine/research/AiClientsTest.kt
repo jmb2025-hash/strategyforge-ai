@@ -153,6 +153,29 @@ class AiClientsTest {
     }
 
     @Test
+    fun `D-034 Gemini web search attaches Google Search grounding and returns the cited sources`() {
+        server.enqueue(json(Fixtures.geminiGrounded("They trade Bitcoin and Ethereum. Entries follow retests of support.")))
+        val p = provider(AiProviderType.GEMINI, mapOf("model" to "gemini-2.5-flash", "inputPricePerMillionTokensUsd" to "0", "outputPricePerMillionTokensUsd" to "0"))
+        assertThat(AiClients.default(http).retrievalAvailable(p)).`as`("web search is on for Gemini unless turned off").isTrue()
+        assertThat(p.webSearchPrice()).`as`("free-tier Gemini searches are free").isEqualByComparingTo("0")
+        assertThat(AiClients.default(http).retrievalAvailable(p.copy(settings = p.settings + ("webSearchEnabled" to "false")))).isFalse()
+
+        val r = GeminiClient(http).complete(p, request.copy(retrieval = true, maxSearches = 5, maxOutputTokens = 8000))
+        assertThat(r.sources.map { it.url }).containsExactly("https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", "https://example.org/crypto-trading-review")
+        assertThat(r.sources.first().title).isEqualTo("chartchampions.com")
+        assertThat(r.sources.first().citedText).contains("Bitcoin").contains("retests of support")
+        assertThat(r.searchRequests).isEqualTo(1)
+        val body = mapper.readTree(server.takeRequest().body.readUtf8())
+        assertThat(body["tools"][0].has("google_search")).isTrue()
+        assertThat(body["generationConfig"]["thinkingConfig"]["thinkingBudget"].asInt()).isEqualTo(2000)
+
+        // Without retrieval no tool is attached and no sources are claimed.
+        server.enqueue(json(Fixtures.geminiGrounded("answer")))
+        assertThat(GeminiClient(http).complete(p, request).sources).isEmpty()
+        assertThat(mapper.readTree(server.takeRequest().body.readUtf8()).has("tools")).isFalse()
+    }
+
+    @Test
     fun `adapters without retrieval refuse retrieval requests`() {
         assertThatThrownBy { OpenAiCompatibleClient(http).complete(provider(AiProviderType.OPENAI), request.copy(retrieval = true)) }.isInstanceOf(IllegalArgumentException::class.java)
         assertThat(AiClients(listOf(AnthropicAiClient())).retrievalAvailable(provider(AiProviderType.OPENAI, mapOf("webSearchEnabled" to "true")))).isFalse()
@@ -214,6 +237,36 @@ object Fixtures {
                 "model" to "test-model",
                 "choices" to listOf(mapOf("index" to 0, "message" to mapOf("role" to "assistant", "content" to text), "finish_reason" to finish)),
                 "usage" to (mapOf("prompt_tokens" to 100, "completion_tokens" to 40) + (cost?.let { mapOf("cost" to BigDecimal(it)) } ?: emptyMap())),
+            ),
+        )
+
+    /** A Google Search grounded answer: queries, two web chunks and supports linking answer text to them. */
+    fun geminiGrounded(text: String): String =
+        m.writeValueAsString(
+            mapOf(
+                "candidates" to
+                    listOf(
+                        mapOf(
+                            "content" to mapOf("role" to "model", "parts" to listOf(mapOf("text" to text))),
+                            "finishReason" to "STOP",
+                            "groundingMetadata" to
+                                mapOf(
+                                    "webSearchQueries" to listOf("chart champions crypto trading strategy"),
+                                    "groundingChunks" to
+                                        listOf(
+                                            mapOf("web" to mapOf("uri" to "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", "title" to "chartchampions.com")),
+                                            mapOf("web" to mapOf("uri" to "https://example.org/crypto-trading-review", "title" to "example.org")),
+                                        ),
+                                    "groundingSupports" to
+                                        listOf(
+                                            mapOf("segment" to mapOf("text" to "They trade Bitcoin and Ethereum."), "groundingChunkIndices" to listOf(0, 1)),
+                                            mapOf("segment" to mapOf("text" to "Entries follow retests of support."), "groundingChunkIndices" to listOf(0)),
+                                        ),
+                                ),
+                        ),
+                    ),
+                "usageMetadata" to mapOf("promptTokenCount" to 300, "candidatesTokenCount" to 200, "thoughtsTokenCount" to 40),
+                "modelVersion" to "gemini-2.5-flash",
             ),
         )
 

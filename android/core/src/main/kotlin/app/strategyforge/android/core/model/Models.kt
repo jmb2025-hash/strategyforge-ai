@@ -429,6 +429,8 @@ data class ResearchSession(
     val costUsd: String,
     val maxCostUsd: String,
     val createdAt: String,
+    /** Research as a conversation (D-034): no fixed timeframe or symbols; the AI proposes them. */
+    val conversation: Boolean = false,
 )
 
 @Serializable
@@ -443,6 +445,8 @@ data class ResearchRun(
     val estimatedCostUsd: String? = null,
     val sources: List<ResearchSource> = emptyList(),
     val startedAt: String,
+    /** The owner's message this turn answers (conversations). */
+    val ownerMessage: String? = null,
 )
 
 @Serializable
@@ -459,6 +463,8 @@ data class Compilation(
     val strategyId: String? = null,
     val contentHash: String? = null,
     val createdAt: String,
+    /** Why a compilation was not accepted (validation issues or the model's reason). */
+    val issues: JsonElement? = null,
 )
 
 @Serializable

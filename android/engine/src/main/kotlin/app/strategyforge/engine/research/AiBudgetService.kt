@@ -150,7 +150,7 @@ class AiBudgetService(
         val outPrice = p.decimal("outputPricePerMillionTokensUsd") ?: throw Problems.unprocessable("ai-price-missing", "Provider pricing is not configured")
         val searchPrice =
             if (searches > 0) {
-                p.decimal("webSearchPricePerThousandUsd") ?: throw Problems.unprocessable("ai-price-missing", "Web search pricing is not configured")
+                p.webSearchPrice() ?: throw Problems.unprocessable("ai-price-missing", "Web search pricing is not configured")
             } else {
                 BigDecimal.ZERO
             }
