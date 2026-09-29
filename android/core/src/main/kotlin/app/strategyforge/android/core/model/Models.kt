@@ -204,6 +204,30 @@ data class Activation(
     val status: String,
     val createdAt: String,
     val endReason: String? = null,
+    /** Set when this activation replaced another strategy in its slot (D-035). */
+    val replacedStrategyName: String? = null,
+    val positions: String? = null,
+    val handedOver: List<SlotHolding> = emptyList(),
+    val leftOpen: List<SlotHolding> = emptyList(),
+    val closingOrders: List<String> = emptyList(),
+)
+
+/** An open position a strategy manages. */
+@Serializable
+data class SlotHolding(
+    val portfolioId: String? = null,
+    val symbol: String,
+    val side: String,
+    val quantity: String,
+)
+
+/** The crypto or stock strategy running now (D-035); [strategy] is null when the slot is empty. */
+@Serializable
+data class Slot(
+    val assetClass: String,
+    val strategy: Strategy? = null,
+    val activation: Activation? = null,
+    val holdings: List<SlotHolding> = emptyList(),
 )
 
 @Serializable
@@ -431,6 +455,8 @@ data class ResearchSession(
     val createdAt: String,
     /** Research as a conversation (D-034): no fixed timeframe or symbols; the AI proposes them. */
     val conversation: Boolean = false,
+    /** The first message (or, for older form-based research, the research question). */
+    val prompt: String = "",
 )
 
 @Serializable

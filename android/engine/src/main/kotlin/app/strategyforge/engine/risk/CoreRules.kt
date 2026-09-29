@@ -192,7 +192,7 @@ class DefaultRiskContextFactory(
                         """
                         select l.instrument_id, l.quantity_remaining, l.side from position_lots l
                         join paper_executions e on e.id = l.open_execution_id join paper_orders o on o.id = e.order_id
-                        where l.portfolio_id = :p and l.closed_at is null and o.strategy_id = :s
+                        where l.portfolio_id = :p and l.closed_at is null and coalesce(l.managed_by_strategy_id, o.strategy_id) = :s
                         """.trimIndent(),
                     ).param("p", p.id)
                     .param("s", intent.strategyId)

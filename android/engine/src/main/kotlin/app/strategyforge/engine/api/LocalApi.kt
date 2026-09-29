@@ -468,15 +468,38 @@ class LocalApi(
         post("/v1/strategies/{id}/activate", 201) { r, g ->
             val b = obj(r)
             val mode = b.str("mode")?.let { enumOf<ActivationMode>(it, "mode") } ?: ActivationMode.RECOMMENDATION
-            activation(
-                engine.strategyControl.activate(
+            // One strategy per asset class (D-035): replacing another asks what to do with its positions.
+            val positions = b.str("positions")?.let { enumOf<app.strategyforge.engine.autonomy.PositionHandling>(it, "positions") }
+            val result =
+                engine.slots.activate(
                     uuid(g[0]),
                     ActivationRequest(mode, uuid(b.req("portfolioId")), b.dec("allocationPercent") ?: throw Problems.badRequest("missing-field", "allocationPercent is required"), b.bool("disclosureAccepted") ?: false, b.str("disclosureVersion")),
-                ),
-            )
+                    positions,
+                )
+            activation(result.slot.activation!!) +
+                mapOf(
+                    "replacedStrategyId" to result.replaced?.id,
+                    "replacedStrategyName" to result.replaced?.name,
+                    "positions" to result.positions,
+                    "handedOver" to result.handedOver.map { holding(it) },
+                    "closingOrders" to result.closingOrders,
+                    "leftOpen" to result.leftOpen.map { holding(it) },
+                )
         }
         post("/v1/strategies/{id}/deactivate") { r, g -> engine.strategyControl.deactivate(uuid(g[0]), obj(r).str("reason"))?.let { activation(it) } ?: mapOf("status" to "NOT_ACTIVE") }
+        get("/v1/slots") { _, _ ->
+            engine.slots.slots().map { s ->
+                mapOf(
+                    "assetClass" to s.assetClass,
+                    "strategy" to s.strategy?.let { strategy(it) },
+                    "activation" to s.activation?.let { activation(it) },
+                    "holdings" to s.holdings.map { holding(it) },
+                )
+            }
+        }
     }
+
+    private fun holding(h: app.strategyforge.engine.autonomy.SlotHolding) = mapOf("portfolioId" to h.portfolioId, "symbol" to h.symbol, "side" to h.side, "quantity" to h.quantity)
 
     private fun strategy(s: StrategyView) =
         mapOf(

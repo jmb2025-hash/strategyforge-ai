@@ -83,7 +83,8 @@ class ActivationService(
         val s = strategies.lock(strategyId)
         val versionId = s.currentVersionId ?: throw Problems.conflict("no-version", "Strategy has no version")
         val gates = mutableListOf<String>()
-        if (s.status !in setOf(StrategyStatus.PAPER_ELIGIBLE, StrategyStatus.PAUSED, StrategyStatus.ACTIVE_RECOMMENDATION)) {
+        // An active strategy can be re-activated to change its mode or allocation (D-035); gates apply again.
+        if (s.status !in setOf(StrategyStatus.PAPER_ELIGIBLE, StrategyStatus.PAUSED, StrategyStatus.ACTIVE_RECOMMENDATION, StrategyStatus.ACTIVE_AUTONOMOUS)) {
             gates += "Strategy must be Paper Eligible (currently ${s.status})"
         }
         val v = strategies.version(versionId)

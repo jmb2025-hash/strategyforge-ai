@@ -338,7 +338,10 @@ class EvaluationService(
         return "${op(c.left)} ${c.comparison} ${op(c.right)}" + if (c.offsetBars > 0) " (${c.offsetBars} bars ago)" else ""
     }
 
-    /** Quantity, average cost and first entry time of lots opened by this strategy's orders. */
+    /**
+     * Quantity, average cost and first entry time of the lots this strategy manages: those its orders
+     * opened, plus those handed to it when it replaced another strategy (D-035).
+     */
     private fun strategyHolding(
         a: Activation,
         instrumentId: UUID,
@@ -350,7 +353,7 @@ class EvaluationService(
                     """
                     select l.quantity_remaining, l.cost_remaining, l.opened_at from position_lots l
                     join paper_executions e on e.id = l.open_execution_id join paper_orders o on o.id = e.order_id
-                    where l.portfolio_id = :p and l.instrument_id = :i and o.strategy_id = :s and l.closed_at is null
+                    where l.portfolio_id = :p and l.instrument_id = :i and coalesce(l.managed_by_strategy_id, o.strategy_id) = :s and l.closed_at is null
                     """.trimIndent(),
                 ).param("p", a.portfolioId)
                 .param("i", instrumentId)

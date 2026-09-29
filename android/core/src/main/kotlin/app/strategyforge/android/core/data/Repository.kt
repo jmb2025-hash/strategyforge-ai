@@ -46,6 +46,7 @@ import app.strategyforge.android.core.model.RuntimeState
 import app.strategyforge.android.core.model.SessionInfo
 import app.strategyforge.android.core.model.SessionResponse
 import app.strategyforge.android.core.model.Settings
+import app.strategyforge.android.core.model.Slot
 import app.strategyforge.android.core.model.StockData
 import app.strategyforge.android.core.model.Strategy
 import app.strategyforge.android.core.model.StrategyDetail
@@ -309,12 +310,15 @@ class Repository(
         allocationPercent: String,
         autonomous: Boolean,
         disclosureVersion: String?,
+        positions: String? = null,
     ): Activation {
         val body =
             buildJsonObject {
                 put("portfolioId", portfolioId)
                 put("allocationPercent", allocationPercent)
                 put("mode", if (autonomous) "AUTONOMOUS" else "RECOMMENDATION")
+                // Replacing the active strategy of the same asset class: KEEP or CLOSE its positions (D-035).
+                positions?.let { put("positions", it) }
                 if (autonomous) {
                     put("disclosureAccepted", disclosureVersion != null)
                     disclosureVersion?.let { put("disclosureVersion", it) }
@@ -322,6 +326,9 @@ class Repository(
             }
         return api.decode(api.post("/v1/strategies/${seg(strategyId)}/activate", body).body, Activation.serializer())
     }
+
+    /** The crypto and stock strategy slots (D-035). */
+    suspend fun slots(): List<Slot> = api.get("/v1/slots", ListSerializer(Slot.serializer()))
 
     suspend fun deactivate(strategyId: String) {
         api.post("/v1/strategies/${seg(strategyId)}/deactivate", buildJsonObject { put("reason", "Paused by owner") })

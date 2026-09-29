@@ -160,6 +160,11 @@ class Engine(
     val signals = SignalQueries(db)
     val evaluation = EvaluationService(db, activations, strategies, instruments, market, portfolios, dispatcher, notifications, audit, wall, marketClock, events)
     val strategyControl = StrategyActivationFacade(db, activations) { recommendations }
+
+    /** One crypto and one stock strategy at a time (D-035). */
+    val slots =
+        app.strategyforge.engine.autonomy
+            .StrategySlots(db, strategies, strategyControl, activations, orders, audit)
     val emergency = EmergencyService(db, orders, portfolios, activations, strategyControl, notifications, audit, wall, auth)
     val healthMonitor = StrategyHealthMonitor(db, activations, strategies, recommendations, riskProfiles, notifications, audit)
 
