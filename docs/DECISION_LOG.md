@@ -222,3 +222,24 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Stop/target events.** A STOP_TARGET notification is raised when a strategy's stop-loss, take-profit or trailing stop fires, and when a STOP or STOP_LIMIT paper order fills.
   - **Daily summary.** One summary per local day at the owner's `dailySummaryLocalTime` (default 17:00) in the owner's timezone. The local date is the dedupe key, so restarts cannot duplicate it.
 - **Requirements affected:** FR-101, FR-102, MS-16.
+
+## D-027 Phone-only architecture (owner decision, supersedes the backend-authoritative design)
+
+- **Date:** 2026-09-29
+- **Context:** The master document specifies a backend-authoritative system: a Spring Boot and PostgreSQL server, with Android data as cache only and provider keys never on the device (FR-031, NFR-003). The owner does not want to operate a server. They want the phone app to fetch market data, call AI providers and run strategies itself, staying active in the background.
+- **Decision (owner):**
+  - **Engine on the phone.** Version 2 runs the engine on the device. A new plain-Kotlin module, `android/engine`, holds the domain logic ported from the backend. Storage is SQLite (SQLDelight) on the phone, and the app calls the engine directly.
+  - **Background running.** A foreground service with a persistent notification keeps strategies evaluating while the screen is off. The owner is asked to set the battery mode to "Unrestricted", and the service restarts after a reboot.
+  - **Unchanged.** Simulated money only; fail closed; the risk engine, audit trail and double-entry ledger; AI output untrusted and compiled only to the schema.
+  - **Rollout (owner choices).**
+    - Crypto first, using free public real-time exchange data with no key.
+    - Stocks second, using delayed data from a free Twelve Data key.
+    - Gemini free tier is the default AI provider; OpenRouter, OpenAI and Anthropic are optional.
+    - The backend code stays in the repository, unused, as an option.
+- **Consequences:**
+  - FR-031 changes from "server-side" to "Android Keystore on the device".
+  - NFR-003 changes: the phone database is authoritative.
+  - Features that only make sense with a server are replaced: multi-device sessions, the server-side push sender, and server backups (which become an encrypted backup file).
+  - Nothing runs while the phone is off, offline or force-stopped. Stale data is never traded, and strategies resume on the next fresh bar.
+  - The traceability matrix is re-mapped as each stage lands. The Version 1 release candidate (RELEASE.md) remains the verified server-based build.
+- **Reversal plan:** The engine module is independent of Android, so it could run behind the existing backend API again if the owner later wants a server.

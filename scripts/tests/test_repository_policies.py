@@ -31,6 +31,8 @@ BUILD_FILES = [
     "android/build.gradle.kts",
     "android/app/build.gradle.kts",
     "android/core/build.gradle.kts",
+    "android/engine/build.gradle.kts",
+    "android/engine/settings.gradle.kts",
     "android/gradle/libs.versions.toml",
 ]
 

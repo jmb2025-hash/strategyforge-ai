@@ -7,13 +7,14 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
+    alias(libs.plugins.sqldelight) apply false
     alias(libs.plugins.spotless)
     alias(libs.plugins.cyclonedx) apply false
 }
 
 spotless {
     kotlin {
-        target("core/src/**/*.kt", "app/src/**/*.kt")
+        target("core/src/**/*.kt", "engine/src/**/*.kt", "app/src/**/*.kt")
         // Same rules as the backend (and the repository .editorconfig).
         ktlint(libs.versions.ktlint.get()).editorConfigOverride(
             mapOf(
@@ -26,7 +27,7 @@ spotless {
         )
     }
     kotlinGradle {
-        target("*.gradle.kts", "core/*.gradle.kts", "app/*.gradle.kts")
+        target("*.gradle.kts", "core/*.gradle.kts", "engine/*.gradle.kts", "app/*.gradle.kts")
         ktlint(libs.versions.ktlint.get())
     }
 }

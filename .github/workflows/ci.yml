@@ -86,7 +86,7 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Format, core tests, unit and Compose UI tests, lint, debug and release builds, SBOM
         working-directory: android
-        run: ./gradlew --no-daemon spotlessCheck :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:cyclonedxBom
+        run: ./gradlew --no-daemon spotlessCheck :core:test :engine:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:cyclonedxBom
       - name: APK checksums and signing certificate
         working-directory: android/app/build/outputs/apk
         run: |

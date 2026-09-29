@@ -39,7 +39,7 @@ android() {
   if [[ ! -d "$ROOT/android" ]]; then echo "android/ not present"; return; fi
   local G; G="$(gradle_cmd "$ROOT/android")"
   step "Android: lint, unit/Compose tests, debug and release builds, SBOM"
-  (cd "$ROOT/android" && $G --no-daemon spotlessCheck :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:cyclonedxBom)
+  (cd "$ROOT/android" && $G --no-daemon spotlessCheck :core:test :engine:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:cyclonedxBom)
 }
 
 security() {

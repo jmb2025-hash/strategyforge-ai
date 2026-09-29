@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "strategyforge-android"
-include(":core", ":app")
+include(":core", ":engine", ":app")
