@@ -1,5 +1,6 @@
 package app.strategyforge.engine.market
 
+import app.strategyforge.engine.strategy.ActiveMarketData
 import java.time.Instant
 import java.time.LocalDate
 
@@ -8,9 +9,9 @@ enum class MarketMode { DEMO, LIVE }
 
 /** The provider serving market data right now. [name] is stored with every quote and candle. */
 data class ActiveProvider(
-    val name: String,
-    val provider: MarketDataProvider,
-)
+    override val name: String,
+    override val provider: MarketDataProvider,
+) : ActiveMarketData
 
 /**
  * Chooses market-data sources. LIVE mode routes crypto to [crypto] (free public exchange data)

@@ -60,7 +60,7 @@ class Db(
             val text =
                 Db::class.java
                     .getResourceAsStream("/db/schema.sql")!!
-                    .use { String(it.readAllBytes(), Charsets.UTF_8) }
+                    .use { String(it.readBytes(), Charsets.UTF_8) }
             val out = mutableListOf<String>()
             val current = StringBuilder()
             text.lineSequence().forEach { raw ->

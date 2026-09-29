@@ -522,6 +522,7 @@ CREATE TABLE emergency_state (
   prevent_new_positions INTEGER NOT NULL DEFAULT 0,
   reason                TEXT,
   updated_at            INTEGER NOT NULL,
+  updated_by            TEXT,
   version               INTEGER NOT NULL DEFAULT 0
 );
 

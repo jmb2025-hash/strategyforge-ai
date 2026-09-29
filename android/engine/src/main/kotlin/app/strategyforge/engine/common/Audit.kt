@@ -6,10 +6,8 @@ import app.strategyforge.engine.db.str
 import app.strategyforge.engine.db.uuid
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-import java.security.MessageDigest
 import java.time.Clock
 import java.time.Instant
-import java.util.HexFormat
 import java.util.UUID
 
 enum class AuditCategory {
@@ -149,6 +147,6 @@ class AuditService(
         const val ACTOR_OWNER = "OWNER"
         const val ACTOR_SYSTEM = "SYSTEM"
 
-        fun sha256(s: String): String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.toByteArray(Charsets.UTF_8)))
+        fun sha256(s: String): String = Hashing.sha256Hex(s)
     }
 }

@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.networknt.schema.JsonSchemaFactory
 import com.networknt.schema.SpecVersion
+import kotlinx.serialization.Serializable
 import java.math.BigDecimal
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -26,6 +27,7 @@ enum class IssueCategory { SECURITY, FORMAT, SCHEMA, SEMANTIC, UNKNOWN_CONTENT, 
 
 enum class IssueSeverity { ERROR, WARNING, REVIEW }
 
+@Serializable
 data class ValidationIssue(
     val code: String,
     val category: IssueCategory,

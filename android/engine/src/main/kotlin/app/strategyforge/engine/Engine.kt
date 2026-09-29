@@ -1,9 +1,10 @@
 package app.strategyforge.engine
 
+import app.strategyforge.engine.autonomy.ActivationService
+import app.strategyforge.engine.backtest.BacktestService
 import app.strategyforge.engine.common.AuditService
 import app.strategyforge.engine.common.EngineEvents
 import app.strategyforge.engine.common.EngineLog
-import app.strategyforge.engine.common.Problems
 import app.strategyforge.engine.common.RecentAuth
 import app.strategyforge.engine.db.Db
 import app.strategyforge.engine.db.SqlBackend
@@ -35,16 +36,31 @@ import app.strategyforge.engine.operations.DiagnosticsContributor
 import app.strategyforge.engine.operations.DiagnosticsService
 import app.strategyforge.engine.portfolio.LedgerService
 import app.strategyforge.engine.portfolio.LotService
+import app.strategyforge.engine.portfolio.PortfolioChanged
 import app.strategyforge.engine.portfolio.PortfolioService
 import app.strategyforge.engine.portfolio.ReconciliationDiagnostics
+import app.strategyforge.engine.portfolio.ReconciliationFailed
 import app.strategyforge.engine.portfolio.ReconciliationService
 import app.strategyforge.engine.risk.DefaultRiskContextFactory
 import app.strategyforge.engine.risk.RiskEngine
 import app.strategyforge.engine.risk.RiskEvaluationQueries
+import app.strategyforge.engine.risk.RiskProfileChanged
 import app.strategyforge.engine.risk.RiskProfileService
 import app.strategyforge.engine.risk.StandardRules
-import app.strategyforge.engine.risk.StrategyDefinitionLookup
 import app.strategyforge.engine.settings.SettingsService
+import app.strategyforge.engine.signals.EmergencyService
+import app.strategyforge.engine.signals.EvaluationBlocked
+import app.strategyforge.engine.signals.EvaluationFailed
+import app.strategyforge.engine.signals.EvaluationService
+import app.strategyforge.engine.signals.ReauthorizationRequired
+import app.strategyforge.engine.signals.RecommendationService
+import app.strategyforge.engine.signals.SignalDispatcher
+import app.strategyforge.engine.signals.SignalQueries
+import app.strategyforge.engine.signals.StrategyActivationFacade
+import app.strategyforge.engine.signals.StrategyHealthMonitor
+import app.strategyforge.engine.signals.StrategyInterest
+import app.strategyforge.engine.strategy.StrategyService
+import app.strategyforge.engine.strategy.StrategyValidator
 import java.time.Clock
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
@@ -94,14 +110,15 @@ class Engine(
     val riskProfiles = RiskProfileService(db, audit, wall, events, auth)
     val riskEvaluations = RiskEvaluationQueries(db)
 
-    /** Replaced by the strategy service once it is wired (strategy-originated orders need definitions). */
-    @Volatile
-    var strategyDefinitions: StrategyDefinitionLookup = StrategyDefinitionLookup { throw Problems.notFound("Strategy version", it) }
+    // ------------------------------------------------------------------ strategies and backtests
+    val validator = StrategyValidator({ instruments.findBySymbol(it) }, { sources.active() })
+    val strategies = StrategyService(db, validator, audit, wall, sources, events)
+    val backtests = BacktestService(db, strategies, instruments, market, corporateActions, sources, settings, marketClock, wall, audit, events, riskProfiles)
 
     val risk =
         RiskEngine(
             { StandardRules.all() },
-            DefaultRiskContextFactory(portfolios, instruments, market, marketClock, wall, db, riskProfiles) { strategyDefinitions.definition(it) },
+            DefaultRiskContextFactory(portfolios, instruments, market, marketClock, wall, db, riskProfiles, strategies),
             db,
             audit,
             wall,
@@ -111,25 +128,44 @@ class Engine(
     val execution = ExecutionEngine(db, orders, portfolios, instruments, market, ledger, lots, audit, notifications, wall, marketClock, events)
     val maintenance = PortfolioMaintenance(db, portfolios, instruments, corporateActions, ledger, lots, orders, audit, notifications, marketClock, reconciliation)
 
+    // ------------------------------------------------------------------ signals, recommendations, autonomy
+    val activations = ActivationService(db, strategies, backtests, portfolios, riskProfiles, audit, wall, auth)
+    val recommendations = RecommendationService(db, orders, market, instruments, notifications, audit, wall, marketClock)
+    val dispatcher = SignalDispatcher(db, activations, risk, recommendations, orders, portfolios, notifications, events)
+    val signals = SignalQueries(db)
+    val evaluation = EvaluationService(db, activations, strategies, instruments, market, portfolios, dispatcher, notifications, audit, wall, marketClock, events)
+    val strategyControl = StrategyActivationFacade(db, activations) { recommendations }
+    val emergency = EmergencyService(db, orders, portfolios, activations, strategyControl, notifications, audit, wall, auth)
+    val healthMonitor = StrategyHealthMonitor(db, activations, strategies, recommendations, riskProfiles, notifications, audit)
+
     // ------------------------------------------------------------------ operations
     val diagnosticsContributors = CopyOnWriteArrayList<DiagnosticsContributor>(listOf(ReconciliationDiagnostics(db)))
     val diagnostics = DiagnosticsService(db, { diagnosticsContributors.toList() }, wall)
-    val marketInterests = CopyOnWriteArrayList<MarketInterest>(listOf(WatchlistInterest(db), PositionInterest(db)))
+    val marketInterests = CopyOnWriteArrayList<MarketInterest>(listOf(WatchlistInterest(db), PositionInterest(db), StrategyInterest(db)))
     val volumeInterests = CopyOnWriteArrayList<VolumeInterest>(listOf(OpenOrderVolumeInterest(db)))
     val ingestion = MarketDataIngestion({ marketInterests.toList() }, { volumeInterests.toList() }, instruments, market, alerts, notifications, marketClock, diagnostics)
 
-    /** Later pipeline stages (strategy evaluation, recommendation expiry) register here, in order. */
+    /** Extra pipeline stages run after the built-in ones, in order. */
     val stepStages = CopyOnWriteArrayList<Pair<String, (Instant, Instant) -> Unit>>()
     val replay = ReplayService(marketClock, fixtures, audit, db) { from, to -> step(from, to) }
 
     init {
         events.on<OrderFilled> { maintenance.onFilled(it) }
+        events.on<OrderFilled> { healthMonitor.onOrderFilled(it) }
+        events.on<EvaluationFailed> { healthMonitor.onEvaluationFailed(it) }
+        events.on<EvaluationBlocked> { healthMonitor.onEvaluationBlocked(it) }
+        events.on<ReauthorizationRequired> { healthMonitor.onReauthorizationRequired(it) }
+        events.on<RiskProfileChanged> { healthMonitor.onRiskProfileChanged(it) }
+        events.on<PortfolioChanged> { healthMonitor.onPortfolioChanged(it) }
+        events.on<ReconciliationFailed> { healthMonitor.onReconciliationFailed(it) }
+        backtests.recoverInterrupted()
         sources.use(storedMarketMode())
     }
 
     /**
      * One pass of the trading pipeline, in the same order as the Version 1 server: ingest quotes,
-     * simulate executions, portfolio upkeep and reconciliation, then the registered later stages.
+     * simulate executions, portfolio upkeep and reconciliation, strategy evaluation (signals,
+     * recommendations, autonomous paper orders) and recommendation expiry.
      * A failing stage is logged and never stops the stages after it.
      */
     fun step(
@@ -140,6 +176,8 @@ class Engine(
         stage("execution") { execution.processAll() }
         stage("maintenance") { maintenance.runAll() }
         stage("reconciliation") { reconciliation.runDirty() }
+        stage("evaluation") { evaluation.evaluateAll() }
+        stage("expiry") { recommendations.expireDue() }
         stepStages.forEach { (name, f) -> stage(name) { f(from, to) } }
     }
 
