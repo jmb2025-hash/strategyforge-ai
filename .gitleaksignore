@@ -17,3 +17,4 @@ ea93405c6d592a298a80ce74fb7028ddab349444:backend/src/test/kotlin/app/strategyfor
 # Fake keys in phone-app tests (2026-09-29): typed into a Compose UI test field, and sent to a local MockWebServer.
 e60e0868a79b58e40836038e0799af793b6fc399:android/app/src/test/kotlin/app/strategyforge/android/PhoneScreensUiTest.kt:generic-api-key:68
 e60e0868a79b58e40836038e0799af793b6fc399:android/engine/src/test/kotlin/app/strategyforge/engine/market/TwelveDataProviderTest.kt:generic-api-key:29
+9f059e92de70926dc9fbaa6a99860bf15d44f544:android/app/src/test/kotlin/app/strategyforge/android/PhoneScreensUiTest.kt:generic-api-key:89
