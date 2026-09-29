@@ -1,5 +1,13 @@
 package app.strategyforge.android.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -25,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -75,7 +84,7 @@ fun SfCard(
     content: @Composable () -> Unit,
 ) {
     Card(
-        modifier.fillMaxWidth().padding(vertical = 5.dp),
+        modifier.fillMaxWidth().padding(vertical = 5.dp).animateContentSize(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, Sf.colors.cardBorder),
@@ -102,10 +111,21 @@ fun HeroCard(
         Column(
             Modifier
                 .background(Brush.verticalGradient(listOf(Sf.colors.heroStart, Sf.colors.heroEnd)))
+                .chartBackdrop(Sf.colors.grid.copy(alpha = 0.45f))
                 .padding(horizontal = 18.dp, vertical = 16.dp),
         ) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 2.dp).testTag("hero-value"))
+            // The number rolls up or down when it changes, like a ticker.
+            AnimatedContent(
+                targetState = value,
+                transitionSpec = {
+                    val up =
+                        (initialState.filter { it.isDigit() || it == '.' }.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO) <
+                            (targetState.filter { it.isDigit() || it == '.' }.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO)
+                    (slideInVertically { if (up) it else -it } + fadeIn()) togetherWith (slideOutVertically { if (up) -it else it } + fadeOut())
+                },
+                label = "hero-value",
+            ) { v -> Text(v, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 2.dp).testTag("hero-value")) }
             change?.let { Box(Modifier.padding(top = 6.dp)) { it() } }
             content()
         }
@@ -153,11 +173,13 @@ fun ChoiceRow(
     Row(modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEach { (value, label) ->
             val on = value == selected
+            val bg by animateColorAsState(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh, label = "chip-bg")
+            val fg by animateColorAsState(if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, label = "chip-fg")
             Surface(
                 onClick = { onSelect(value) },
                 shape = RoundedCornerShape(50),
-                color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = bg,
+                contentColor = fg,
                 modifier = Modifier.testTag("$tagPrefix-$value").semantics { this.selected = on },
             ) { Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)) }
         }
@@ -250,6 +272,7 @@ fun <T> ResourceContent(
     onRetry: () -> Unit,
     empty: (T) -> Boolean = { false },
     emptyText: String = "Nothing here yet.",
+    art: Art = Art.CHART,
     content: @Composable (T) -> Unit,
 ) {
     when (resource) {
@@ -258,16 +281,14 @@ fun <T> ResourceContent(
         is Resource.Data ->
             Column {
                 FreshnessBanner(resource, fmt)
-                if (empty(resource.value)) Text(emptyText, modifier = Modifier.padding(16.dp).testTag("empty")) else content(resource.value)
+                if (empty(resource.value)) EmptyState(emptyText, art) else content(resource.value)
             }
     }
 }
 
 @Composable
 fun Loading() {
-    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(Modifier.semantics { contentDescription = "Loading" })
-    }
+    Skeleton()
 }
 
 @Composable
@@ -295,7 +316,7 @@ fun ActionFeedback(
 ) {
     when (action) {
         ActionState.Idle -> Unit
-        ActionState.Running -> Loading()
+        ActionState.Running -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics { contentDescription = "Working" })
         is ActionState.Done -> Banner(action.message)
         is ActionState.Failed ->
             Column {

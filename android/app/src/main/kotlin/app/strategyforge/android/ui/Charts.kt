@@ -1,5 +1,9 @@
 package app.strategyforge.android.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -19,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +41,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -185,6 +191,8 @@ fun LineChart(
     val tipText = MaterialTheme.colorScheme.onSurface
     val base = Sf.colors.neutral
     var touchX by remember(series) { mutableStateOf<Float?>(null) }
+    val reveal = remember(series.size, series.firstOrNull()?.name) { Animatable(0f) }
+    LaunchedEffect(series) { reveal.animateTo(1f, tween(750, easing = FastOutSlowInEasing)) }
     Canvas(
         modifier
             .fillMaxWidth()
@@ -212,38 +220,64 @@ fun LineChart(
         fun toY(y: Double) = (plotH - (y - b.min) / b.span * plotH).toFloat()
         if (showAxes) gridAndYAxis(b, plotW, plotH, grid, axis, measurer, formatY)
         baseline?.let { drawLine(base, Offset(0f, toY(it)), Offset(plotW, toY(it)), strokeWidth = 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))) }
-        series.forEach { s ->
-            if (s.points.isEmpty()) return@forEach
-            val path = Path()
-            s.points.forEachIndexed { i, p -> if (i == 0) path.moveTo(toX(p.x), toY(p.y)) else path.lineTo(toX(p.x), toY(p.y)) }
-            if (series.size == 1 && s.points.size > 1) {
-                val area =
-                    Path().apply {
-                        addPath(path)
-                        lineTo(toX(s.points.last().x), plotH)
-                        lineTo(toX(s.points.first().x), plotH)
-                        close()
-                    }
-                drawPath(area, Brush.verticalGradient(listOf(s.color.copy(alpha = 0.32f), s.color.copy(alpha = 0f)), startY = 0f, endY = plotH))
-            }
-            drawPath(path, s.color, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            if (s.points.size == 1) drawCircle(s.color, 3.dp.toPx(), Offset(toX(s.points[0].x), toY(s.points[0].y)))
-        }
+        clipRect(right = plotW * reveal.value + 2f) { drawSeries(series, ::toX, ::toY, plotH) }
         if (showAxes) xLabels(xs.distinct().sorted(), ::toX, plotW, plotH, axis, measurer, formatX)
-        touchX?.let { tx ->
-            val x = tx.coerceIn(0f, plotW)
-            val target = minX + (x / plotW * spanX).toLong()
-            drawLine(axis, Offset(x, 0f), Offset(x, plotH), strokeWidth = 1f)
-            val lines = mutableListOf(formatX(target) to Color.Unspecified)
-            series.forEach { s ->
-                val p = s.points.minByOrNull { abs(it.x - target) } ?: return@forEach
-                drawCircle(s.color, 5.dp.toPx(), Offset(toX(p.x), toY(p.y)))
-                drawCircle(tipBg, 2.5.dp.toPx(), Offset(toX(p.x), toY(p.y)))
-                lines += (if (series.size > 1) "${s.name}: " else "") + formatY(p.y) to s.color
-            }
-            tooltip(lines, x, plotW, measurer, tipBg, tipText)
-        }
+        touchX?.let { tx -> crosshair(tx, plotW, plotH, minX, spanX, series, ::toX, ::toY, formatX, formatY, axis, tipBg, tipText, measurer) }
     }
+}
+
+private fun DrawScope.drawSeries(
+    series: List<LineSeries>,
+    toX: (Long) -> Float,
+    toY: (Double) -> Float,
+    plotH: Float,
+) {
+    series.forEach { s ->
+        if (s.points.isEmpty()) return@forEach
+        val path = Path()
+        s.points.forEachIndexed { i, p -> if (i == 0) path.moveTo(toX(p.x), toY(p.y)) else path.lineTo(toX(p.x), toY(p.y)) }
+        if (series.size == 1 && s.points.size > 1) {
+            val area =
+                Path().apply {
+                    addPath(path)
+                    lineTo(toX(s.points.last().x), plotH)
+                    lineTo(toX(s.points.first().x), plotH)
+                    close()
+                }
+            drawPath(area, Brush.verticalGradient(listOf(s.color.copy(alpha = 0.32f), s.color.copy(alpha = 0f)), startY = 0f, endY = plotH))
+        }
+        drawPath(path, s.color, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        if (s.points.size == 1) drawCircle(s.color, 3.dp.toPx(), Offset(toX(s.points[0].x), toY(s.points[0].y)))
+    }
+}
+
+private fun DrawScope.crosshair(
+    tx: Float,
+    plotW: Float,
+    plotH: Float,
+    minX: Long,
+    spanX: Double,
+    series: List<LineSeries>,
+    toX: (Long) -> Float,
+    toY: (Double) -> Float,
+    formatX: (Long) -> String,
+    formatY: (Double) -> String,
+    axis: Color,
+    tipBg: Color,
+    tipText: Color,
+    measurer: TextMeasurer,
+) {
+    val x = tx.coerceIn(0f, plotW)
+    val target = minX + (x / plotW * spanX).toLong()
+    drawLine(axis, Offset(x, 0f), Offset(x, plotH), strokeWidth = 1f)
+    val lines = mutableListOf(formatX(target) to Color.Unspecified)
+    series.forEach { s ->
+        val p = s.points.minByOrNull { abs(it.x - target) } ?: return@forEach
+        drawCircle(s.color, 5.dp.toPx(), Offset(toX(p.x), toY(p.y)))
+        drawCircle(tipBg, 2.5.dp.toPx(), Offset(toX(p.x), toY(p.y)))
+        lines += (if (series.size > 1) "${s.name}: " else "") + formatY(p.y) to s.color
+    }
+    tooltip(lines, x, plotW, measurer, tipBg, tipText)
 }
 
 /** A small line without axes for cards and list rows. */
@@ -296,6 +330,8 @@ fun CandlestickChart(
     val tipText = MaterialTheme.colorScheme.onSurface
     val onGain = MaterialTheme.colorScheme.onPrimary
     var touchX by remember(bars) { mutableStateOf<Float?>(null) }
+    val grow = remember(bars.size, bars.firstOrNull()?.t) { Animatable(0f) }
+    LaunchedEffect(bars.size, bars.firstOrNull()?.t) { grow.animateTo(1f, tween(650, easing = FastOutSlowInEasing)) }
     // Each trade sits on the last bar that opened at or before it.
     val placed =
         remember(bars, markers) {
@@ -335,14 +371,17 @@ fun CandlestickChart(
         gridAndYAxis(b, plotW, priceH, colors.grid, colors.axisText, measurer, formatY)
         val maxVol = bars.maxOf { it.v }.takeIf { it > 0 } ?: 1.0
         bars.forEachIndexed { i, bar ->
+            // Candles grow out of their midpoint, left to right.
+            val k = ((grow.value * 1.5f) - i.toFloat() / n * 0.5f).coerceIn(0f, 1f)
             val up = bar.c >= bar.o
             val col = if (up) colors.gain else colors.loss
             val x = cx(i)
-            drawLine(col, Offset(x, toY(bar.h)), Offset(x, toY(bar.l)), strokeWidth = max(1f, body / 6f))
-            val top = toY(max(bar.o, bar.c))
-            val bot = toY(min(bar.o, bar.c))
+            val mid = toY((bar.o + bar.c) / 2)
+            drawLine(col, Offset(x, mid + (toY(bar.h) - mid) * k), Offset(x, mid + (toY(bar.l) - mid) * k), strokeWidth = max(1f, body / 6f))
+            val top = mid + (toY(max(bar.o, bar.c)) - mid) * k
+            val bot = mid + (toY(min(bar.o, bar.c)) - mid) * k
             drawRect(col, Offset(x - body / 2f, top), Size(body, max(1.5f, bot - top)))
-            val vh = (bar.v / maxVol * volH).toFloat()
+            val vh = (bar.v / maxVol * volH).toFloat() * k
             drawRect(col.copy(alpha = 0.35f), Offset(x - body / 2f, fullH - vh), Size(body, vh))
         }
         // Latest price line and tag.
@@ -356,24 +395,27 @@ fun CandlestickChart(
         drawText(tag, topLeft = Offset(plotW + 6f, tagTop + 2f))
         // Trade markers: buys below the bar, sells above.
         val tri = max(6f, min(12f, slot * 0.8f))
-        placed.forEach { (i, m) ->
-            val x = cx(i)
-            val path = Path()
-            if (m.buy) {
-                val y = toY(bars[i].l) + 6f
-                path.moveTo(x, y)
-                path.lineTo(x - tri / 2f, y + tri)
-                path.lineTo(x + tri / 2f, y + tri)
-            } else {
-                val y = toY(bars[i].h) - 6f
-                path.moveTo(x, y)
-                path.lineTo(x - tri / 2f, y - tri)
-                path.lineTo(x + tri / 2f, y - tri)
+        val markerAlpha = ((grow.value - 0.6f) / 0.4f).coerceIn(0f, 1f)
+        if (markerAlpha > 0f) {
+            placed.forEach { (i, m) ->
+                val x = cx(i)
+                val path = Path()
+                if (m.buy) {
+                    val y = toY(bars[i].l) + 6f
+                    path.moveTo(x, y)
+                    path.lineTo(x - tri / 2f, y + tri)
+                    path.lineTo(x + tri / 2f, y + tri)
+                } else {
+                    val y = toY(bars[i].h) - 6f
+                    path.moveTo(x, y)
+                    path.lineTo(x - tri / 2f, y - tri)
+                    path.lineTo(x + tri / 2f, y - tri)
+                }
+                path.close()
+                drawPath(path, if (m.buy) colors.gain else colors.loss, alpha = markerAlpha)
+                drawPath(path, tipText.copy(alpha = 0.6f * markerAlpha), style = Stroke(1f))
+                drawLine((if (m.buy) colors.gain else colors.loss).copy(alpha = 0.5f), Offset(x - slot, toY(m.price)), Offset(x + slot, toY(m.price)), strokeWidth = 1.5f)
             }
-            path.close()
-            drawPath(path, if (m.buy) colors.gain else colors.loss)
-            drawPath(path, tipText.copy(alpha = 0.6f), style = Stroke(1f))
-            drawLine((if (m.buy) colors.gain else colors.loss).copy(alpha = 0.5f), Offset(x - slot, toY(m.price)), Offset(x + slot, toY(m.price)), strokeWidth = 1.5f)
         }
         xLabels(bars.map { it.t }, { t -> cx(bars.indexOfFirst { it.t == t }) }, plotW, fullH, colors.axisText, measurer, formatX)
         touchX?.let { tx ->
@@ -411,6 +453,8 @@ fun DonutChart(
     if (total <= 0.0) return
     val ring = MaterialTheme.colorScheme.surfaceContainerHigh
     val summary = slices.joinToString { "${it.label} ${pct(it.value / total)}" }
+    val sweepIn = remember(slices) { Animatable(0f) }
+    LaunchedEffect(slices) { sweepIn.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
     Row(modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "Allocation: $summary" }, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.size(132.dp).testTag("donut")) {
@@ -421,7 +465,7 @@ fun DonutChart(
                 var start = -90f
                 val gap = if (slices.count { it.value > 0 } > 1) 2f else 0f
                 slices.filter { it.value > 0 }.forEach { s ->
-                    val sweep = (s.value / total * 360.0).toFloat()
+                    val sweep = (s.value / total * 360.0).toFloat() * sweepIn.value
                     drawArc(s.color, start + gap / 2f, max(0.5f, sweep - gap), false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
                     start += sweep
                 }
@@ -478,6 +522,8 @@ fun BarComparison(
                     v >= 0 -> Sf.colors.gain
                     else -> Sf.colors.loss
                 }
+            val target = if (v == null) 0f else (abs(v) / maxAbs).toFloat().coerceIn(0f, 1f)
+            val animated by animateFloatAsState(target, tween(700, easing = FastOutSlowInEasing), label = "bar")
             Column(Modifier.semantics(mergeDescendants = true) {}) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(item.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1)
@@ -487,7 +533,7 @@ fun BarComparison(
                     val r = CornerRadius(size.height / 2f, size.height / 2f)
                     drawRoundRect(track, Offset.Zero, size, r)
                     if (v == null) return@Canvas
-                    val frac = (abs(v) / maxAbs).toFloat().coerceIn(0f, 1f)
+                    val frac = animated
                     if (diverging) {
                         val mid = size.width / 2f
                         val w = frac * mid

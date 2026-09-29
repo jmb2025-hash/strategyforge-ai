@@ -19,7 +19,10 @@ import app.strategyforge.android.core.model.CandleChart
 import app.strategyforge.android.core.model.EquityChart
 import app.strategyforge.android.core.model.PortfolioSummary
 import app.strategyforge.android.ui.AllocationCard
+import app.strategyforge.android.ui.Art
+import app.strategyforge.android.ui.EmptyState
 import app.strategyforge.android.ui.EquityCard
+import app.strategyforge.android.ui.Loading
 import app.strategyforge.android.ui.PriceChartCard
 import app.strategyforge.android.ui.SfTheme
 import app.strategyforge.android.ui.formatters
@@ -125,5 +128,20 @@ class ChartsUiTest {
             )
         rule.setContent { SfTheme { AllocationCard(s, fmt) } }
         rule.onNodeWithContentDescription("Allocation: Cash 75.0%, BTC-USD 20.0%, ETH-USD 5.0%").assertExists()
+    }
+
+    @Test
+    fun `D-038 empty screens show an illustration with their message, and loading shows a placeholder`() {
+        rule.setContent {
+            SfTheme {
+                Column {
+                    EmptyState("No research yet.", Art.RESEARCH)
+                    Loading()
+                }
+            }
+        }
+        rule.onNodeWithTag("empty").assertExists()
+        rule.onNodeWithText("No research yet.").assertExists()
+        rule.onNodeWithContentDescription("Loading").assertExists()
     }
 }

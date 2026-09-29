@@ -1,6 +1,11 @@
 package app.strategyforge.android.ui
 
 import android.net.Uri
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -73,6 +78,8 @@ private val tabs =
         Tab("activity", "Activity", Icons.Filled.Notifications),
         Tab("more", "More", Icons.Filled.MoreVert),
     )
+
+private fun isTab(route: String?): Boolean = tabs.any { it.route == route?.substringBefore('?') }
 
 fun routeFor(r: Route): String =
     when (r) {
@@ -160,7 +167,24 @@ fun MainShell(
             }
         },
     ) { padding ->
-        NavHost(nav, startDestination = "home", modifier = Modifier.padding(padding)) {
+        NavHost(
+            nav,
+            startDestination = "home",
+            modifier = Modifier.padding(padding),
+            // Screens slide in from the side and fade; going back reverses it. Tabs cross-fade.
+            enterTransition = {
+                if (isTab(targetState.destination.route)) {
+                    fadeIn(tween(220))
+                } else {
+                    slideInHorizontally(tween(300)) { it / 4 } + fadeIn(tween(300))
+                }
+            },
+            exitTransition = {
+                if (isTab(targetState.destination.route)) fadeOut(tween(180)) else slideOutHorizontally(tween(300)) { -it / 8 } + fadeOut(tween(200))
+            },
+            popEnterTransition = { slideInHorizontally(tween(300)) { -it / 8 } + fadeIn(tween(300)) },
+            popExitTransition = { slideOutHorizontally(tween(300)) { it / 4 } + fadeOut(tween(200)) },
+        ) {
             composable("home") { HomeScreen(home, fmt, nav) }
             composable("strategies") { StrategiesScreen(hiltViewModel(), fmt, nav) }
             composable("strategy/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
@@ -268,8 +292,9 @@ fun DashboardContent(
     SectionTitle("Portfolio")
     val p = d.primary
     if (p == null) {
-        Text("No active paper portfolio yet.", modifier = Modifier.testTag("empty"))
-        Button(onClick = { onOpen("portfolio") }) { Text("Create a portfolio") }
+        EmptyState("No active paper portfolio yet.", Art.PORTFOLIO) {
+            Button(onClick = { onOpen("portfolio") }) { Text("Create a portfolio") }
+        }
     } else {
         HeroCard(
             label = p.portfolio.name,

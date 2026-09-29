@@ -75,7 +75,7 @@ fun Scorecards(
         }
         when {
             cards == null -> Loading()
-            cards.isEmpty() -> Text("No tested ${if (asset == "CRYPTO") "crypto" else "stock"} strategies yet. Create one with AI research and backtest it.")
+            cards.isEmpty() -> EmptyState("No tested ${if (asset == "CRYPTO") "crypto" else "stock"} strategies yet. Create one with AI research and backtest it.", Art.STRATEGIES)
             else -> {
                 if (cards.size >= 2) ComparisonCharts(cards, fmt)
                 cards.forEachIndexed { i, c -> ScorecardCard(i + 1, c, fmt) { onOpen(c.strategy.id) } }

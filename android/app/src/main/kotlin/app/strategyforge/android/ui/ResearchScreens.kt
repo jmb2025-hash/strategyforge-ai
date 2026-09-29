@@ -67,7 +67,7 @@ fun ResearchListScreen(
         NewResearch(action is ActionState.Running, onStart = vm::start)
         ActionFeedback(action)
         SectionTitle("Your research")
-        ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No research yet.") { list ->
+        ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No research yet.", art = Art.RESEARCH) { list ->
             list.forEach { r -> ResearchRow(r, fmt) { nav.navigate("research/${r.id}") } }
         }
     }

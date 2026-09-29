@@ -62,7 +62,7 @@ fun PortfolioScreen(
         SectionTitle("Paper portfolios")
         Row { portfolios.forEach { p -> FilterChip(selected = selected == p.id, onClick = { vm.select(p.id) }, label = { Text(p.name + if (p.status != "ACTIVE") " (${p.status.lowercase()})" else "") }) } }
         if (selected == null) {
-            Text("Create your first simulated portfolio.")
+            EmptyState("Create your first simulated portfolio below.", Art.PORTFOLIO)
         } else {
             ResourceContent(state, fmt, vm::reload) { s ->
                 EquityCard(equity, range, vm::setRange, fmt, s.equity, s.portfolio.name)
@@ -174,7 +174,7 @@ private fun RecommendationsList(
             Spacer(Modifier.width(8.dp))
         }
     }
-    ResourceContent(state, fmt, vm::refresh, empty = { it.items.isEmpty() }, emptyText = "No recommendations.") { page ->
+    ResourceContent(state, fmt, vm::refresh, empty = { it.items.isEmpty() }, emptyText = "No recommendations.", art = Art.INBOX) { page ->
         page.items.forEach { r ->
             SfCard(Modifier.clickable { nav.navigate("recommendation/${r.id}") }) {
                 Row {
@@ -197,7 +197,7 @@ private fun Inbox(
     val action by vm.action.collectAsStateWithLifecycle()
     TextButton(onClick = vm::markAllRead) { Text("Mark all read") }
     ActionFeedback(action)
-    ResourceContent(state, fmt, vm::refresh, empty = { it.items.isEmpty() }, emptyText = "Inbox is empty.") { page ->
+    ResourceContent(state, fmt, vm::refresh, empty = { it.items.isEmpty() }, emptyText = "Inbox is empty.", art = Art.INBOX) { page ->
         page.items.forEach { n ->
             SfCard(
                 Modifier.clickable {

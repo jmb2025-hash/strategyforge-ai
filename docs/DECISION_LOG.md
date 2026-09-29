@@ -395,6 +395,15 @@ When a conflict is unresolved, the safest reversible option is selected.
     - Positions open a full-screen candlestick chart with that portfolio's fills.
     - Strategy page: candlesticks for its symbols at its timeframe, with its own trades.
     - Scorecards: comparison bars (paper P&L, win rate, backtest return, drawdown, profit factor), cumulative paper P&L lines, and a sparkline per strategy.
+  - **Motion and imagery.**
+    - Screens slide and fade in; tabs cross-fade.
+    - Charts animate in: lines draw left to right, candles grow from their midpoints before trade markers fade in, bars grow, and the allocation ring sweeps.
+    - The headline number rolls up or down when it changes, and pills fade between states.
+    - Shimmer placeholders replace spinners, and cards animate size changes.
+    - Empty screens show small illustrations, and hero cards have a faint candlestick backdrop.
+    - The app icon and splash screen are redrawn: candlesticks under a trend line on the terminal background.
+    - All art is vector or drawn in code (no bitmaps) and is hidden from screen readers.
+    - Animations follow the phone's "remove animations" setting.
   - **Engine endpoints.**
     - `GET /v1/charts/candles` returns recent bars plus markers from simulated executions. It can be filtered by portfolio or strategy. Stock look-back is widened for closed hours.
     - `GET /v1/charts/equity/{id}` returns the equity curve thinned to at most 400 points, keeping the first and latest.

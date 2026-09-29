@@ -64,7 +64,7 @@ fun StrategiesScreen(
             Button(onClick = { vm.import(json) }, enabled = json.isNotBlank()) { Text("Validate and import") }
         }
         ActionFeedback(action)
-        ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No strategies yet. Import one or start AI research.") { list ->
+        ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No strategies yet. Import one or start AI research.", art = Art.STRATEGIES) { list ->
             list.forEach { s -> StrategyRow(s, fmt) { nav.navigate("strategy/${s.id}") } }
         }
     }
