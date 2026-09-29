@@ -41,6 +41,12 @@ import app.strategyforge.engine.portfolio.PortfolioService
 import app.strategyforge.engine.portfolio.ReconciliationDiagnostics
 import app.strategyforge.engine.portfolio.ReconciliationFailed
 import app.strategyforge.engine.portfolio.ReconciliationService
+import app.strategyforge.engine.research.AiBudgetService
+import app.strategyforge.engine.research.AiClients
+import app.strategyforge.engine.research.AiProviderService
+import app.strategyforge.engine.research.InMemorySecretStore
+import app.strategyforge.engine.research.ResearchService
+import app.strategyforge.engine.research.SecretStore
 import app.strategyforge.engine.risk.DefaultRiskContextFactory
 import app.strategyforge.engine.risk.RiskEngine
 import app.strategyforge.engine.risk.RiskEvaluationQueries
@@ -81,6 +87,15 @@ class Engine(
     cryptoProvider: () -> MarketDataProvider? = { null },
     /** Live US equity data source; null until the owner adds a key. */
     equityProvider: () -> MarketDataProvider? = { null },
+    /** API keys (the Android Keystore in the app). */
+    val secrets: SecretStore = InMemorySecretStore(),
+    aiClients: AiClients = AiClients.default(),
+    /** Runs slow network work (AI calls) off the engine thread; inline by default. */
+    background: (() -> Unit) -> Unit = { it() },
+    /** Posts work back onto the engine thread; inline by default. */
+    engineThread: (() -> Unit) -> Unit = { it() },
+    /** Tests only: lets AI providers point at a local recorded-response server over http. */
+    allowLocalProviderHttp: Boolean = false,
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -138,6 +153,11 @@ class Engine(
     val emergency = EmergencyService(db, orders, portfolios, activations, strategyControl, notifications, audit, wall, auth)
     val healthMonitor = StrategyHealthMonitor(db, activations, strategies, recommendations, riskProfiles, notifications, audit)
 
+    // ------------------------------------------------------------------ AI research
+    val aiProviders = AiProviderService(db, secrets, aiClients, audit, auth, wall, allowLocalProviderHttp)
+    val aiBudget = AiBudgetService(db, audit, auth, wall)
+    val research = ResearchService(db, aiProviders, aiClients, aiBudget, instruments, strategies, audit, wall, background, engineThread)
+
     // ------------------------------------------------------------------ operations
     val diagnosticsContributors = CopyOnWriteArrayList<DiagnosticsContributor>(listOf(ReconciliationDiagnostics(db)))
     val diagnostics = DiagnosticsService(db, { diagnosticsContributors.toList() }, wall)
@@ -159,6 +179,7 @@ class Engine(
         events.on<PortfolioChanged> { healthMonitor.onPortfolioChanged(it) }
         events.on<ReconciliationFailed> { healthMonitor.onReconciliationFailed(it) }
         backtests.recoverInterrupted()
+        research.recoverInterrupted()
         sources.use(storedMarketMode())
     }
 

@@ -29,6 +29,7 @@ ktlint = "1.7.1"
 cyclonedx = "2.4.1"
 # On-device engine (D-027)
 sqlite-jdbc = "3.53.4.0"
+anthropic = "2.34.0"
 jackson = "2.21.4"
 json-schema-validator = "1.5.9"
 junit-jupiter = "5.12.2"
@@ -75,6 +76,7 @@ firebase-messaging = { module = "com.google.firebase:firebase-messaging", versio
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test-core" }
 androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-junit" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
+anthropic-java = { module = "com.anthropic:anthropic-java", version.ref = "anthropic" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }

@@ -26,6 +26,8 @@ dependencies {
     api(libs.okhttp)
     api(libs.jackson.databind)
     implementation(libs.json.schema.validator)
+    // Official Anthropic SDK for the optional Claude provider (FR-030).
+    implementation(libs.anthropic.java)
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

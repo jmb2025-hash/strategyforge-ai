@@ -228,7 +228,7 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Date:** 2026-09-29
 - **Context:** The master document specifies a backend-authoritative system: a Spring Boot and PostgreSQL server, with Android data as cache only and provider keys never on the device (FR-031, NFR-003). The owner does not want to operate a server. They want the phone app to fetch market data, call AI providers and run strategies itself, staying active in the background.
 - **Decision (owner):**
-  - **Engine on the phone.** Version 2 runs the engine on the device. A new plain-Kotlin module, `android/engine`, holds the domain logic ported from the backend. Storage is SQLite (SQLDelight) on the phone, and the app calls the engine directly.
+  - **Engine on the phone.** Version 2 runs the engine on the device. A new plain-Kotlin module, `android/engine`, holds the domain logic ported from the backend. Storage is SQLite on the phone behind a small SQL interface (D-028), and the app calls the engine directly.
   - **Background running.** A foreground service with a persistent notification keeps strategies evaluating while the screen is off. The owner is asked to set the battery mode to "Unrestricted", and the service restarts after a reboot.
   - **Unchanged.** Simulated money only; fail closed; the risk engine, audit trail and double-entry ledger; AI output untrusted and compiled only to the schema.
   - **Rollout (owner choices).**
@@ -243,3 +243,38 @@ When a conflict is unresolved, the safest reversible option is selected.
   - Nothing runs while the phone is off, offline or force-stopped. Stale data is never traded, and strategies resume on the next fresh bar.
   - The traceability matrix is re-mapped as each stage lands. The Version 1 release candidate (RELEASE.md) remains the verified server-based build.
 - **Reversal plan:** The engine module is independent of Android, so it could run behind the existing backend API again if the owner later wants a server.
+
+## D-028 On-device storage layer
+
+- **Date:** 2026-09-29
+- **Context:** D-027 first planned SQLDelight. Its generated queries read columns by position, which made porting about 60 server queries error-prone. Android 10 (minSdk 29) ships SQLite 3.22, which lacks RETURNING, upserts and window functions.
+- **Decision:**
+  - The engine uses its own small SQL layer: named parameters, rows read by column name, and a `SqlBackend` interface. JDBC SQLite backs it in tests; Android's built-in SQLite backs it in the app.
+  - Money, prices and quantities are stored as exact decimal text and are only summed or compared in Kotlin with BigDecimal (NFR-002).
+  - Timestamps are epoch milliseconds (UTC). Ids are UUID text.
+  - SQL syntax newer than SQLite 3.22 is refused at run time, so it cannot ship by accident.
+  - The server's append-only and immutability guarantees are kept as triggers.
+- **Requirements affected:** NFR-002, FR-011, FR-110.
+
+## D-029 Engine threading and recommendation acceptance on the phone
+
+- **Date:** 2026-09-29
+- **Context:** The server used row locks, worker pools and single-use action tokens (for accepting recommendations from push notifications).
+- **Decision:**
+  - **One engine thread.** All engine calls run on one thread, and each multi-step change is one transaction. Duplicate protection still comes from unique rows (evaluation buckets, one order per recommendation), so repeated ticks and restarts never duplicate work.
+  - **Network off the engine thread.** Backtests run inline on the engine thread. AI provider calls run on a background thread, and their results are recorded back on the engine thread.
+  - **No action tokens.** Recommendations are accepted only inside the unlocked app. A notification can open the app but can never accept anything. Single-use tokens protected a network path that no longer exists, so they are dropped. Expiry and price-deviation checks are unchanged (FR-063, FR-064).
+  - **Device lock replaces the server's step-up check.** Operations that needed recent authentication now need a device-lock confirmation (biometric or PIN) within the last 5 minutes.
+- **Requirements affected:** FR-063, FR-064, FR-065, NFR-007, section 15.
+
+## D-030 AI providers on the device
+
+- **Date:** 2026-09-29
+- **Context:** Under D-027 the phone calls AI providers directly.
+- **Decision:**
+  - **Keys.** Keys are stored through a `SecretStore` backed by the Android Keystore. The database keeps only an alias and a 12-character fingerprint. Changing or removing a key needs a device-lock confirmation.
+  - **Gemini is the default provider.** Its free tier needs only a key, so its preset prices are 0 and only the request and token ceilings apply.
+  - **Other providers.** OpenRouter, OpenAI and Anthropic use the same adapters as Version 1. Anthropic uses the official SDK. Presets are shown to the owner, who confirms or changes the model and prices; for paid providers, prices remain required.
+  - **Unchanged from Version 1:** budget reservation before any network call, provenance, owner review before compilation, and compilation only through the regular validator.
+- **Requirements affected:** FR-030 to FR-037 (FR-031 now means on-device secure storage).
+
