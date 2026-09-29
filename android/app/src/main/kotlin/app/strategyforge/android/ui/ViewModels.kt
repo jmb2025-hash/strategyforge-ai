@@ -238,15 +238,16 @@ class StrategyDetailViewModel
             autonomous: Boolean,
             disclosureAccepted: Boolean,
             positions: String? = null,
-        ) = act(if (autonomous) "Autonomous paper trading enabled" else "Notifications mode enabled") {
-            try {
-                val a = repo.activate(id, portfolioId, allocation, autonomous, if (autonomous && disclosureAccepted) _disclosure.value?.version else null, positions)
-                _replaced.value = a.replacedStrategyName?.let { ReplaceOutcome(it, a) }
-            } catch (e: ApiError.Http) {
-                if (e.code != "slot-occupied") throw e
-                _slotConflict.value = SlotConflict.from(e) { keep -> activate(portfolioId, allocation, autonomous, disclosureAccepted, if (keep) "KEEP" else "CLOSE") }
+        ): Unit =
+            act(if (autonomous) "Autonomous paper trading enabled" else "Notifications mode enabled") {
+                try {
+                    val a = repo.activate(id, portfolioId, allocation, autonomous, if (autonomous && disclosureAccepted) _disclosure.value?.version else null, positions)
+                    _replaced.value = a.replacedStrategyName?.let { ReplaceOutcome(it, a) }
+                } catch (e: ApiError.Http) {
+                    if (e.code != "slot-occupied") throw e
+                    _slotConflict.value = SlotConflict.from(e) { keep -> activate(portfolioId, allocation, autonomous, disclosureAccepted, if (keep) "KEEP" else "CLOSE") }
+                }
             }
-        }
 
         private val _replaced = MutableStateFlow<ReplaceOutcome?>(null)
 
