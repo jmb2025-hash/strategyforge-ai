@@ -44,7 +44,7 @@ class StrategySlotsUiTest {
         val stopped = mutableListOf<String>()
         rule.setContent { SfTheme { SlotsSection(slots, onOpen = {}, onStop = { stopped += it }) } }
         rule.onNodeWithText("Chart Champions BTC").assertExists()
-        rule.onNodeWithText("Autonomous", substring = true).assertExists()
+        rule.onNodeWithText("Autonomous: trades are placed automatically", substring = true).assertExists()
         rule.onNodeWithText("Open: 0.1 BTC-USD").assertExists()
         rule.onNodeWithText("No Stocks strategy running", substring = true).assertExists()
         rule.onNodeWithTag("stop-CRYPTO").performClick()
