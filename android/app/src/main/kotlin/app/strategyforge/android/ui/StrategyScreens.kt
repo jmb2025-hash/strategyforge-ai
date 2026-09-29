@@ -57,6 +57,7 @@ fun StrategiesScreen(
             Spacer(Modifier.width(8.dp))
             OutlinedButton(onClick = { nav.navigate("research") }) { Text("AI research") }
         }
+        OutlinedButton(onClick = { nav.navigate("scorecards") }, modifier = Modifier.testTag("compare")) { Text("Compare results / build a better strategy") }
         if (showImport) {
             Text("Paste a strategy file (JSON, schema 1.0). It is validated on this phone; unknown content requires manual review and executable content is rejected.")
             Field("Strategy JSON", json, { json = it }, singleLine = false, modifier = Modifier.testTag("strategy-json"))
@@ -188,6 +189,7 @@ fun StrategyDetailScreen(
     val portfolios by vm.portfolios.collectAsStateWithLifecycle()
     val conflict by vm.slotConflict.collectAsStateWithLifecycle()
     val replaced by vm.replaced.collectAsStateWithLifecycle()
+    val scorecard by vm.scorecard.collectAsStateWithLifecycle()
     var from by rememberSaveable { mutableStateOf("2026-01-02T00:00:00Z") }
     var to by rememberSaveable { mutableStateOf("2026-06-19T00:00:00Z") }
     var capital by rememberSaveable { mutableStateOf("100000") }
@@ -218,6 +220,10 @@ fun StrategyDetailScreen(
             d.explanation?.let {
                 SectionTitle("How it works")
                 Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
+            scorecard?.let {
+                SectionTitle("Results so far")
+                ScorecardCard(null, it, fmt)
             }
             SectionTitle("Backtests")
             if (backtests.isEmpty()) Text("No backtests yet. A clean backtest is required before paper trading.")

@@ -137,6 +137,7 @@ fun MainShell(
             composable("home") { HomeScreen(home, fmt, nav) }
             composable("strategies") { StrategiesScreen(hiltViewModel(), fmt, nav) }
             composable("strategy/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { StrategyDetailScreen(hiltViewModel(), fmt, session) }
+            composable("scorecards") { ScorecardsScreen(hiltViewModel(), fmt, nav) }
             composable("research") { ResearchListScreen(hiltViewModel(), fmt, nav) }
             composable("research/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { ResearchDetailScreen(hiltViewModel(), fmt, nav) }
             composable(

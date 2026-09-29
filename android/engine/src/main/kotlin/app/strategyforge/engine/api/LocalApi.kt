@@ -487,6 +487,22 @@ class LocalApi(
                 )
         }
         post("/v1/strategies/{id}/deactivate") { r, g -> engine.strategyControl.deactivate(uuid(g[0]), obj(r).str("reason"))?.let { activation(it) } ?: mapOf("status" to "NOT_ACTIVE") }
+        get("/v1/scorecards") { r, _ -> engine.scorecards.all(r.query["assetClass"]).map { scorecard(it) } }
+        get("/v1/strategies/{id}/scorecard") { _, g -> scorecard(engine.scorecards.scorecard(uuid(g[0]))) }
+        post("/v1/scorecards/combine", 201) { r, _ ->
+            val b = obj(r)
+            val asset = b.req("assetClass")
+            researchDetail(
+                engine.research.startConversation(
+                    app.strategyforge.engine.research.ConversationStart(
+                        engine.scorecards.combineBrief(asset),
+                        asset,
+                        b.str("providerId")?.let { uuid(it) },
+                        if (asset == "CRYPTO") "Better crypto strategy from my results" else "Better stock strategy from my results",
+                    ),
+                ),
+            )
+        }
         get("/v1/slots") { _, _ ->
             engine.slots.slots().map { s ->
                 mapOf(
@@ -498,6 +514,42 @@ class LocalApi(
             }
         }
     }
+
+    private fun scorecard(c: app.strategyforge.engine.reports.Scorecard) =
+        mapOf(
+            "strategy" to strategy(c.strategy),
+            "live" to
+                c.live.let { l ->
+                    mapOf(
+                        "closedTrades" to l.closedTrades,
+                        "wins" to l.wins,
+                        "losses" to l.losses,
+                        "winRatePercent" to l.winRatePercent,
+                        "realizedPnl" to l.realizedPnl,
+                        "averagePnl" to l.averagePnl,
+                        "bestTrade" to l.bestTrade,
+                        "worstTrade" to l.worstTrade,
+                        "maxDrawdown" to l.maxDrawdown,
+                        "openPositions" to l.openPositions,
+                        "activeDays" to l.activeDays,
+                        "firstTradeAt" to l.firstTradeAt,
+                        "lastTradeAt" to l.lastTradeAt,
+                    )
+                },
+            "backtest" to
+                c.backtest?.let { b ->
+                    mapOf(
+                        "backtestId" to b.backtestId,
+                        "netReturnPercent" to b.netReturnPercent,
+                        "maxDrawdownPercent" to b.maxDrawdownPercent,
+                        "trades" to b.trades,
+                        "winRatePercent" to b.winRatePercent,
+                        "profitFactor" to b.profitFactor,
+                        "completedAt" to b.completedAt,
+                    )
+                },
+            "sampleWarning" to c.sampleWarning,
+        )
 
     private fun holding(h: app.strategyforge.engine.autonomy.SlotHolding) = mapOf("portfolioId" to h.portfolioId, "symbol" to h.symbol, "side" to h.side, "quantity" to h.quantity)
 

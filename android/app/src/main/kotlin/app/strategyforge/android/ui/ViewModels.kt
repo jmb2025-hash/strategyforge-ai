@@ -21,6 +21,7 @@ import app.strategyforge.android.core.model.Recommendation
 import app.strategyforge.android.core.model.ReportView
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.model.ResearchSession
+import app.strategyforge.android.core.model.Scorecard
 import app.strategyforge.android.core.model.Settings
 import app.strategyforge.android.core.model.Slot
 import app.strategyforge.android.core.model.Strategy
@@ -186,6 +187,63 @@ class StrategiesViewModel
             }
     }
 
+/** Scorecards per asset class and the "build me a better strategy" request (D-037). */
+@HiltViewModel
+class ScorecardsViewModel
+    @Inject
+    constructor(
+        private val repo: Repository,
+    ) : ViewModel() {
+        private val _asset = MutableStateFlow("CRYPTO")
+        val asset: StateFlow<String> = _asset.asStateFlow()
+        private val _cards = MutableStateFlow<List<Scorecard>?>(null)
+        val cards: StateFlow<List<Scorecard>?> = _cards.asStateFlow()
+        private val _action = MutableStateFlow<ActionState>(ActionState.Idle)
+        val action: StateFlow<ActionState> = _action.asStateFlow()
+        private val _started = MutableStateFlow<String?>(null)
+
+        /** The research conversation just started, so the screen can open it. */
+        val started: StateFlow<String?> = _started.asStateFlow()
+
+        init {
+            load()
+        }
+
+        fun select(assetClass: String) {
+            _asset.value = assetClass
+            load()
+        }
+
+        private fun load() {
+            _cards.value = null
+            val a = _asset.value
+            viewModelScope.launch {
+                runCatching { repo.scorecards(a) }
+                    .onSuccess { if (_asset.value == a) _cards.value = it }
+                    .onFailure {
+                        _cards.value = emptyList()
+                        _action.value = it.toFailure()
+                    }
+            }
+        }
+
+        fun buildBetter() {
+            if (_action.value == ActionState.Running) return
+            _action.value = ActionState.Running
+            viewModelScope.launch {
+                runCatching { repo.buildBetterStrategy(_asset.value) }
+                    .onSuccess {
+                        _action.value = ActionState.Done("The AI is working on a combined strategy")
+                        _started.value = it.session.id
+                    }.onFailure { _action.value = it.toFailure() }
+            }
+        }
+
+        fun consumeStarted() {
+            _started.value = null
+        }
+    }
+
 @HiltViewModel
 class StrategyDetailViewModel
     @Inject
@@ -200,6 +258,10 @@ class StrategyDetailViewModel
         val disclosure: StateFlow<Disclosure?> = _disclosure.asStateFlow()
         private val _portfolios = MutableStateFlow<List<Portfolio>>(emptyList())
         val portfolios: StateFlow<List<Portfolio>> = _portfolios.asStateFlow()
+        private val _scorecard = MutableStateFlow<Scorecard?>(null)
+
+        /** This strategy's paper and backtest results (D-037). */
+        val scorecard: StateFlow<Scorecard?> = _scorecard.asStateFlow()
 
         override fun source() = repo.strategy(id)
 
@@ -211,6 +273,7 @@ class StrategyDetailViewModel
         fun loadExtras() {
             viewModelScope.launch {
                 runCatching { _backtests.value = repo.backtests(id) }
+                runCatching { _scorecard.value = repo.scorecard(id) }
                 runCatching { _disclosure.value = repo.disclosure() }
                 repo.portfolios().collect { r -> if (r is Resource.Data) _portfolios.value = r.value.filter { it.status == "ACTIVE" } }
             }

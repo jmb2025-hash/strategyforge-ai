@@ -230,6 +230,44 @@ data class Slot(
     val holdings: List<SlotHolding> = emptyList(),
 )
 
+/** Simulated trading results of one strategy (D-037). Money and percentages are exact decimal text. */
+@Serializable
+data class LiveStats(
+    val closedTrades: Int = 0,
+    val wins: Int = 0,
+    val losses: Int = 0,
+    val winRatePercent: String? = null,
+    val realizedPnl: String = "0",
+    val averagePnl: String? = null,
+    val bestTrade: String? = null,
+    val worstTrade: String? = null,
+    val maxDrawdown: String = "0",
+    val openPositions: Int = 0,
+    val activeDays: String = "0",
+    val firstTradeAt: String? = null,
+    val lastTradeAt: String? = null,
+)
+
+@Serializable
+data class BacktestStats(
+    val backtestId: String,
+    val netReturnPercent: String? = null,
+    val maxDrawdownPercent: String? = null,
+    val trades: Int? = null,
+    val winRatePercent: String? = null,
+    val profitFactor: String? = null,
+    val completedAt: String? = null,
+)
+
+/** How a saved strategy did in paper trading and in its latest backtest (D-037). */
+@Serializable
+data class Scorecard(
+    val strategy: Strategy,
+    val live: LiveStats = LiveStats(),
+    val backtest: BacktestStats? = null,
+    val sampleWarning: String? = null,
+)
+
 @Serializable
 data class Disclosure(
     val version: String,

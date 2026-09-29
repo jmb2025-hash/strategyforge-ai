@@ -404,6 +404,35 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-037 scorecards and a better strategy built from them through the app's calls`() {
+        start()
+        runBlocking {
+            suspend fun eligible(name: String): String {
+                val id = repo.importStrategy(JacksonCanonical.mapper.writeValueAsString(Strategies.alwaysLong(name, "1m"))).strategy.id
+                repo.runBacktest(id, "2026-06-22T00:00:00Z", "2026-06-22T13:00:00Z", "100000")
+                return id
+            }
+            val a = eligible("Scored A")
+            eligible("Scored B")
+            val cards = repo.scorecards("CRYPTO")
+            assertThat(cards.map { it.strategy.name }).containsExactlyInAnyOrder("Scored A", "Scored B")
+            val one = repo.scorecard(a)
+            assertThat(one.live.closedTrades).isZero()
+            assertThat(one.backtest!!.trades).isNotNull()
+            assertThat(one.sampleWarning).isNotNull()
+
+            val gemini = repo.providerTypes().single { it.providerType == "GEMINI" }
+            repo.createProvider("GEMINI", "Gemini", gemini.presets + ("baseUrl" to ai.url("/").toString().trimEnd('/')), "AIza-test-not-real")
+            ai.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(Fixtures.gemini("Combine the entries of A with the exits of B.", "STOP")))
+            val d = repo.buildBetterStrategy("CRYPTO")
+            assertThat(d.session.conversation).isTrue()
+            assertThat(d.session.title).isEqualTo("Better crypto strategy from my results")
+            assertThat(d.runs.single().ownerMessage).contains("Scored A").contains("Scored B")
+            assertThat(d.runs.single().status).isEqualTo("SUCCEEDED")
+        }
+    }
+
+    @Test
     fun `D-035 activating a second crypto strategy asks keep or close through the app's calls`() {
         start()
         runBlocking {

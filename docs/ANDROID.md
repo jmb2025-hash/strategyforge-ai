@@ -36,7 +36,7 @@ APKs signed with different keys cannot update each other.
    1. Create a portfolio (**Portfolio** tab).
    2. Place a paper order.
    3. Import a strategy (**Strategies** tab).
-   4. Backtest it, then activate it in Recommendation or Autonomous mode.
+   4. Backtest it, then activate it in Notifications or Autonomous mode.
 
    Demo market time moves forward on every engine tick. You can change the speed in **More → Market data and background running**.
 3. **Switch to live data.** In **More → Market data and background running**, choose **Live**:
@@ -47,8 +47,21 @@ APKs signed with different keys cannot update each other.
    2. Create a key at Google AI Studio.
    3. Paste it into the app and tap **Add provider**.
 
-   OpenRouter, OpenAI and Anthropic are optional. Then use **More → AI research** to research a strategy. You must review the AI's memo before it is compiled into a strategy, and the strategy then goes through the normal validation, backtest and activation steps (D-030).
-5. **Keep it running in the background.** On the same market-data screen:
+   OpenRouter, OpenAI and Anthropic are optional.
+5. **Research a strategy with the AI.** On the **Strategies** tab, tap **AI research**:
+   1. Choose **Crypto** or **Stocks**.
+   2. Describe the investor, group or strategy to research, for example "the crypto trading strategies used by Chart Champions". Gemini searches the web and cites its sources.
+   3. Reply to refine the research as often as you like.
+   4. Tap **Compile research into a strategy**. The AI turns the conversation into a strategy that can use moving averages, RSI, MACD, Bollinger Bands, breakouts, support and resistance, relative volume and common candlestick patterns (D-034, D-036).
+   5. The strategy goes through the normal validation. Run the one-tap backtest, then activate it in **Notifications** mode (you approve each trade) or **Autonomous** mode.
+6. **One crypto and one stock strategy run at a time.** The **Strategies** tab shows both under "Running now". When you activate another strategy of the same kind, the app asks whether to keep the current strategy's open positions (the new strategy manages them) or close them (D-035).
+7. **Compare results and build a better strategy.** Tap **Compare results / build a better strategy** on the **Strategies** tab to see:
+   - each strategy's paper profit and loss, win rate and drawdown;
+   - its latest backtest;
+   - a warning when it has too few trades to judge.
+
+   **Build me a better strategy** starts an AI research conversation with every tested strategy's rules and results. You refine and compile it like any other research, and it must be backtested before it runs (D-037).
+8. **Keep it running in the background.** On the same market-data screen:
    - Leave **Keep paper trading when the app is closed** on. A small persistent notification shows that the engine is running.
    - Tap **Allow unrestricted battery use**.
    - If your phone still closes the app, open the recent-apps screen, press and hold StrategyForge and choose **Lock** or **Keep open**.

@@ -356,3 +356,23 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Research and compile prompts.** Both describe what can be expressed. The compiler gets a short guide to using these indicators.
   - **Schema version.** The schema stays at 1.0: the change only adds enum values, so existing strategy files remain valid.
 - **Requirements affected:** FR-040 to FR-046.
+
+## D-037 Strategy scorecards and "build me a better strategy"
+
+- **Date:** 2026-10-01
+- **Context:** The owner wants to see how effective each strategy is, swap out ineffective ones, and later have the app build a strategy from the historical results.
+- **Decision:**
+  - **Scorecards.** Each tested strategy has a scorecard with two parts:
+    - Paper results come from executions of orders the strategy created that closed a position: closed trades, wins and losses, win rate, realized P&L, average/best/worst trade, drawdown of cumulative realized P&L, open positions and days active.
+    - The latest completed backtest adds net return, max drawdown, trades, win rate and profit factor.
+  - **Exact money.** Money is summed from exact decimal text.
+  - **Sample-size warning.** Fewer than 20 closed trades triggers a plain warning that the results cannot yet tell skill from luck.
+  - **Which strategies appear.** Drafts and strategies that failed validation are left out. The list is ordered by realized paper P&L, then backtest return.
+  - **Build me a better strategy.** The app composes the opening message of a normal research conversation:
+    - each tested strategy of the asset class, best first, with its plain-English rules and results;
+    - at most six strategies, within the message limit.
+
+    This needs at least two tested strategies.
+  - **Normal research path.** The AI proposes a combination and the owner refines it. It is then compiled, validated and backtested like any research, so the AI never activates anything and the budget limits apply as usual.
+  - **Why not an automatic optimizer.** A search that tunes rules to past results would overfit the owner's small trade history. An AI proposal that can be explained and then backtested keeps the owner in control.
+- **Requirements affected:** FR-046, FR-060 to FR-064, FR-032 to FR-037.

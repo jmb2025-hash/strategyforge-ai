@@ -43,6 +43,7 @@ import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.model.ResearchSession
 import app.strategyforge.android.core.model.RestoreResult
 import app.strategyforge.android.core.model.RuntimeState
+import app.strategyforge.android.core.model.Scorecard
 import app.strategyforge.android.core.model.SessionInfo
 import app.strategyforge.android.core.model.SessionResponse
 import app.strategyforge.android.core.model.Settings
@@ -328,6 +329,27 @@ class Repository(
     }
 
     /** The crypto and stock strategy slots (D-035). */
+    suspend fun scorecards(assetClass: String? = null): List<Scorecard> = api.decode(api.get("/v1/scorecards" + (assetClass?.let { "?assetClass=${q(it)}" } ?: "")).body, ListSerializer(Scorecard.serializer()))
+
+    suspend fun scorecard(strategyId: String): Scorecard = api.decode(api.get("/v1/strategies/${seg(strategyId)}/scorecard").body, Scorecard.serializer())
+
+    /** Starts a research conversation that proposes a strategy combining the best of the saved ones (D-037). */
+    suspend fun buildBetterStrategy(
+        assetClass: String,
+        providerId: String? = null,
+    ): ResearchDetail =
+        api.decode(
+            api
+                .post(
+                    "/v1/scorecards/combine",
+                    buildJsonObject {
+                        put("assetClass", assetClass)
+                        providerId?.let { put("providerId", it) }
+                    },
+                ).body,
+            ResearchDetail.serializer(),
+        )
+
     suspend fun slots(): List<Slot> = api.get("/v1/slots", ListSerializer(Slot.serializer()))
 
     suspend fun deactivate(strategyId: String) {

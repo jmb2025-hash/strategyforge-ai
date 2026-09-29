@@ -170,6 +170,11 @@ class Engine(
 
     // ------------------------------------------------------------------ reports and exports
     val reports = ReportService(db, portfolios)
+
+    /** Per-strategy results and the "build me a better strategy" brief (D-037). */
+    val scorecards =
+        app.strategyforge.engine.reports
+            .ScorecardService(db, strategies, backtests, slots, wall)
     val exports = ExportService(db, portfolios, audit, wall)
     val backups =
         app.strategyforge.engine.operations
