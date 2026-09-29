@@ -98,7 +98,7 @@ enum class AiProviderType(
         aiSettings(retrieval = true),
         // Google Search grounding is on by default; on the free tier it is within the daily free quota.
         mapOf(
-            "model" to "gemini-2.5-flash",
+            "model" to "gemini-flash-latest",
             "inputPricePerMillionTokensUsd" to "0",
             "outputPricePerMillionTokensUsd" to "0",
             "webSearchEnabled" to "true",
@@ -261,9 +261,11 @@ class AiProviderService(
             } else {
                 storeKey(id, key)
             }
+        // A new or removed key makes the previous test result meaningless, so it is cleared.
         db
-            .sql("update ai_providers set key_alias = :a, key_fingerprint = :fp, updated_at = :now where id = :id")
-            .param("a", fp?.let { alias(id) })
+            .sql(
+                "update ai_providers set key_alias = :a, key_fingerprint = :fp, last_test_status = null, last_test_detail = null, last_test_at = null, updated_at = :now where id = :id",
+            ).param("a", fp?.let { alias(id) })
             .param("fp", fp)
             .param("now", clock.instant())
             .param("id", id)
@@ -307,10 +309,22 @@ class AiProviderService(
                 TestStatus.FAILED to "No API key configured"
             } else {
                 try {
-                    val r = clients.forType(p.type).complete(p, AiRequest("Reply with the single word OK.", "Connectivity check.", TEST_TOKENS, false))
-                    TestStatus.OK to "Model ${r.model} answered (${r.inputTokens} input / ${r.outputTokens} output tokens)"
+                    ping(p)
                 } catch (e: AiException) {
-                    TestStatus.FAILED to "${e.failure}: ${e.message}"
+                    // A retired or unavailable Gemini model: pick one this key can use and try again (D-039).
+                    val replacement = if (e.httpStatus == 404 && p.type == AiProviderType.GEMINI) geminiReplacement(p) else null
+                    if (replacement == null) {
+                        TestStatus.FAILED to "${e.failure}: ${e.message}"
+                    } else {
+                        val old = p.string("model")
+                        update(id, p.displayName, get(id).settings + ("model" to replacement))
+                        try {
+                            val (s, d) = ping(resolve(id))
+                            s to "Model $old is not available to this key, so the app switched to $replacement. $d"
+                        } catch (e2: AiException) {
+                            TestStatus.FAILED to "Switched from $old to $replacement, but it failed too. ${e2.failure}: ${e2.message}"
+                        }
+                    }
                 }
             }
         db
@@ -322,6 +336,17 @@ class AiProviderService(
             .update()
         audit.record(AuditCategory.PROVIDER, "PROVIDER_TESTED", entityType = "AiProvider", entityId = id, details = mapOf("status" to status, "detail" to detail))
         return get(id)
+    }
+
+    private fun ping(p: AiProviderConfig): Pair<TestStatus, String> {
+        val r = clients.forType(p.type).complete(p, AiRequest("Reply with the single word OK.", "Connectivity check.", TEST_TOKENS, false))
+        return TestStatus.OK to "Model ${r.model} answered (${r.inputTokens} input / ${r.outputTokens} output tokens)"
+    }
+
+    private fun geminiReplacement(p: AiProviderConfig): String? {
+        val gemini = clients.forType(p.type) as? GeminiClient ?: return null
+        val names = runCatching { gemini.availableModels(p) }.getOrNull() ?: return null
+        return AiClients.pickGeminiModel(names)?.takeIf { it != p.string("model") }
     }
 
     private fun storeKey(
@@ -407,6 +432,6 @@ class AiProviderService(
         )
 
     companion object {
-        const val TEST_TOKENS = 64
+        const val TEST_TOKENS = 1024
     }
 }

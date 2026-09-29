@@ -51,6 +51,8 @@ class AiException(
     message: String,
     val raw: String? = null,
     cause: Throwable? = null,
+    /** The provider's HTTP status when it answered with an error (404 means the model is unknown). */
+    val httpStatus: Int? = null,
 ) : RuntimeException(message, cause)
 
 /** Common adapter over AI providers (FR-030). Implementations never log or return the key. */
@@ -129,14 +131,53 @@ abstract class HttpAiClient(
         body: String,
     ) {
         val raw = body.take(RAW_LIMIT)
+        if (status in 200..299) return
+        // The provider's own explanation (for example "models/x is not found"), shortened; never contains the key.
+        val said = providerMessage(body)?.let { ": $it" } ?: ""
         when {
-            status in 200..299 -> return
-            status == 401 || status == 403 -> throw AiException(AiFailure.AUTHENTICATION, "The provider rejected the key (HTTP $status)", raw)
-            status == 408 || status == 504 -> throw AiException(AiFailure.TIMEOUT, "The provider timed out (HTTP $status)", raw)
-            status == 429 -> throw AiException(AiFailure.RATE_LIMITED, "The provider rate limit or free-tier quota was exceeded (HTTP 429)", raw)
-            status in 400..499 -> throw AiException(AiFailure.BAD_REQUEST, "The provider rejected the request (HTTP $status)", raw)
-            else -> throw AiException(AiFailure.PROVIDER_ERROR, "The provider failed (HTTP $status)", raw)
+            status == 401 || status == 403 -> throw AiException(AiFailure.AUTHENTICATION, "The provider rejected the key (HTTP $status)$said", raw, httpStatus = status)
+            status == 408 || status == 504 -> throw AiException(AiFailure.TIMEOUT, "The provider timed out (HTTP $status)", raw, httpStatus = status)
+            status == 429 -> throw AiException(AiFailure.RATE_LIMITED, "The provider rate limit or free-tier quota was exceeded (HTTP 429)$said", raw, httpStatus = status)
+            status == 404 -> throw AiException(AiFailure.BAD_REQUEST, "The provider does not offer this model to your key (HTTP 404)$said", raw, httpStatus = status)
+            status in 400..499 -> throw AiException(AiFailure.BAD_REQUEST, "The provider rejected the request (HTTP $status)$said", raw, httpStatus = status)
+            else -> throw AiException(AiFailure.PROVIDER_ERROR, "The provider failed (HTTP $status)", raw, httpStatus = status)
         }
+    }
+
+    private fun providerMessage(body: String): String? =
+        runCatching {
+            val n = mapper.readTree(body)
+            (n?.get("error")?.get("message") ?: n?.get("error")?.takeIf { it.isTextual } ?: n?.get("message"))?.asText()
+        }.getOrNull()
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.take(MESSAGE_LIMIT)
+
+    /** A GET returning JSON, with the same error handling as [post]. */
+    protected fun getJson(
+        p: AiProviderConfig,
+        url: String,
+        headers: Map<String, String>,
+    ): JsonNode {
+        val timeout = AiEndpoints.timeout(p)
+        val client =
+            http
+                .newBuilder()
+                .callTimeout(timeout)
+                .readTimeout(timeout)
+                .build()
+        val b = Request.Builder().url(url).get()
+        headers.forEach { (k, v) -> b.header(k, v) }
+        val (status, text) =
+            try {
+                client.newCall(b.build()).execute().use { it.code to (it.body?.string() ?: "") }
+            } catch (e: IOException) {
+                throw AiException(AiFailure.PROVIDER_ERROR, "Network error contacting the provider (${e.javaClass.simpleName})", cause = e)
+            }
+        classify(status, text)
+        return runCatching { mapper.readTree(text) }.getOrNull()?.takeIf { it.isObject }
+            ?: throw AiException(AiFailure.MALFORMED_RESPONSE, "The provider returned an unexpected response", text.take(RAW_LIMIT))
     }
 
     protected fun requireText(
@@ -153,6 +194,7 @@ abstract class HttpAiClient(
 
     companion object {
         const val RAW_LIMIT = 200_000
+        private const val MESSAGE_LIMIT = 300
         private val JSON = "application/json".toMediaType()
     }
 }
@@ -258,6 +300,15 @@ class GeminiClient(
         )
     }
 
+    /** Models this key may call with `generateContent`, without the "models/" prefix. */
+    fun availableModels(provider: AiProviderConfig): List<String> {
+        val json = getJson(provider, AiEndpoints.baseUrl(provider) + "/v1beta/models?pageSize=1000", mapOf("x-goog-api-key" to (provider.key ?: "")))
+        return json["models"]
+            ?.filter { m -> m["supportedGenerationMethods"]?.any { it.asText() == "generateContent" } ?: true }
+            ?.mapNotNull { it["name"]?.asText()?.removePrefix("models/") }
+            .orEmpty()
+    }
+
     /** Web sources from `groundingChunks`, with the answer text each one supports where given. */
     private fun groundingSources(grounding: JsonNode?): List<AiSource> {
         val chunks = grounding?.get("groundingChunks")?.takeIf { it.isArray } ?: return emptyList()
@@ -289,6 +340,27 @@ class AiClients(
     fun retrievalAvailable(p: AiProviderConfig): Boolean = p.webSearchEnabled()
 
     companion object {
+        /**
+         * The best general-purpose model from a key's list (D-039): the "latest Flash" alias, else the
+         * newest stable Flash, else the newest Flash variant, else any Gemini text model. Lite, image,
+         * speech, live, embedding and experimental models are avoided.
+         */
+        fun pickGeminiModel(names: List<String>): String? {
+            if ("gemini-flash-latest" in names) return "gemini-flash-latest"
+            val avoid = Regex("lite|image|tts|audio|live|embed|exp|vision|learnlm|aqa|robotics|computer")
+
+            fun version(n: String) =
+                Regex("^gemini-(\\d+(?:\\.\\d+)?)")
+                    .find(n)
+                    ?.groupValues
+                    ?.get(1)
+                    ?.toDoubleOrNull() ?: 0.0
+            val usable = names.filter { it.startsWith("gemini-") && !avoid.containsMatchIn(it) }
+            val stable = usable.filter { Regex("^gemini-\\d+(\\.\\d+)?-flash$").matches(it) }
+            val flash = usable.filter { it.contains("flash") }
+            return (stable.maxByOrNull(::version) ?: flash.maxByOrNull(::version) ?: usable.maxByOrNull(::version))
+        }
+
         fun default(http: OkHttpClient = defaultHttp()): AiClients = AiClients(listOf(GeminiClient(http), OpenAiCompatibleClient(http), AnthropicAiClient()))
 
         fun defaultHttp(): OkHttpClient =

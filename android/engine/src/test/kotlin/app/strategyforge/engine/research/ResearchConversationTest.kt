@@ -139,4 +139,54 @@ class ResearchConversationTest {
         db.migrate() // idempotent
         assertThat(db.schemaVersion()).isEqualTo(Db.SCHEMA_VERSION)
     }
+
+    @Test
+    fun `D-039 a model Google no longer offers is replaced by one the key can use, and a new key clears old results`() {
+        val pid = gemini()
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(404)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"error":{"code":404,"message":"models/gemini-flash-latest is not found for API version v1beta","status":"NOT_FOUND"}}"""),
+        )
+        server.enqueue(
+            json(
+                """{"models":[
+                  {"name":"models/gemini-2.0-flash-lite","supportedGenerationMethods":["generateContent"]},
+                  {"name":"models/gemini-3.0-flash","supportedGenerationMethods":["generateContent","countTokens"]},
+                  {"name":"models/gemini-3.0-flash-image","supportedGenerationMethods":["generateContent"]},
+                  {"name":"models/text-embedding-004","supportedGenerationMethods":["embedContent"]}]}""",
+            ),
+        )
+        server.enqueue(json(Fixtures.gemini("OK", "STOP")))
+        val v = e.aiProviders.test(pid)
+        assertThat(v.lastTestStatus).isEqualTo("OK")
+        assertThat(v.settings["model"]).isEqualTo("gemini-3.0-flash")
+        assertThat(v.lastTestDetail).contains("switched to gemini-3.0-flash")
+        assertThat(server.takeRequest(5, TimeUnit.SECONDS)!!.path).contains("/v1beta/models/gemini-flash-latest:generateContent")
+        val list = server.takeRequest(5, TimeUnit.SECONDS)!!
+        assertThat(list.method).isEqualTo("GET")
+        assertThat(list.path).startsWith("/v1beta/models")
+        assertThat(list.getHeader("x-goog-api-key")).isEqualTo("AIza-test-not-real")
+        assertThat(server.takeRequest(5, TimeUnit.SECONDS)!!.path).contains("/v1beta/models/gemini-3.0-flash:generateContent")
+
+        e.auth.confirmed()
+        val replaced = e.aiProviders.setKey(pid, "AIza-another-test-key")
+        assertThat(replaced.lastTestStatus).`as`("the old result no longer applies").isNull()
+        assertThat(replaced.lastTestDetail).isNull()
+    }
+
+    @Test
+    fun `D-039 a failed test shows the provider's own explanation`() {
+        val pid = gemini()
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(400)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}"""),
+        )
+        val v = e.aiProviders.test(pid)
+        assertThat(v.lastTestStatus).isEqualTo("FAILED")
+        assertThat(v.lastTestDetail).contains("HTTP 400").contains("API key not valid").doesNotContain("AIza-test-not-real")
+    }
 }

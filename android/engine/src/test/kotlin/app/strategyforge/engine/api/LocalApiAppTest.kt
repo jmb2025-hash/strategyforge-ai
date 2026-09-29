@@ -341,12 +341,12 @@ class LocalApiAppTest {
 
             // AI provider setup as the phone screen does it: Gemini preset, key into the key store.
             val gemini = repo.providerTypes().single { it.providerType == "GEMINI" }
-            assertThat(gemini.presets["model"]).isEqualTo("gemini-2.5-flash")
+            assertThat(gemini.presets["model"]).isEqualTo("gemini-flash-latest")
             assertThat(gemini.keyUrl).isEqualTo("https://aistudio.google.com/apikey")
             val created = repo.createProvider("GEMINI", "Gemini", gemini.presets, "AIza-test-key-DO-NOT-LEAK")
             assertThat(created.credentialConfigured).isTrue()
             assertThat(created.credentialFingerprint).hasSize(12)
-            assertThat(created.settings["model"]).isEqualTo("gemini-2.5-flash")
+            assertThat(created.settings["model"]).isEqualTo("gemini-flash-latest")
             host.call { engine.auth.forget() }
             val keyChange = assertThrows<ApiError.Http> { runBlocking { repo.setProviderKey(created.id, "AIza-other") } }
             assertThat(keyChange.recentAuthRequired).isTrue()

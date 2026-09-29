@@ -73,6 +73,32 @@ class PhoneScreensUiTest {
     }
 
     @Test
+    fun `D-039 a failed test is shown plainly and the model can be changed and re-tested`() {
+        val saved = mutableListOf<String>()
+        val p =
+            Provider(
+                "p1",
+                "AI",
+                "GEMINI",
+                "Gemini",
+                active = true,
+                lastTestStatus = "FAILED",
+                lastTestDetail = "BAD_REQUEST: The provider does not offer this model to your key (HTTP 404)",
+                settings = mapOf("model" to "gemini-2.5-flash"),
+                credentialConfigured = true,
+                credentialFingerprint = "0123456789ab",
+            )
+        show {
+            AiProvidersContent(AiProvidersState(types = listOf(gemini), providers = listOf(p), loading = false), { _, _, _, _ -> }, { _, _ -> }, { _, _ -> }, {}) { _, m -> saved += m }
+        }
+        rule.onNodeWithText("does not offer this model", substring = true).assertExists()
+        rule.onNodeWithTag("save-model").assertDoesNotExist()
+        rule.onNodeWithTag("provider-model").performScrollTo().performTextReplacement("gemini-flash-latest")
+        rule.onNodeWithTag("save-model").performScrollTo().performClick()
+        assertEquals(listOf("gemini-flash-latest"), saved)
+    }
+
+    @Test
     fun `D-027 demo mode shows speed controls and the battery warning offers the exemption`() {
         var battery = 0
         val speeds = mutableListOf<Int>()

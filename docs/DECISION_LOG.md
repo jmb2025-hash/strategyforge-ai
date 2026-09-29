@@ -412,3 +412,17 @@ When a conflict is unresolved, the safest reversible option is selected.
     - These are tagged `PERIODIC`.
     - Risk rules (daily-loss start equity and peak equity for drawdown) ignore them, so risk limits behave exactly as before.
 - **Requirements affected:** FR-100 to FR-104, NFR-009.
+
+## D-039 Gemini model changes no longer break the provider
+
+- **Date:** 2026-10-01
+- **Context:** The owner's Gemini key returned HTTP 404. Google no longer offered the preset model `gemini-2.5-flash` to that key. The app had no way to change a provider's model, and replacing the key left the old failed result on screen.
+- **Decision:**
+  - **New preset.** The Gemini preset is now the `gemini-flash-latest` alias.
+  - **Automatic model switch.** When a Gemini test gets a 404, the app lists the models the key can use with `generateContent`. It picks the latest-Flash alias if offered, else the newest stable Flash, and avoids Lite, image, speech, live, embedding and experimental models. It saves that model and tests again, and the result says what changed.
+  - **Clearer errors.** Error messages include the provider's own short explanation (never the key).
+  - **Stale results cleared.** Replacing or removing a key clears the previous test result.
+  - **Automatic testing.** The app tests a provider right after it is added, after a key is replaced, and after its model is edited.
+  - **Editable model.** A provider's model can be edited on its card.
+  - **Test size.** The connectivity test allows 1,024 output tokens, so models that think before answering still reply.
+- **Requirements affected:** FR-004, FR-030.

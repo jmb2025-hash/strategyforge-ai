@@ -101,12 +101,28 @@ class AiProvidersViewModel
             name: String,
             settings: Map<String, String>,
             key: String,
-        ) = act("Provider added") { repo.createProvider(type, name, settings, key) }
+        ) = act("Provider added and tested; see the result on its card") {
+            val p = repo.createProvider(type, name, settings, key)
+            // Test straight away so a wrong key or model shows up now, not in the middle of research (D-039).
+            if (key.isNotBlank()) repo.testProvider(p.id)
+        }
 
         fun setKey(
             id: String,
             key: String?,
-        ) = act(if (key == null) "Key removed" else "Key replaced") { repo.setProviderKey(id, key) }
+        ) = act(if (key == null) "Key removed" else "Key replaced and tested") {
+            repo.setProviderKey(id, key)
+            if (key != null) repo.testProvider(id)
+        }
+
+        /** Changes the model (for example after Google retires one) and tests it. */
+        fun setModel(
+            p: Provider,
+            model: String,
+        ) = act("Model saved and tested") {
+            repo.updateProvider(p.id, p.displayName, p.settings + ("model" to model.trim()))
+            repo.testProvider(p.id)
+        }
 
         fun setActive(
             id: String,
@@ -124,7 +140,7 @@ fun AiProvidersScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
-        AiProvidersContent(state, vm::create, vm::setKey, vm::setActive, vm::test)
+        AiProvidersContent(state, vm::create, vm::setKey, vm::setActive, vm::test, vm::setModel)
         ReauthHostFor(action, session, vm)
     }
 }
@@ -137,6 +153,7 @@ fun AiProvidersContent(
     onSetKey: (id: String, key: String?) -> Unit,
     onSetActive: (id: String, active: Boolean) -> Unit,
     onTest: (id: String) -> Unit,
+    onSetModel: (p: Provider, model: String) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     SectionTitle("AI providers")
@@ -154,8 +171,16 @@ fun AiProvidersContent(
             LabelValue(p.displayName, p.providerType)
             p.settings["model"]?.let { LabelValue("Model", it) }
             LabelValue("Key", if (p.credentialConfigured) "stored (…${p.credentialFingerprint?.takeLast(4) ?: ""})" else "missing")
-            p.lastTestStatus?.let { LabelValue("Last test", it) }
-            p.lastTestDetail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            when (p.lastTestStatus) {
+                null -> Text(if (p.credentialConfigured) "Not tested yet: tap Test." else "Add a key to use this provider.", style = MaterialTheme.typography.bodySmall)
+                "OK" -> Banner("Connected. ${p.lastTestDetail.orEmpty()}")
+                else -> Banner("Test failed. ${p.lastTestDetail.orEmpty()}", BannerKind.ERROR)
+            }
+            var newModel by rememberSaveable(p.id, p.settings["model"]) { mutableStateOf(p.settings["model"].orEmpty()) }
+            Field("Model", newModel, { newModel = it }, modifier = Modifier.testTag("provider-model"))
+            if (newModel.trim() != p.settings["model"] && newModel.isNotBlank()) {
+                TextButton(onClick = { onSetModel(p, newModel) }, modifier = Modifier.testTag("save-model")) { Text("Save model and test") }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(checked = p.active, onCheckedChange = { onSetActive(p.id, it) }, modifier = Modifier.testTag("provider-active"))
                 Spacer(Modifier.width(8.dp))

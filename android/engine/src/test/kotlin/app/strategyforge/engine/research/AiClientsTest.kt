@@ -281,4 +281,13 @@ object Fixtures {
                 "modelVersion" to "test-model",
             ),
         )
+
+    @Test
+    fun `D-039 the replacement Gemini model is the latest alias, else the newest stable Flash`() {
+        assertThat(AiClients.pickGeminiModel(listOf("gemini-2.5-flash", "gemini-flash-latest", "gemini-3.0-pro"))).isEqualTo("gemini-flash-latest")
+        assertThat(AiClients.pickGeminiModel(listOf("gemini-2.5-flash", "gemini-3.0-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash-image"))).isEqualTo("gemini-3.0-flash")
+        assertThat(AiClients.pickGeminiModel(listOf("gemini-3.5-flash-preview-11-2026", "gemini-2.0-flash-lite"))).isEqualTo("gemini-3.5-flash-preview-11-2026")
+        assertThat(AiClients.pickGeminiModel(listOf("gemini-3.0-pro", "text-embedding-004"))).isEqualTo("gemini-3.0-pro")
+        assertThat(AiClients.pickGeminiModel(listOf("text-embedding-004"))).isNull()
+    }
 }
