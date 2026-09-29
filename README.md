@@ -1,7 +1,13 @@
 # StrategyForge AI
 
-Private, single-owner Android application and owner-controlled backend for researching,
-validating, backtesting and operating stock and crypto strategies with **simulated money only**.
+Private, single-owner Android application for researching, validating, backtesting and
+operating stock and crypto strategies with **simulated money only**. Everything runs on the
+phone (D-027): live crypto data from Coinbase, optional US stock data with a free Twelve Data
+key, AI research with the owner's own provider key (Google Gemini free tier by default), and
+paper trading that keeps running in the background.
+
+**Install the app:** see [`docs/ANDROID.md`](docs/ANDROID.md). The latest signed APK is published
+as the `phone-latest` pre-release on the Releases page.
 
 > **Paper trading only.** Real-money trading does not exist in Version 1 and cannot be enabled
 > through the UI, API, configuration or strategy files.
@@ -13,8 +19,8 @@ Read it first.
 
 | Path | Contents |
 |---|---|
-| `backend/` | Kotlin + Spring Boot modular monolith, Flyway migrations, tests |
-| `android/` | Android app (`app`, Jetpack Compose) and pure-Kotlin `core` module |
+| `android/` | Android app (`app`, Jetpack Compose), the on-device trading `engine` and the pure-Kotlin `core` data layer |
+| `backend/` | Version 1 server (Kotlin + Spring Boot). Kept for reference; the phone app does not use it (D-027) |
 | `contracts/` | OpenAPI 3.1 contract generated from and verified against the backend |
 | `fixtures/replay/` | Deterministic synthetic replay market data (generated, checksummed) |
 | `deploy/` | Optional TLS proxy configuration |

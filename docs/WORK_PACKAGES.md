@@ -122,3 +122,32 @@ migrations, tests, dependencies, risks) and closed with its exit-gate evidence.
 - **Tests:** `AccountFeaturesTest` (core, 7) and `AccountScreensUiTest` (Robolectric, 6).
 - **Risks found and fixed:** a UI test clicked a chip outside the Robolectric viewport, so it now scrolls the chip into view first.
 - **Result:** Passed. CI run 36481488911 on `66d7f1b`: all jobs green, with 23 core tests and 13 Compose UI tests. Release APK SHA-256 `2d525c8a0cc2c784fc9f8dcfd1f1a4a964f714c74cf8fe91639cce00311fba4a`.
+
+## Version 2 — Phone-only app (M1–M9)
+
+- **Owner decision:** everything runs on the phone (D-027).
+  - Crypto uses free public Coinbase data. US stocks use Twelve Data with the owner's free key.
+  - Google Gemini's free tier is the default AI provider.
+  - Trading continues in the background.
+  - The backend code stays in the repository, unused.
+- **M1–M2:** The `android/engine` module (pure Kotlin/JVM) ports the server's domain. Storage is SQLite behind a small SQL interface: JDBC in tests, Android SQLite in the app (D-028).
+- **M3:** Coinbase public crypto provider.
+- **M4–M5:** Strategies, backtests, risk, signals, recommendations, autonomy, emergency controls and the engine scheduler. The engine is single-threaded, has no action tokens, and uses the device lock in place of the server's re-authentication (D-029).
+- **M6:** On-device AI research with Gemini, OpenRouter, OpenAI and Anthropic; keys are held in the Keystore (D-030).
+- **M7:** The app's `/v1` API is served in-process (D-031).
+  - Also in M7: reports, exports, backups with restore, and the engine runtime (thread, tick, notifications, reload after restore).
+  - On the app side: Android SQLite, the Keystore secret store, the foreground service and boot receiver, the battery exemption, the device-lock app lock and "confirm it's you", the AI provider and market-data screens, and backup save and restore from files.
+  - Removed: sign-in, two-factor, sessions and devices, Firebase and WorkManager.
+  - CI publishes the APK as the `phone-latest` pre-release (D-033).
+- **M8:** Twelve Data stock data, with free-plan budgets and caching. Quote freshness allows for each provider's expected lag (D-032).
+- **M9:** ANDROID.md (install, first run, updates), RELEASE.md (phone section), README, decision log D-027–D-033.
+- **Tests:**
+  - Engine: 119 tests, including `LocalApiAppTest`, which runs the app's own Repository, ApiClient, cache and models against a real engine; `EngineRuntimeTest`; `TwelveDataProviderTest`; and the replay end-to-end run twice with identical results.
+  - Core: 23 tests.
+  - App: Compose UI tests, including `PhoneScreensUiTest` and a lock-screen test.
+- **Risks found and fixed:**
+  - SQL sums over decimal text were moved to Kotlin.
+  - An AI budget refusal is now audited after the rollback.
+  - httpcore5 and Jackson CVEs are patched (D-025).
+  - A delayed or polled stock feed would never have passed the 60-second freshness check, so each provider now declares its expected lag (D-032).
+  - The restore path lifts the append-only triggers only inside its transaction.

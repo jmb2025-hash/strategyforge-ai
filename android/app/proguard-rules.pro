@@ -41,3 +41,12 @@
 -dontwarn com.google.re2j.**
 -dontwarn org.graalvm.**
 -dontwarn reactor.blockhound.**
+# Optional code paths never used on the phone: the Anthropic SDK's JSON Schema generator (needs
+# java.lang.reflect.AnnotatedType) and the JSON Schema validator's optional joni regex engine.
+-dontwarn java.lang.reflect.AnnotatedType
+-dontwarn java.lang.reflect.AnnotatedParameterizedType
+-dontwarn java.lang.reflect.AnnotatedArrayType
+-dontwarn java.lang.reflect.AnnotatedWildcardType
+-dontwarn java.lang.reflect.AnnotatedTypeVariable
+-dontwarn org.jcodings.**
+-dontwarn org.joni.**

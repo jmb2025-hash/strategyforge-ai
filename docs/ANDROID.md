@@ -1,15 +1,81 @@
-# Android app: build, sign, install
+# Android app: install, first run, build
 
-The Android app is a private, sideloaded client. The backend is authoritative for everything. The
-app stores only an encrypted session token, a few local preferences and a cache of backend
-responses (Room), which is cleared on sign-out.
+StrategyForge runs entirely on the phone (D-027). It handles market data, strategies, backtests, risk, simulated orders, recommendations, autonomous paper trading and AI research itself. There is no server to run. The app contacts only:
+
+- the Coinbase public market-data API, for crypto (no account or key needed);
+- Twelve Data, for US stocks, but only if you add a free key;
+- the AI provider you choose (Google Gemini free tier by default), and only when you run research.
+
+**Paper trading only.** There is no real money, brokerage connection or order routing, and none can be enabled.
+
+## Install
+
+1. On the phone, open the repository's **Releases** page and choose **StrategyForge phone app (latest build)**.
+2. Download `StrategyForge.apk`. Optionally, compare its SHA-256 with `SHA256SUMS` on the same page.
+3. Open the file. When Android asks, allow your browser or file manager to install unknown apps, then tap **Install**.
+4. Open StrategyForge. Allow notifications when asked.
+
+The same APK is also in the `android-outputs` artifact of each CI run (`apk/release/app-release.apk`). Android 10 or newer is required.
+
+### Updating to a newer build
+
+APKs signed with different keys cannot update each other.
+
+- **CI with your own signing key:** if you add the signing secrets described under [Release signing](#release-signing), every build uses the same key. Install new builds over the old one and your data stays.
+- **CI without those secrets:** each build is signed with a new temporary key. Before updating:
+  1. Open **More → Backups**, tap **Back up now**, then **Save a copy** (for example to Google Drive or Downloads).
+  2. Uninstall the old app and install the new one.
+  3. Open **More → Backups → Restore from a file** and pick the saved copy. Verify it, then tap **Restore**.
+
+  AI and stock-data keys are not part of backups; enter them again.
+
+## First run
+
+1. **Unlock.** The app opens behind your phone's own screen lock (fingerprint, face or PIN). You can turn this off in **More → Settings and privacy**.
+2. **Try it safely in demo mode.** The app starts in demo mode, which replays recorded market data. To try the app with that data:
+   1. Create a portfolio (**Portfolio** tab).
+   2. Place a paper order.
+   3. Import a strategy (**Strategies** tab).
+   4. Backtest it, then activate it in Recommendation or Autonomous mode.
+
+   Demo market time moves forward on every engine tick. You can change the speed in **More → Market data and background running**.
+3. **Switch to live data.** In **More → Market data and background running**, choose **Live**:
+   - Crypto uses real-time public Coinbase prices at once.
+   - For US stocks, add a free Twelve Data key (<https://twelvedata.com/account/api-keys>) on the same screen. On the free plan, quotes refresh about every 5 minutes and may be delayed; the app labels delayed data (D-032).
+4. **Add an AI provider.** Open **More → AI providers and keys**. Google Gemini is preselected, with free-tier prices set to 0:
+   1. Tap **Get a key**.
+   2. Create a key at Google AI Studio.
+   3. Paste it into the app and tap **Add provider**.
+
+   OpenRouter, OpenAI and Anthropic are optional. Then use **More → AI research** to research a strategy. You must review the AI's memo before it is compiled into a strategy, and the strategy then goes through the normal validation, backtest and activation steps (D-030).
+5. **Keep it running in the background.** On the same market-data screen:
+   - Leave **Keep paper trading when the app is closed** on. A small persistent notification shows that the engine is running.
+   - Tap **Allow unrestricted battery use**.
+   - If your phone still closes the app, open the recent-apps screen, press and hold StrategyForge and choose **Lock** or **Keep open**.
+
+   The engine restarts after a reboot (D-033).
+
+"Confirm it's you" prompts (for example before enabling autonomous trading, changing a key or restoring a backup) use the same screen lock. Unlocking the app also counts as a recent confirmation for 5 minutes.
+
+## Where data lives
+
+| Data | Where | Backed up? |
+|---|---|---|
+| Portfolios, orders, strategies, recommendations, audit log, market-data cache | App-private SQLite database | Yes, in app backups (**More → Backups**) |
+| AI provider keys and the Twelve Data key | Encrypted with an Android Keystore key (AES-256-GCM) | No; re-enter them after a restore on a new install |
+| Privacy and background choices | App preferences | No |
+
+Android cloud backup and device transfer exclude all app data. App backups are gzip'd JSON copies of the database with a SHA-256 checksum. Restoring one requires a recent unlock and first saves a safety backup of the current state (D-031).
 
 ## Modules
 
 | Module | What it contains | Where it builds |
 |---|---|---|
-| `android/core` | Pure Kotlin/JVM code with no Android dependency. It holds the HTTP client (idempotency keys reused on retry, problem mapping, HTTPS enforcement), DTOs, the cache-then-network policy, formatting (BigDecimal, timezone, P/L cues that don't rely on colour), lock-screen redaction, deep-link parsing, and the access, recommendation and emergency presenters. | Anywhere with Maven Central: `gradle -p android/core test` |
-| `android/app` | A single-activity Jetpack Compose app. It uses Material 3, Hilt, Room (cache only), WorkManager (periodic sync plus local alerts for critical inbox items), optional FCM initialised at runtime from the backend, and an Android Keystore AES-256-GCM session store. | Needs Google Maven (`dl.google.com`); GitHub Actions `android` job |
+| `android/engine` | The on-device trading engine, in pure Kotlin/JVM: market data (Coinbase, Twelve Data, replay), strategies and validator, backtests, risk engine, simulated execution, ledger, recommendations, autonomy, emergency controls, AI research, reports, exports, backups, the in-process API (`LocalApi`) and the runtime (engine thread, scheduler tick, notifications). | Anywhere with Maven Central: `gradle -p android/engine test` |
+| `android/core` | The app's data layer, in pure Kotlin/JVM: API client, DTOs, cache policy, formatting, redaction, deep links and presenters. The engine tests also run it against a real engine (`LocalApiAppTest`). | `gradle -p android/core test` |
+| `android/app` | The single-activity Jetpack Compose app. It uses Material 3, Hilt and Room (a view cache only). It contains the Android SQLite backend, the Keystore secret store, the foreground service, the boot receiver, the device-lock prompt and local notifications. | Needs Google Maven (`dl.google.com`); GitHub Actions `android` job |
+
+The app's screens talk to the engine through the same `/v1` API contract as Version 1. An OkHttp interceptor answers those calls in-process on the engine thread, and nothing listens on a network port (D-031).
 
 ## Build
 
@@ -17,12 +83,8 @@ Requirements: JDK 21 and the Android SDK (platform 35). The Gradle wrapper pins 
 
 ```bash
 cd android
-./gradlew spotlessCheck :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+./gradlew spotlessCheck :core:test :engine:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease
 ```
-
-Debug builds (`app.strategyforge.android.debug`) may connect to `http://10.0.2.2:8080` (the
-emulator's loopback) for local development. Release builds accept HTTPS backends only; the
-network security configuration forbids cleartext traffic.
 
 ## Release signing
 
@@ -33,44 +95,17 @@ Signing material never lives in the repository.
    keytool -genkeypair -keystore strategyforge-release.jks -storetype PKCS12 -alias strategyforge \
      -keyalg RSA -keysize 3072 -validity 10000 -dname "CN=StrategyForge Owner"
    ```
-2. Build locally with environment variables:
-   ```bash
-   export SF_RELEASE_KEYSTORE_FILE=/secure/path/strategyforge-release.jks
-   export SF_RELEASE_KEYSTORE_PASSWORD=... SF_RELEASE_KEY_ALIAS=strategyforge SF_RELEASE_KEY_PASSWORD=...
-   ./gradlew :app:assembleRelease
-   ```
-   The signed APK is `android/app/build/outputs/apk/release/app-release.apk`.
-3. To let CI sign with your key, add repository secrets: `SF_RELEASE_KEYSTORE_B64`
-   (`base64 -w0 strategyforge-release.jks`), `SF_RELEASE_KEYSTORE_PASSWORD`, `SF_RELEASE_KEY_ALIAS`,
-   `SF_RELEASE_KEY_PASSWORD`.
+2. To let CI sign with your key, add repository secrets (**Settings → Secrets and variables → Actions**):
+   - `SF_RELEASE_KEYSTORE_B64`: the output of `base64 -w0 strategyforge-release.jks`
+   - `SF_RELEASE_KEYSTORE_PASSWORD`
+   - `SF_RELEASE_KEY_ALIAS`
+   - `SF_RELEASE_KEY_PASSWORD`
+3. Or build locally with the same variables, using `SF_RELEASE_KEYSTORE_FILE` in place of the base64 value, then run `./gradlew :app:assembleRelease`.
 
-Without those secrets, CI signs release builds with an **ephemeral** key generated for that run, so
-the build and signature can be verified. The `android-outputs` artifact records the SHA-256 of each
-APK and the signing certificate in `apk/SHA256SUMS` and `apk/release/SIGNING.txt`. APKs signed with
-different keys cannot update each other, so install your own signed build for long-term use.
-
-## Install (sideload)
-
-1. On the phone, allow installs from the file manager or browser you use.
-2. Check the checksum: `sha256sum app-release.apk` must match `SHA256SUMS`.
-3. Install with `adb install app-release.apk`, or open the file on the device.
-4. Start the app, enter your backend's HTTPS address (for example a private VPN address fronted by
-   the Caddy TLS proxy), then create the owner account on first run, or sign in.
-5. Store the recovery codes shown once after bootstrap offline.
-
-## Push notifications (optional)
-
-The in-app inbox is authoritative, and push is only a convenience. To enable FCM, configure an
-`FCM` push provider on the backend (project id, application id, API key, sender id and the
-service-account credential). The app fetches only the public identifiers from
-`GET /v1/devices/push-config`, initialises Firebase at runtime and registers its token. Lock-screen
-notifications always show a generic text. Notification payloads carry only ids and redacted text,
-and tapping one opens an authenticated screen; nothing is executed from a notification. Without
-push, the periodic sync shows local alerts for new critical inbox items.
+Without those secrets, CI signs each release build with an ephemeral key generated for that run. `SIGNING.txt` on the release page records which key was used.
 
 ## Privacy defaults
 
-- Screenshots and recent-apps previews are blocked (`FLAG_SECURE`); this can be turned off in
-  Settings.
-- Notification text can also be hidden while the phone is unlocked.
-- Backups and device transfer exclude all app data.
+- Screenshots and recent-apps previews are blocked (`FLAG_SECURE`); you can turn this off in Settings.
+- Lock-screen notifications always show generic text. Details can also be hidden while the phone is unlocked.
+- Notifications only open a screen behind the app lock; nothing is executed from a notification.

@@ -1,4 +1,51 @@
-# StrategyForge AI 1.0.0: release candidate
+# StrategyForge AI: phone app (Version 2)
+
+**Paper trading only.** There is no real-money trading, brokerage connection or order routing,
+and none can be enabled (FR-113).
+
+StrategyForge now runs entirely on the Android phone (D-027). Everything from market data and
+strategies to AI research and simulated trading runs on the phone, with no server to run. The
+Version 1 server release notes below are kept for reference; the backend code stays in the
+repository but the phone app does not use it.
+
+| Item | Value |
+|---|---|
+| App | `app.strategyforge.android` 1.0.0: minSdk 29 (Android 10), targetSdk 35 |
+| Install | Releases page → **StrategyForge phone app (latest build)** → `StrategyForge.apk` ([ANDROID.md](ANDROID.md)) |
+| Market data | Crypto: Coinbase public API (real-time, no key). US stocks: Twelve Data with the owner's free key (D-032). Demo: recorded replay data |
+| AI research | Google Gemini (free tier, default); OpenRouter, OpenAI and Anthropic optional; keys in the Android Keystore (D-030) |
+| Background | Foreground service ticking every 5 s, optional wake lock, restart after reboot (D-033) |
+| Decisions | D-027 to D-033 in [DECISION_LOG.md](DECISION_LOG.md) |
+
+### What changed from Version 1
+
+- **Engine on the phone.** The engine module (`android/engine`) is a port of the server's domain. It keeps the same validation, risk rules, simulated execution, ledger, recommendations, autonomy, emergency controls, reports, exports and audit chain, with storage in Android SQLite (D-028).
+- **Same API, answered in-process.** The app's screens call the same `/v1` API, answered in-process by `LocalApi` (D-031).
+- **Sign-in replaced by the device lock.**
+  - Server sign-in, two-factor, sessions and devices are replaced by the phone's screen lock, which is used both for the app lock and for "confirm it's you".
+  - Recommendations can be accepted only inside the unlocked app (D-029).
+- **Push replaced by local notifications.** Firebase push is replaced by local notifications raised by the engine.
+- **Backups kept by the owner.** Backups are app-private files that you can save to a file and restore from one. Restore works from the phone, behind the device lock.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Engine tests (JVM, `gradle -p android/engine test`) | 119 passed. They include the replay end-to-end run twice with identical results, and the app's own data layer against a real engine (`LocalApiAppTest`) |
+| Core tests (`gradle -p android/core test`) | 23 passed |
+| App unit and Compose UI tests, lint, debug and release builds, SBOM | CI `android` job |
+| Dependency and secret scans | CI `security` job (Trivy, gitleaks) |
+
+### Known limitations
+
+- **Fills.** Paper fills use each asset's latest quote. On the free Twelve Data plan, stock quotes refresh about every 5 minutes and may be delayed, and they are labelled as such.
+- **Background running.** It depends on Android allowing it. The app asks for an exemption from battery optimization; some phones also need the recent-apps "keep open" setting.
+- **Updates between builds.** Unless you add your own signing key to CI, updating requires uninstalling first. Save a backup copy before you do (see [ANDROID.md](ANDROID.md)).
+- **Backups and keys.** Backups do not contain AI or stock-data keys; re-enter them after a restore on a new install.
+
+---
+
+# Version 1 (server) release candidate, kept for reference
 
 **Paper trading only.** Version 1 contains no real-money trading, brokerage connection or
 order routing, and none can be enabled (FR-113; verified by MS-20/RG-09).
