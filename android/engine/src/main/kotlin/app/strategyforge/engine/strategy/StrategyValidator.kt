@@ -289,6 +289,8 @@ class StrategyValidator(
                 when (type) {
                     IndicatorType.MACD -> setOf("fastPeriod", "slowPeriod", "signalPeriod")
                     IndicatorType.BOLLINGER_BANDS -> setOf("period", "standardDeviations")
+                    // Candlestick patterns are fixed shapes (D-036).
+                    in IndicatorType.PATTERNS -> emptySet()
                     else -> setOf("period")
                 }
             (required - present).forEach { err("MISSING_PARAMETER", p, "$type requires '$it'") }

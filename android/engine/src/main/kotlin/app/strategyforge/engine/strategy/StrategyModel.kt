@@ -5,7 +5,38 @@ import app.strategyforge.engine.market.Timeframe
 import com.fasterxml.jackson.databind.JsonNode
 import java.math.BigDecimal
 
-enum class IndicatorType { SMA, EMA, RSI, MACD, ATR, BOLLINGER_BANDS }
+enum class IndicatorType {
+    SMA,
+    EMA,
+    RSI,
+    MACD,
+    ATR,
+    BOLLINGER_BANDS,
+
+    // Chart structure and volume (D-036): all computed from past bars only.
+    HIGHEST,
+    LOWEST,
+    SWING_HIGH,
+    SWING_LOW,
+    RELATIVE_VOLUME,
+
+    // Candlestick patterns (D-036): 1 on the bar that completes the pattern, otherwise 0.
+    BULLISH_ENGULFING,
+    BEARISH_ENGULFING,
+    HAMMER,
+    SHOOTING_STAR,
+    DOJI,
+    MORNING_STAR,
+    EVENING_STAR,
+    ;
+
+    /** Pattern detectors take no period. */
+    val pattern: Boolean get() = this in PATTERNS
+
+    companion object {
+        val PATTERNS = setOf(BULLISH_ENGULFING, BEARISH_ENGULFING, HAMMER, SHOOTING_STAR, DOJI, MORNING_STAR, EVENING_STAR)
+    }
+}
 
 enum class Comparison { GT, GTE, LT, LTE, EQ, CROSSES_ABOVE, CROSSES_BELOW }
 
@@ -34,6 +65,12 @@ data class IndicatorSpec(
             IndicatorType.EMA -> period!! * 3
             IndicatorType.RSI, IndicatorType.ATR -> period!! * 3 + 1
             IndicatorType.MACD -> slowPeriod!! * 3 + signalPeriod!!
+            IndicatorType.HIGHEST, IndicatorType.LOWEST, IndicatorType.RELATIVE_VOLUME -> period!! + 1
+            // A swing point needs [period] bars on each side; allow room to find one.
+            IndicatorType.SWING_HIGH, IndicatorType.SWING_LOW -> period!! * 6 + 1
+            IndicatorType.MORNING_STAR, IndicatorType.EVENING_STAR -> 3
+            IndicatorType.BULLISH_ENGULFING, IndicatorType.BEARISH_ENGULFING -> 2
+            IndicatorType.HAMMER, IndicatorType.SHOOTING_STAR, IndicatorType.DOJI -> 1
         }
 
     fun components(): Set<String> =

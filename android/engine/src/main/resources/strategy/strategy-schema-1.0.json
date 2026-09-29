@@ -116,13 +116,16 @@
       "required": ["id", "type"],
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,31}$" },
-        "type": { "enum": ["SMA", "EMA", "RSI", "MACD", "ATR", "BOLLINGER_BANDS"] },
+        "type": {
+          "enum": ["SMA", "EMA", "RSI", "MACD", "ATR", "BOLLINGER_BANDS", "HIGHEST", "LOWEST", "SWING_HIGH", "SWING_LOW", "RELATIVE_VOLUME",
+            "BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "SHOOTING_STAR", "DOJI", "MORNING_STAR", "EVENING_STAR"]
+        },
         "period": { "type": "integer", "minimum": 2, "maximum": 500 },
         "fastPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
         "slowPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
         "signalPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
         "standardDeviations": { "type": "number", "minimum": 0.5, "maximum": 5 },
-        "source": { "enum": ["CLOSE", "OPEN", "HIGH", "LOW"] }
+        "source": { "enum": ["CLOSE", "OPEN", "HIGH", "LOW", "VOLUME"] }
       }
     },
     "operand": {

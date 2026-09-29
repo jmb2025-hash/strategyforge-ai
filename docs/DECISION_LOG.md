@@ -342,3 +342,17 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Mode changes.** An active strategy can be re-activated to change its mode or allocation. The disclosure, recent-unlock and backtest gates apply again.
   - **Screen and wording.** The Strategies screen shows the two slots ("Running now"). "Recommendation Mode" is shown as "Notifications mode: you approve each trade".
 - **Requirements affected:** FR-071, FR-072, FR-047.
+
+## D-036 Candlestick patterns, breakouts, support/resistance and relative volume
+
+- **Date:** 2026-10-01
+- **Context:** Strategies researched from trading groups (for example crypto chart traders) rely on candlestick patterns, breakouts, support and resistance, and volume confirmation. The rules could only use moving averages, RSI, MACD, ATR and Bollinger Bands.
+- **Decision:**
+  - **New indicator types.** `HIGHEST` and `LOWEST` (period N) are the highest high and lowest low of the previous N bars. They exclude the current bar, so "close crosses above HIGHEST" is a breakout.
+  - **Swing points.** `SWING_HIGH` and `SWING_LOW` (period k) are the latest swing points, used as resistance and support. A swing point becomes known only after k further bars have closed.
+  - **Relative volume.** `RELATIVE_VOLUME` (period N) is the bar's volume divided by the average of the previous N bars. SMA and EMA accept `source: VOLUME`.
+  - **Candlestick patterns.** Bullish and bearish engulfing, hammer, shooting star, doji, morning star and evening star take no parameters. Each is 1 on the bar that completes the pattern and 0 otherwise.
+  - **No look-ahead.** Every new value depends only on bars up to the current one. A test checks that appending bars never changes earlier values.
+  - **Research and compile prompts.** Both describe what can be expressed. The compiler gets a short guide to using these indicators.
+  - **Schema version.** The schema stays at 1.0: the change only adds enum values, so existing strategy files remain valid.
+- **Requirements affected:** FR-040 to FR-046.

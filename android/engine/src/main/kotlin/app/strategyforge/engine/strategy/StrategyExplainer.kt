@@ -75,6 +75,18 @@ object StrategyExplainer {
                         IndicatorType.ATR -> "ATR(${spec.period})"
                         IndicatorType.MACD -> "MACD(${spec.fastPeriod},${spec.slowPeriod},${spec.signalPeriod})"
                         IndicatorType.BOLLINGER_BANDS -> "Bollinger Bands(${spec.period}, ${spec.standardDeviations?.stripTrailingZeros()?.toPlainString()})"
+                        IndicatorType.HIGHEST -> "the highest high of the previous ${spec.period} bars"
+                        IndicatorType.LOWEST -> "the lowest low of the previous ${spec.period} bars"
+                        IndicatorType.SWING_HIGH -> "the latest swing high (resistance, ${spec.period} bars each side)"
+                        IndicatorType.SWING_LOW -> "the latest swing low (support, ${spec.period} bars each side)"
+                        IndicatorType.RELATIVE_VOLUME -> "volume relative to its ${spec.period}-bar average"
+                        IndicatorType.BULLISH_ENGULFING -> "a bullish engulfing candle (1 = yes)"
+                        IndicatorType.BEARISH_ENGULFING -> "a bearish engulfing candle (1 = yes)"
+                        IndicatorType.HAMMER -> "a hammer candle (1 = yes)"
+                        IndicatorType.SHOOTING_STAR -> "a shooting star candle (1 = yes)"
+                        IndicatorType.DOJI -> "a doji candle (1 = yes)"
+                        IndicatorType.MORNING_STAR -> "a morning star pattern (1 = yes)"
+                        IndicatorType.EVENING_STAR -> "an evening star pattern (1 = yes)"
                         null -> o.id
                     }
                 if (o.component == "value") base else "$base ${o.component} line"

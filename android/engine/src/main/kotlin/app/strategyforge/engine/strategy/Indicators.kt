@@ -180,6 +180,154 @@ object Indicators {
         return Bands(up, mid, lo)
     }
 
+    // ------------------------------------------------------------------ chart structure and volume (D-036)
+
+    /** Highest high of the [period] bars before bar i (the current bar is excluded, so a close above it is a breakout). */
+    fun highest(
+        bars: List<CandleData>,
+        period: Int,
+    ): List<BigDecimal?> = bars.indices.map { i -> if (i < period) null else (i - period until i).maxOf { bars[it].high } }
+
+    /** Lowest low of the [period] bars before bar i. */
+    fun lowest(
+        bars: List<CandleData>,
+        period: Int,
+    ): List<BigDecimal?> = bars.indices.map { i -> if (i < period) null else (i - period until i).minOf { bars[it].low } }
+
+    /**
+     * The most recent confirmed swing high (resistance): a bar whose high is above the highs of the
+     * [k] bars on each side. It is only known [k] bars later, and is used from then on.
+     */
+    fun swingHigh(
+        bars: List<CandleData>,
+        k: Int,
+    ): List<BigDecimal?> = swing(bars, k) { a, b -> a.high > b.high }.map { j -> j?.let { bars[it].high } }
+
+    /** The most recent confirmed swing low (support), confirmed [k] bars after it. */
+    fun swingLow(
+        bars: List<CandleData>,
+        k: Int,
+    ): List<BigDecimal?> = swing(bars, k) { a, b -> a.low < b.low }.map { j -> j?.let { bars[it].low } }
+
+    private fun swing(
+        bars: List<CandleData>,
+        k: Int,
+        beats: (CandleData, CandleData) -> Boolean,
+    ): List<Int?> {
+        val out = MutableList<Int?>(bars.size) { null }
+        var latest: Int? = null
+        for (i in bars.indices) {
+            // At bar i the candidate j = i - k has k bars on its right, all known by now.
+            val j = i - k
+            if (j >= k && (j - k until j).all { beats(bars[j], bars[it]) } && (j + 1..i).all { beats(bars[j], bars[it]) }) latest = j
+            out[i] = latest
+        }
+        return out
+    }
+
+    /** This bar's volume divided by the average volume of the [period] bars before it. */
+    fun relativeVolume(
+        bars: List<CandleData>,
+        period: Int,
+    ): List<BigDecimal?> =
+        bars.indices.map { i ->
+            if (i < period) {
+                null
+            } else {
+                val avg = (i - period until i).fold(BigDecimal.ZERO) { a, j -> a.add(bars[j].volume) }.divide(BigDecimal(period), MC)
+                if (avg.signum() == 0) null else bars[i].volume.divide(avg, MC)
+            }
+        }
+
+    // ------------------------------------------------------------------ candlestick patterns (D-036)
+
+    private fun body(b: CandleData) = b.close.subtract(b.open).abs()
+
+    private fun range(b: CandleData) = b.high.subtract(b.low)
+
+    private fun upperShadow(b: CandleData) = b.high.subtract(b.open.max(b.close))
+
+    private fun lowerShadow(b: CandleData) = b.open.min(b.close).subtract(b.low)
+
+    private fun bullish(b: CandleData) = b.close > b.open
+
+    private fun bearish(b: CandleData) = b.close < b.open
+
+    private fun frac(
+        x: BigDecimal,
+        f: String,
+    ) = x.multiply(BigDecimal(f))
+
+    /** 1 on bars where [test] holds for the bar and its [lookback] predecessors, 0 otherwise; null before enough bars. */
+    private fun pattern(
+        bars: List<CandleData>,
+        lookback: Int,
+        test: (Int) -> Boolean,
+    ): List<BigDecimal?> =
+        bars.indices.map { i ->
+            if (i < lookback) {
+                null
+            } else if (test(i)) {
+                BigDecimal.ONE
+            } else {
+                BigDecimal.ZERO
+            }
+        }
+
+    fun candlestick(
+        type: IndicatorType,
+        bars: List<CandleData>,
+    ): List<BigDecimal?> =
+        when (type) {
+            // Body at most a tenth of the bar's range: indecision.
+            IndicatorType.DOJI -> pattern(bars, 0) { i -> range(bars[i]).signum() > 0 && body(bars[i]) <= frac(range(bars[i]), "0.1") }
+            // Small body near the top, long lower shadow (at least twice the body), little upper shadow.
+            IndicatorType.HAMMER ->
+                pattern(bars, 0) { i ->
+                    val b = bars[i]
+                    val r = range(b)
+                    r.signum() > 0 && body(b) <= frac(r, "0.35") && lowerShadow(b) >= body(b).multiply(TWO) && lowerShadow(b) >= frac(r, "0.5") && upperShadow(b) <= frac(r, "0.15")
+                }
+            // The mirror image: long upper shadow, small body near the bottom.
+            IndicatorType.SHOOTING_STAR ->
+                pattern(bars, 0) { i ->
+                    val b = bars[i]
+                    val r = range(b)
+                    r.signum() > 0 && body(b) <= frac(r, "0.35") && upperShadow(b) >= body(b).multiply(TWO) && upperShadow(b) >= frac(r, "0.5") && lowerShadow(b) <= frac(r, "0.15")
+                }
+            // A rising bar whose body covers the previous falling bar's body.
+            IndicatorType.BULLISH_ENGULFING ->
+                pattern(bars, 1) { i ->
+                    val p = bars[i - 1]
+                    val c = bars[i]
+                    bearish(p) && bullish(c) && c.open <= p.close && c.close >= p.open && body(c) > body(p)
+                }
+            IndicatorType.BEARISH_ENGULFING ->
+                pattern(bars, 1) { i ->
+                    val p = bars[i - 1]
+                    val c = bars[i]
+                    bullish(p) && bearish(c) && c.open >= p.close && c.close <= p.open && body(c) > body(p)
+                }
+            // Long falling bar, small-bodied bar, then a rising bar closing above the middle of the first body.
+            IndicatorType.MORNING_STAR ->
+                pattern(bars, 2) { i ->
+                    val a = bars[i - 2]
+                    val b = bars[i - 1]
+                    val c = bars[i]
+                    bearish(a) && body(a) >= frac(range(a), "0.5") && body(b) <= frac(body(a), "0.3") && bullish(c) &&
+                        c.close > a.close.add(a.open).divide(TWO, MC)
+                }
+            IndicatorType.EVENING_STAR ->
+                pattern(bars, 2) { i ->
+                    val a = bars[i - 2]
+                    val b = bars[i - 1]
+                    val c = bars[i]
+                    bullish(a) && body(a) >= frac(range(a), "0.5") && body(b) <= frac(body(a), "0.3") && bearish(c) &&
+                        c.close < a.close.add(a.open).divide(TWO, MC)
+                }
+            else -> error("$type is not a candlestick pattern")
+        }
+
     /** Computes every declared indicator series keyed by "ID.component". */
     fun compute(
         specs: List<IndicatorSpec>,
@@ -205,6 +353,12 @@ object Indicators {
                         out["${s.id}.middle"] = it.middle
                         out["${s.id}.lower"] = it.lower
                     }
+                IndicatorType.HIGHEST -> out["${s.id}.value"] = highest(bars, s.period!!)
+                IndicatorType.LOWEST -> out["${s.id}.value"] = lowest(bars, s.period!!)
+                IndicatorType.SWING_HIGH -> out["${s.id}.value"] = swingHigh(bars, s.period!!)
+                IndicatorType.SWING_LOW -> out["${s.id}.value"] = swingLow(bars, s.period!!)
+                IndicatorType.RELATIVE_VOLUME -> out["${s.id}.value"] = relativeVolume(bars, s.period!!)
+                else -> out["${s.id}.value"] = candlestick(s.type, bars)
             }
         }
         return out
