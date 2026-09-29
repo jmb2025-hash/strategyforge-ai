@@ -13,6 +13,12 @@ interface Row {
 
     /** First-column access for scalar queries (counts), so they need no column alias. */
     fun longAt(index: Int): Long?
+
+    /** Column names of the result, for whole-table copies (backups). */
+    fun columns(): List<String>
+
+    /** Raw value by position: String, Long or null (the schema stores only TEXT and INTEGER). */
+    fun valueAt(index: Int): Any?
 }
 
 /**

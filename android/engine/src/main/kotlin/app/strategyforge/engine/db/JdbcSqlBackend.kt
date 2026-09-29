@@ -84,5 +84,16 @@ class JdbcSqlBackend(
         override fun long(column: String): Long? = rs.getLong(column).let { if (rs.wasNull()) null else it }
 
         override fun longAt(index: Int): Long? = rs.getLong(index + 1).let { if (rs.wasNull()) null else it }
+
+        override fun columns(): List<String> = (1..rs.metaData.columnCount).map { rs.metaData.getColumnName(it) }
+
+        override fun valueAt(index: Int): Any? =
+            when (val v = rs.getObject(index + 1)) {
+                null -> null
+                is Int -> v.toLong()
+                is Long, is String -> v
+                is Number -> v.toLong()
+                else -> v.toString()
+            }
     }
 }

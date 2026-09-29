@@ -211,6 +211,7 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Context:** The CI Trivy scan of the backend SBOM reported HIGH and CRITICAL CVEs in versions managed by the Spring Boot 3.5.16 BOM: Tomcat 10.1.55, pgjdbc 42.7.11 and httpcore5 5.3.6, the last one via the Anthropic SDK. RG-06 forbids unresolved HIGH or CRITICAL findings.
 - **Decision:** Override the BOM properties to the fixed releases: `tomcat.version` 10.1.60, `postgresql.version` 42.7.13, `httpcore5.version` 5.4.3. Accepting the findings in `.trivyignore` was rejected because fixed versions exist.
 - **Consequences:** The full backend suite passes on the patched versions. Remove each override when a Spring Boot release manages an equal or newer version.
+- **Amendment (2026-09-29):** CVE-2026-68497 (HIGH) in jackson-databind 2.21.4. Now overridden to 2.21.6: `jackson-bom.version` in the backend, and the `jackson` catalog version for the on-device engine.
 - **Requirements affected:** RG-06, NFR-011.
 
 ## D-026 Push delivery, stop/target events and daily summary
@@ -278,3 +279,17 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Unchanged from Version 1:** budget reservation before any network call, provenance, owner review before compilation, and compilation only through the regular validator.
 - **Requirements affected:** FR-030 to FR-037 (FR-031 now means on-device secure storage).
 
+## D-031 The app's API served in-process on the phone; on-device backups
+
+- **Date:** 2026-09-29
+- **Context:** Under D-027 there is no server. The app's screens, models, offline cache and API client, with its tests, were built against the Version 1 REST API.
+- **Decision:**
+  - **In-process API.** An OkHttp interceptor (`LocalApiInterceptor`) answers the app's `/v1/...` requests from the engine on the phone. A router (`LocalApi`) maps each request to engine calls, runs it on the engine thread (`EngineHost`), and returns the same JSON and problem documents as Version 1. Nothing listens on a network port. The screens, cache, idempotency keys, If-Match versions and "confirm it's you" handling stay as they are.
+  - **Accept button.** The app enables Accept only when a detail carries an action token. The local API therefore returns the id of a pending recommendation in that field. The engine re-checks status, expiry and price deviation on accept, as D-029 describes.
+  - **Contract test.** A JVM test runs the app's own `Repository`, `ApiClient`, cache and models against a real engine through the interceptor, so response-shape mismatches fail in CI rather than on the phone.
+  - **Backups.** `BackupService` writes a gzip'd JSON copy of every table with a SHA-256 checksum to app-private storage.
+    - Backups contain no credentials, because keys are held in the Keystore.
+    - Verify checks the format, the checksum and that every table is present.
+    - Restore requires a recent device unlock and first writes a safety backup of the current state. It then replaces every table in one transaction, lifting the append-only triggers only inside that transaction, and the audit chain stays verifiable.
+    - A backup made under a different schema version is refused.
+- **Requirements affected:** FR-105, FR-112, NFR-003, NFR-005, NFR-007.

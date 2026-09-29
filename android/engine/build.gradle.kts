@@ -19,6 +19,8 @@ kotlin {
 
 // Deterministic synthetic replay data (D-006) for tests and the offline demo mode.
 sourceSets["test"].resources.srcDir("../../fixtures")
+// The app's pure-Kotlin data layer (core), so tests drive the engine exactly as the app does (D-031).
+sourceSets["test"].kotlin.srcDir("../core/src/main/kotlin")
 
 dependencies {
     api(libs.coroutines.core)

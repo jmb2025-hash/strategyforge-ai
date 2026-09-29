@@ -41,6 +41,8 @@ import app.strategyforge.engine.portfolio.PortfolioService
 import app.strategyforge.engine.portfolio.ReconciliationDiagnostics
 import app.strategyforge.engine.portfolio.ReconciliationFailed
 import app.strategyforge.engine.portfolio.ReconciliationService
+import app.strategyforge.engine.reports.ExportService
+import app.strategyforge.engine.reports.ReportService
 import app.strategyforge.engine.research.AiBudgetService
 import app.strategyforge.engine.research.AiClients
 import app.strategyforge.engine.research.AiProviderService
@@ -96,6 +98,7 @@ class Engine(
     engineThread: (() -> Unit) -> Unit = { it() },
     /** Tests only: lets AI providers point at a local recorded-response server over http. */
     allowLocalProviderHttp: Boolean = false,
+    backupDir: () -> java.io.File? = { null },
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -152,6 +155,13 @@ class Engine(
     val strategyControl = StrategyActivationFacade(db, activations) { recommendations }
     val emergency = EmergencyService(db, orders, portfolios, activations, strategyControl, notifications, audit, wall, auth)
     val healthMonitor = StrategyHealthMonitor(db, activations, strategies, recommendations, riskProfiles, notifications, audit)
+
+    // ------------------------------------------------------------------ reports and exports
+    val reports = ReportService(db, portfolios)
+    val exports = ExportService(db, portfolios, audit, wall)
+    val backups =
+        app.strategyforge.engine.operations
+            .BackupService(db, backupDir, audit, auth, wall)
 
     // ------------------------------------------------------------------ AI research
     val aiProviders = AiProviderService(db, secrets, aiClients, audit, auth, wall, allowLocalProviderHttp)
