@@ -10,6 +10,7 @@ import app.strategyforge.engine.Engine
 import app.strategyforge.engine.api.EngineRuntime
 import app.strategyforge.engine.api.LocalApiInterceptor
 import app.strategyforge.engine.market.CoinbaseProvider
+import app.strategyforge.engine.market.TwelveDataProvider
 import app.strategyforge.engine.research.AiClients
 import dagger.Module
 import dagger.Provides
@@ -35,8 +36,9 @@ object AppModule {
     fun tokens(): TokenStore = NoTokens
 
     /**
-     * The on-device engine (D-027): Android SQLite storage, Keystore-held AI keys, Coinbase public
-     * crypto data, replay data for demo mode and local notifications.
+     * The on-device engine (D-027): Android SQLite storage, Keystore-held keys, Coinbase public
+     * crypto data, Twelve Data stocks with the owner's key (D-032), replay data for demo mode and
+     * local notifications.
      */
     @Provides
     @Singleton
@@ -54,6 +56,7 @@ object AppModule {
                     backend,
                     fixtureReader = { rel -> context.assets.open("replay/$rel").use { String(it.readBytes(), Charsets.UTF_8) } },
                     cryptoProvider = { coinbase },
+                    equityProvider = { key -> TwelveDataProvider(key, Clock.systemUTC()) },
                     secrets = secrets,
                     aiClients = aiClients,
                     background = host::background,

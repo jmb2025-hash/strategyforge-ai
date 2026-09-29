@@ -46,6 +46,7 @@ import app.strategyforge.android.core.model.RuntimeState
 import app.strategyforge.android.core.model.SessionInfo
 import app.strategyforge.android.core.model.SessionResponse
 import app.strategyforge.android.core.model.Settings
+import app.strategyforge.android.core.model.StockData
 import app.strategyforge.android.core.model.Strategy
 import app.strategyforge.android.core.model.StrategyDetail
 import app.strategyforge.android.core.model.StrategyResult
@@ -492,6 +493,17 @@ class Repository(
     suspend fun runtime(): RuntimeState = api.get("/v1/runtime", RuntimeState.serializer())
 
     suspend fun setMarketMode(mode: String): RuntimeState = api.decode(api.put("/v1/runtime", buildJsonObject { put("marketMode", mode) }).body, RuntimeState.serializer())
+
+    suspend fun stockData(): StockData = api.get("/v1/market-data/stocks", StockData.serializer())
+
+    /** Stores (or with null removes) the Twelve Data key; needs a recent device unlock. */
+    suspend fun setStockKey(key: String?): StockData =
+        api.decode(
+            api.put("/v1/market-data/stocks/key", buildJsonObject { put("key", key?.trim()?.takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull) }).body,
+            StockData.serializer(),
+        )
+
+    suspend fun testStockData(): StockData = api.decode(api.post("/v1/market-data/stocks/test").body, StockData.serializer())
 
     suspend fun setDemoSpeed(minutesPerTick: Int): RuntimeState = api.decode(api.put("/v1/runtime", buildJsonObject { put("demoStepMinutes", minutesPerTick) }).body, RuntimeState.serializer())
 

@@ -388,9 +388,21 @@ data class ProviderSetting(
 @Serializable
 data class RuntimeState(
     val marketMode: String,
+    val stocksConfigured: Boolean = false,
     val demoStepMinutes: Int? = null,
     val marketTime: String? = null,
     val tickSeconds: Int = 5,
+)
+
+/** US stock data (Twelve Data, D-032): whether the owner's key is stored, and the last test. */
+@Serializable
+data class StockData(
+    val provider: String = "TWELVE_DATA",
+    val configured: Boolean = false,
+    val fingerprint: String? = null,
+    val keyUrl: String? = null,
+    val lastTestStatus: String? = null,
+    val lastTestDetail: String? = null,
 )
 
 @Serializable

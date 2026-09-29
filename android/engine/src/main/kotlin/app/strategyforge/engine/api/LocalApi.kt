@@ -240,6 +240,16 @@ class LocalApi(
             mapOf("confirmed" to true)
         }
         get("/v1/runtime") { _, _ -> runtime() }
+        get("/v1/market-data/stocks") { _, _ -> stocks() }
+        put("/v1/market-data/stocks/key") { r, _ ->
+            engine.equityKey.set(obj(r).str("key"))
+            stocks()
+        }
+        post("/v1/market-data/stocks/test") { _, _ ->
+            if (!engine.equityKey.configured()) throw Problems.unprocessable("no-stock-key", "Add a Twelve Data key first")
+            val t = engine.equitySource()?.diagnose(engine.wall.instant()) ?: throw Problems.unavailable("stocks-unavailable", "Stock data is not available in this build")
+            stocks() + mapOf("lastTestStatus" to t.status, "lastTestDetail" to t.detail)
+        }
         put("/v1/runtime") { r, _ ->
             val b = obj(r)
             b.str("marketMode")?.let { engine.setMarketMode(enumOf<MarketMode>(it, "marketMode")) }
@@ -252,9 +262,18 @@ class LocalApi(
         }
     }
 
+    private fun stocks() =
+        mapOf(
+            "provider" to "TWELVE_DATA",
+            "configured" to engine.equityKey.configured(),
+            "fingerprint" to engine.equityKey.fingerprint(),
+            "keyUrl" to "https://twelvedata.com/account/api-keys",
+        )
+
     private fun runtime() =
         mapOf(
             "marketMode" to engine.marketMode(),
+            "stocksConfigured" to engine.equityKey.configured(),
             "demoStepMinutes" to scheduler?.demoStepMinutes,
             "marketTime" to engine.marketClock.now(),
             "tickSeconds" to app.strategyforge.engine.EngineScheduler.TICK_INTERVAL.seconds,

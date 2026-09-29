@@ -42,6 +42,7 @@ import app.strategyforge.android.core.format.Formatters
 import app.strategyforge.android.core.model.Provider
 import app.strategyforge.android.core.model.ProviderType
 import app.strategyforge.android.core.model.RuntimeState
+import app.strategyforge.android.core.model.StockData
 import app.strategyforge.android.engine.EngineService
 import app.strategyforge.android.platform.LocalConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -156,7 +157,7 @@ fun AiProvidersContent(
             p.lastTestStatus?.let { LabelValue("Last test", it) }
             p.lastTestDetail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = p.active, onCheckedChange = { onSetActive(p.id, it) })
+                Switch(checked = p.active, onCheckedChange = { onSetActive(p.id, it) }, modifier = Modifier.testTag("provider-active"))
                 Spacer(Modifier.width(8.dp))
                 Text(if (p.active) "Enabled" else "Disabled")
             }
@@ -234,6 +235,7 @@ fun ReauthHostFor(
 
 data class EngineUiState(
     val runtime: RuntimeState? = null,
+    val stocks: StockData? = null,
     val runInBackground: Boolean = true,
     val keepAwake: Boolean = true,
     val batteryUnrestricted: Boolean = false,
@@ -261,6 +263,7 @@ class EngineViewModel
                 runCatching { repo.runtime() }
                     .onSuccess { r -> _state.update { it.copy(runtime = r, loadError = null) } }
                     .onFailure { e -> _state.update { it.copy(loadError = Repository.message(e)) } }
+                runCatching { repo.stockData() }.onSuccess { d -> _state.update { it.copy(stocks = d.copy(lastTestStatus = it.stocks?.lastTestStatus, lastTestDetail = it.stocks?.lastTestDetail)) } }
                 _state.update { it.copy(runInBackground = config.runInBackground, keepAwake = config.keepAwake, batteryUnrestricted = battery) }
             }
         }
@@ -268,6 +271,14 @@ class EngineViewModel
         fun setMode(mode: String) = act(if (mode == "LIVE") "Live market data on" else "Demo mode on") { repo.setMarketMode(mode) }
 
         fun setDemoSpeed(minutes: Int) = act("Demo speed changed") { repo.setDemoSpeed(minutes) }
+
+        fun setStockKey(key: String?) = act(if (key == null) "Stock data key removed" else "Stock data key saved") { repo.setStockKey(key) }
+
+        fun testStocks() =
+            act("Stock data test finished") {
+                val t = repo.testStockData()
+                _state.update { it.copy(stocks = t) }
+            }
 
         fun setRunInBackground(on: Boolean) {
             config.runInBackground = on
@@ -301,6 +312,15 @@ fun EngineScreen(
             onRunInBackground = vm::setRunInBackground,
             onKeepAwake = vm::setKeepAwake,
             onBattery = { requestUnrestrictedBattery(context) },
+            onStockKey = vm::setStockKey,
+            onTestStocks = vm::testStocks,
+            onOpenUrl = { url ->
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                } catch (e: ActivityNotFoundException) {
+                    // No browser installed; the address is shown on the button.
+                }
+            },
         )
         ReauthHostFor(action, session, vm)
     }
@@ -327,6 +347,9 @@ fun EngineContent(
     onRunInBackground: (Boolean) -> Unit,
     onKeepAwake: (Boolean) -> Unit,
     onBattery: () -> Unit,
+    onStockKey: (String?) -> Unit = {},
+    onTestStocks: () -> Unit = {},
+    onOpenUrl: (String) -> Unit = {},
 ) {
     SectionTitle("Market data")
     state.loadError?.let { Banner(it, BannerKind.ERROR) }
@@ -340,7 +363,14 @@ fun EngineContent(
     }
     if (mode == "LIVE") {
         Text("Crypto uses real-time public prices from Coinbase (no account or key). All orders stay simulated paper trades.")
-        Text("Stocks need a market-data key and are not available in live mode yet.", style = MaterialTheme.typography.bodySmall)
+        Text(
+            if (state.stocks?.configured == true) {
+                "US stocks and ETFs use your Twelve Data key. On the free plan quotes refresh about every 5 minutes and may be delayed; the app labels delayed data."
+            } else {
+                "US stocks need a free Twelve Data key (below). Without it, stock orders and strategies wait for data."
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
     } else {
         Text("Demo mode replays recorded market data so you can try every feature safely. Market time moves forward on each engine tick.")
         r?.marketTime?.let { LabelValue("Market time", fmt.dateTime(it)) }
@@ -352,6 +382,24 @@ fun EngineContent(
             }
         }
     }
+    SectionTitle("US stock data (Twelve Data)")
+    val stocks = state.stocks
+    LabelValue("Key", if (stocks?.configured == true) "stored (…${stocks.fingerprint?.takeLast(4) ?: ""})" else "not set")
+    stocks?.lastTestStatus?.let { LabelValue("Last test", it) }
+    stocks?.lastTestDetail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    var stockKey by rememberSaveable { mutableStateOf("") }
+    Field("Twelve Data API key", stockKey, { stockKey = it }, password = true)
+    Row {
+        TextButton(onClick = {
+            onStockKey(stockKey.trim())
+            stockKey = ""
+        }, enabled = stockKey.isNotBlank(), modifier = Modifier.testTag("save-stock-key")) { Text("Save key") }
+        if (stocks?.configured == true) {
+            TextButton(onClick = onTestStocks) { Text("Test") }
+            TextButton(onClick = { onStockKey(null) }) { Text("Remove") }
+        }
+    }
+    (stocks?.keyUrl ?: "https://twelvedata.com/account/api-keys").let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text("Get a free key: $url") } }
     SectionTitle("Background running")
     Row(verticalAlignment = Alignment.CenterVertically) {
         Switch(checked = state.runInBackground, onCheckedChange = onRunInBackground, modifier = Modifier.testTag("run-in-background"))

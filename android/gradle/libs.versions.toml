@@ -31,6 +31,8 @@ cyclonedx = "2.4.1"
 sqlite-jdbc = "3.53.4.0"
 anthropic = "2.34.0"
 jackson = "2.21.6"
+# Patch level above what the Anthropic SDK brings (D-025): CVE-2026-54399, CVE-2026-54428.
+httpcore5 = "5.4.3"
 json-schema-validator = "1.5.9"
 junit-jupiter = "5.12.2"
 junit-platform = "1.12.2"
@@ -77,6 +79,8 @@ androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-te
 androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-junit" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 anthropic-java = { module = "com.anthropic:anthropic-java", version.ref = "anthropic" }
+httpcore5 = { module = "org.apache.httpcomponents.core5:httpcore5", version.ref = "httpcore5" }
+httpcore5-h2 = { module = "org.apache.httpcomponents.core5:httpcore5-h2", version.ref = "httpcore5" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }

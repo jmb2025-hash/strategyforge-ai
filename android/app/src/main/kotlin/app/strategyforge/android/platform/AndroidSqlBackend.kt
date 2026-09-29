@@ -57,7 +57,7 @@ class AndroidSqlBackend(
                 bind(query, args)
                 SQLiteCursor(driver, editTable, query)
             }
-        return db.rawQueryWithFactory(factory, sql, null, null).use { c ->
+        return db.rawQueryWithFactory(factory, sql, null, "").use { c ->
             val row = CursorRow(c)
             buildList { while (c.moveToNext()) add(mapper(row)) }
         }

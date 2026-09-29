@@ -69,6 +69,13 @@ interface MarketDataProvider {
     fun lookup(symbol: String): ProviderResult<InstrumentInfo>
 
     fun diagnose(now: Instant): ProviderTestResult
+
+    /**
+     * How far behind the provider's quotes normally run (polling interval plus any feed delay), in
+     * seconds. Quote freshness checks allow this on top of their limit, so a delayed free feed can
+     * be used for paper trading while an outage is still caught. Zero for real-time streams.
+     */
+    fun expectedLagSeconds(): Long = 0
 }
 
 /** Close time of a bar: equities never extend past the session close (half-hour last bar, daily = session). */

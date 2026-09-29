@@ -19,21 +19,24 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
-/** Token bucket for a provider's request budget (requests per second). */
+/** Token bucket for a provider's request budget: [permits] per second, or per minute when [perMinute]. */
 class RateLimiter(
-    private val perSecond: Int,
+    private val permits: Int,
     private val clock: Clock,
+    perMinute: Boolean = false,
 ) {
-    private var tokens = perSecond.toLong() * 1000
+    private val windowMs = if (perMinute) 60_000L else 1_000L
+    private val capacity = permits.toLong() * windowMs
+    private var tokens = capacity
     private var last = clock.millis()
 
     @Synchronized
     fun tryAcquire(): Boolean {
         val now = clock.millis()
-        tokens = minOf(perSecond.toLong() * 1000, tokens + (now - last) * perSecond)
+        tokens = minOf(capacity, tokens + (now - last) * permits)
         last = now
-        if (tokens < 1000) return false
-        tokens -= 1000
+        if (tokens < windowMs) return false
+        tokens -= windowMs
         return true
     }
 }

@@ -129,8 +129,10 @@ class MarketDataService(
         if (q.provider != registry.nameFor(instrument.assetClass)) return QuoteVerification(DataStatus.STALE, q, age(q, now), "Quote came from inactive provider ${q.provider}")
         if (q.exchangeTs.isAfter(now.plus(SKEW_TOLERANCE))) return QuoteVerification(DataStatus.CLOCK_SKEW, q, null, "Quote is dated in the future")
         val ageSec = age(q, now)
-        if (ageSec > maxAgeSeconds) return QuoteVerification(DataStatus.STALE, q, ageSec, "Quote age ${ageSec}s exceeds ${maxAgeSeconds}s")
-        return QuoteVerification(DataStatus.VERIFIED, q, ageSec, "Verified")
+        val lag = registry.forClass(instrument.assetClass)?.expectedLagSeconds() ?: 0
+        val limit = if (maxAgeSeconds > Long.MAX_VALUE - lag) Long.MAX_VALUE else maxAgeSeconds + lag
+        if (ageSec > limit) return QuoteVerification(DataStatus.STALE, q, ageSec, "Quote age ${ageSec}s exceeds ${limit}s")
+        return QuoteVerification(DataStatus.VERIFIED, q, ageSec, if (lag > 0) "Verified (${q.feedType.name.lowercase()} feed, up to ${lag}s behind)" else "Verified")
     }
 
     private fun age(

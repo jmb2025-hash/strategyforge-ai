@@ -293,3 +293,26 @@ When a conflict is unresolved, the safest reversible option is selected.
     - Restore requires a recent device unlock and first writes a safety backup of the current state. It then replaces every table in one transaction, lifting the append-only triggers only inside that transaction, and the audit chain stays verifiable.
     - A backup made under a different schema version is refused.
 - **Requirements affected:** FR-105, FR-112, NFR-003, NFR-005, NFR-007.
+
+## D-032 US stock data on the phone: Twelve Data with the owner's free key
+
+- **Date:** 2026-09-29
+- **Context:** The owner chose crypto first (Coinbase, no key) and delayed US stock data from a free Twelve Data key second. The free plan allows about 8 requests a minute and 800 a day. The engine checks quote freshness against 60 seconds before it fills an order or passes a risk check.
+- **Decision:**
+  - **Provider.** The Version 1 Twelve Data adapter is ported to the engine over OkHttp. It is used for US stocks and ETFs only; crypto and FX stay on Coinbase.
+  - **Key.** The key is kept like AI keys (D-030): only in the phone's key store, with a 12-character fingerprint shown. Setting or removing it needs a recent device unlock. Without a key, stock data is explicitly unsupported, never replayed.
+  - **Budget.** Quotes are cached for 5 minutes and candles for 15. No requests are made while the US market is closed once a quote is cached. The minute and day budgets are enforced on the phone.
+  - **Freshness with a polled or delayed feed.** Each provider declares how far behind its quotes normally run (`expectedLagSeconds`): 0 for Coinbase; for Twelve Data the polling interval, plus 20 minutes when the feed is measured as delayed. Quote verification allows that lag on top of its limit, so paper trades on free stock data can fill while a real outage is still caught. Quotes remain labelled real-time, delayed or unknown from measured timestamps.
+- **Consequences:** On the free plan, stock paper trades fill on quotes that can be minutes old. The app says so on the market-data screen. Crypto behaviour is unchanged.
+- **Requirements affected:** FR-020 to FR-025, NFR-004.
+
+## D-033 Background running and installation on the phone
+
+- **Date:** 2026-09-29
+- **Context:** The owner wants trading to continue with the app closed and the screen off, and is willing to use the recent-apps "keep open" setting.
+- **Decision:**
+  - **Background engine.** A foreground service (type `specialUse`) ticks the engine every 5 seconds and shows a low-importance persistent notification. It optionally holds a partial wake lock (on by default, switchable) and restarts after a reboot or an app update.
+  - **Battery.** The app asks for an exemption from battery optimization only when the owner taps the button on the market-data screen. The screen explains the recent-apps "keep open" or "lock" option for phones that close background apps anyway.
+  - **App lock.** The app opens behind the phone's own screen lock (fingerprint, face or PIN) and locks again after 5 minutes in the background. Unlocking also counts as the recent confirmation for protected actions (D-029).
+  - **Distribution.** CI publishes the signed release APK as the `phone-latest` pre-release. Without the owner's signing secrets each build uses a new CI key, so updating means uninstalling first. The owner saves a backup copy first ("Save a copy") and restores it afterwards ("Restore from a file").
+- **Requirements affected:** FR-101, FR-102, FR-112, NFR-001, section 14.

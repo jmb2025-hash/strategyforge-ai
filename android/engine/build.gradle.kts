@@ -30,6 +30,10 @@ dependencies {
     implementation(libs.json.schema.validator)
     // Official Anthropic SDK for the optional Claude provider (FR-030).
     implementation(libs.anthropic.java)
+    constraints {
+        implementation(libs.httpcore5) { because("CVE-2026-54399 (D-025)") }
+        implementation(libs.httpcore5.h2) { because("CVE-2026-54428 (D-025)") }
+    }
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

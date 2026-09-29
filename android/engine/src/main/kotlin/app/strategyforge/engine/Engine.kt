@@ -16,6 +16,7 @@ import app.strategyforge.engine.execution.OrderService
 import app.strategyforge.engine.execution.PortfolioMaintenance
 import app.strategyforge.engine.execution.PositionInterest
 import app.strategyforge.engine.market.CorporateActionService
+import app.strategyforge.engine.market.EquityDataKey
 import app.strategyforge.engine.market.InstrumentService
 import app.strategyforge.engine.market.MarketClock
 import app.strategyforge.engine.market.MarketDataIngestion
@@ -87,8 +88,8 @@ class Engine(
     fixtureReader: (String) -> String,
     /** Live crypto data source; null until configured. */
     cryptoProvider: () -> MarketDataProvider? = { null },
-    /** Live US equity data source; null until the owner adds a key. */
-    equityProvider: () -> MarketDataProvider? = { null },
+    /** Builds the live US equity source around the owner's stored key (Twelve Data, D-032). */
+    equityProvider: ((apiKey: () -> String?) -> MarketDataProvider)? = null,
     /** API keys (the Android Keystore in the app). */
     val secrets: SecretStore = InMemorySecretStore(),
     aiClients: AiClients = AiClients.default(),
@@ -111,7 +112,13 @@ class Engine(
     val fixtures = ReplayFixtures(fixtureReader)
     val replayProvider = ReplayProvider(fixtures)
     val marketClock = MarketClock(db, wall)
-    val sources = MarketSources(marketClock, replayProvider, { fixtures.dataset.replayStart }, cryptoProvider, equityProvider)
+    val equityKey = EquityDataKey(secrets, auth, audit)
+    private val equities: MarketDataProvider? by lazy { equityProvider?.invoke(equityKey::get) }
+    val sources = MarketSources(marketClock, replayProvider, { fixtures.dataset.replayStart }, cryptoProvider, { equities?.takeIf { equityKey.configured() } })
+
+    /** The US equity source even before a key is stored (for the key test screen). */
+    fun equitySource(): MarketDataProvider? = equities
+
     val settings = SettingsService(db, audit, auth, wall)
     val notifications = NotificationService(db, wall, settings)
     val instruments = InstrumentService(db, sources, audit)

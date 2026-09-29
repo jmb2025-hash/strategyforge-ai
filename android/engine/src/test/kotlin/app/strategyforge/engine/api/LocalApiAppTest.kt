@@ -325,6 +325,20 @@ class LocalApiAppTest {
             val noScheduler = assertThrows<ApiError.Http> { runBlocking { repo.setDemoSpeed(5) } }
             assertThat(noScheduler.status).isEqualTo(503)
 
+            // Stock data key (Twelve Data): behind the device lock, never echoed back.
+            assertThat(repo.stockData().configured).isFalse()
+            host.call { engine.auth.forget() }
+            val stockDenied = assertThrows<ApiError.Http> { runBlocking { repo.setStockKey("td-key-DO-NOT-LEAK-1234") } }
+            assertThat(stockDenied.recentAuthRequired).isTrue()
+            repo.reauthenticate("", null)
+            val stocks = repo.setStockKey("td-key-DO-NOT-LEAK-1234")
+            assertThat(stocks.configured).isTrue()
+            assertThat(stocks.fingerprint).hasSize(12)
+            assertThat(client.get("/v1/market-data/stocks").body.toString()).doesNotContain("DO-NOT-LEAK")
+            assertThat(repo.runtime().stocksConfigured).isTrue()
+            assertThat(assertThrows<ApiError.Http> { runBlocking { repo.testStockData() } }.status).`as`("no stock provider in this engine").isEqualTo(503)
+            assertThat(repo.setStockKey(null).configured).isFalse()
+
             // AI provider setup as the phone screen does it: Gemini preset, key into the key store.
             val gemini = repo.providerTypes().single { it.providerType == "GEMINI" }
             assertThat(gemini.presets["model"]).isEqualTo("gemini-2.5-flash")
