@@ -1,5 +1,9 @@
+@file:UseSerializers(BigDecimalSerializer::class, UUIDSerializer::class)
+
 package app.strategyforge.engine.risk
 
+import app.strategyforge.engine.common.BigDecimalSerializer
+import app.strategyforge.engine.common.UUIDSerializer
 import app.strategyforge.engine.execution.OrderSide
 import app.strategyforge.engine.execution.OrderType
 import app.strategyforge.engine.execution.TimeInForce
@@ -7,12 +11,15 @@ import app.strategyforge.engine.market.Instrument
 import app.strategyforge.engine.market.QuoteVerification
 import app.strategyforge.engine.portfolio.Portfolio
 import app.strategyforge.engine.portfolio.PortfolioSummary
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
 enum class OrderSource { MANUAL, RECOMMENDATION, AUTONOMOUS, EMERGENCY_CLOSE, FORCED_COVER, SYSTEM }
 
+@Serializable
 data class OrderIntent(
     val portfolioId: UUID,
     val instrumentId: UUID,
@@ -32,6 +39,7 @@ enum class RuleOutcome { PASS, FAIL, UNVERIFIED, NOT_APPLICABLE }
 /** Level at which a limit was defined; the strictest applicable level wins (FR-091). */
 enum class RiskLevel { SYSTEM, GLOBAL, PORTFOLIO, STRATEGY, ORDER }
 
+@Serializable
 data class RuleResult(
     val rule: String,
     val family: String,
@@ -143,6 +151,7 @@ data class RiskDecision(
 }
 
 /** Limits configurable at any level. Null means "not set at this level". */
+@Serializable
 data class RiskLimits(
     val maxTradeValue: BigDecimal? = null,
     val maxTradePercentOfEquity: BigDecimal? = null,

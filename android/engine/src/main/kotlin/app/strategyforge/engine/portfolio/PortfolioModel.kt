@@ -1,11 +1,17 @@
+@file:UseSerializers(BigDecimalSerializer::class)
+
 package app.strategyforge.engine.portfolio
 
+import app.strategyforge.engine.common.BigDecimalSerializer
 import app.strategyforge.engine.market.DataStatus
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
 /** Execution cost and short-selling assumptions (section 3 fees/slippage, shorting). */
+@Serializable
 data class CostModel(
     val commissionPerOrder: BigDecimal = BigDecimal.ZERO,
     val commissionPerShare: BigDecimal = BigDecimal.ZERO,

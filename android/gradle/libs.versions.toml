@@ -28,7 +28,7 @@ spotless = "8.0.0"
 ktlint = "1.7.1"
 cyclonedx = "2.4.1"
 # On-device engine (D-027)
-sqldelight = "2.1.0"
+sqlite-jdbc = "3.53.4.0"
 jackson = "2.21.4"
 json-schema-validator = "1.5.9"
 junit-jupiter = "5.12.2"
@@ -74,10 +74,7 @@ biometric = { module = "androidx.biometric:biometric", version.ref = "biometric"
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test-core" }
 androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-junit" }
-sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
-sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
-sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
-sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
@@ -95,4 +92,3 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
-sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }

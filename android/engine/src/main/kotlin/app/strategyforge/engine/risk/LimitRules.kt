@@ -6,6 +6,34 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
 
+/** Every deterministic rule, in the Version 1 evaluation order (limit gates, core checks, limits). */
+object StandardRules {
+    fun all(): List<RiskRule> =
+        listOf(
+            EmergencyControlsRule(),
+            StrategyStatusRule(),
+            PortfolioActiveRule(),
+            ReconciliationRule(),
+            InstrumentTradableRule(),
+            QuantityRule(),
+            PriceSanityRule(),
+            MarketDataVerifiedRule(),
+            TradingScheduleRule(),
+            HoldingsRule(),
+            ShortingPermittedRule(),
+            BuyingPowerRule(),
+            SystemHealthRule(),
+            SymbolListRule(),
+            TradeValueRule(),
+            AllocationRule(),
+            OpenPositionsRule(),
+            TradeFrequencyRule(),
+            LossLimitsRule(),
+            ShortExposureRule(),
+            MarketQualityRule(),
+        )
+}
+
 /** Helpers shared by limit rules. Missing limits or metrics make a rule UNVERIFIED (fail closed). */
 abstract class LimitRule : RiskRule {
     protected fun notional(ctx: RiskContext): BigDecimal? = ctx.estimatedPrice?.let { ctx.intent.quantity.multiply(it) }
