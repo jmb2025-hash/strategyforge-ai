@@ -80,6 +80,23 @@ fun NewResearch(
 ) {
     var message by rememberSaveable { mutableStateOf("") }
     var asset by rememberSaveable { mutableStateOf("CRYPTO") }
+    Column {
+        NewResearchContent(message, { message = it }, asset, { asset = it }, busy) {
+            onStart(message, asset)
+            message = ""
+        }
+    }
+}
+
+@Composable
+private fun NewResearchContent(
+    message: String,
+    onMessage: (String) -> Unit,
+    asset: String,
+    onAsset: (String) -> Unit,
+    busy: Boolean,
+    onStart: () -> Unit,
+) {
     SectionTitle("Research an investor or strategy")
     Text(
         "Describe who or what to research, for example \"Research the crypto trading strategies used by the group Chart Champions\". " +
@@ -89,16 +106,13 @@ fun NewResearch(
     )
     Row(Modifier.padding(vertical = 4.dp)) {
         listOf("CRYPTO" to "Crypto", "US_EQUITY" to "Stocks").forEach { (a, label) ->
-            FilterChip(selected = asset == a, onClick = { asset = a }, label = { Text(label) }, modifier = Modifier.testTag("asset-$a"))
+            FilterChip(selected = asset == a, onClick = { onAsset(a) }, label = { Text(label) }, modifier = Modifier.testTag("asset-$a"))
             Spacer(Modifier.width(8.dp))
         }
     }
-    Field("What should the AI research?", message, { message = it }, singleLine = false, modifier = Modifier.testTag("research-message"))
+    Field("What should the AI research?", message, onMessage, singleLine = false, modifier = Modifier.testTag("research-message"))
     Button(
-        onClick = {
-            onStart(message, asset)
-            message = ""
-        },
+        onClick = onStart,
         enabled = message.isNotBlank() && !busy,
         modifier = Modifier.fillMaxWidth().testTag("start-research"),
     ) { Text("Start research") }

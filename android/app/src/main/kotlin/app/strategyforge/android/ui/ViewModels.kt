@@ -3,6 +3,7 @@ package app.strategyforge.android.ui
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.strategyforge.android.core.api.ApiError
 import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.data.Dashboard
 import app.strategyforge.android.core.data.OrderDraft
@@ -21,6 +22,7 @@ import app.strategyforge.android.core.model.ReportView
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.model.ResearchSession
 import app.strategyforge.android.core.model.Settings
+import app.strategyforge.android.core.model.Slot
 import app.strategyforge.android.core.model.Strategy
 import app.strategyforge.android.core.model.StrategyDetail
 import app.strategyforge.android.core.state.ActionState
@@ -40,8 +42,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import javax.inject.Inject
 
@@ -151,9 +156,25 @@ class StrategiesViewModel
     ) : ResourceViewModel<List<Strategy>>() {
         override fun source() = repo.strategies()
 
+        private val _slots = MutableStateFlow<List<Slot>>(emptyList())
+
+        /** The crypto and stock strategies running now (D-035). */
+        val slots: StateFlow<List<Slot>> = _slots.asStateFlow()
+
         init {
             refresh()
+            loadSlots()
         }
+
+        fun loadSlots() {
+            viewModelScope.launch { runCatching { _slots.value = repo.slots() } }
+        }
+
+        fun stop(strategyId: String) =
+            act("Strategy stopped") {
+                repo.deactivate(strategyId)
+                _slots.value = repo.slots()
+            }
 
         private val _imported = MutableStateFlow<String?>(null)
         val imported: StateFlow<String?> = _imported.asStateFlow()
@@ -206,17 +227,85 @@ class StrategyDetailViewModel
             _backtests.value = repo.backtests(id)
         }
 
+        private val _slotConflict = MutableStateFlow<SlotConflict?>(null)
+
+        /** Set when another strategy of the same asset class is running (D-035): ask keep or close. */
+        val slotConflict: StateFlow<SlotConflict?> = _slotConflict.asStateFlow()
+
         fun activate(
             portfolioId: String,
             allocation: String,
             autonomous: Boolean,
             disclosureAccepted: Boolean,
-        ) = act(if (autonomous) "Autonomous paper trading enabled" else "Recommendation Mode enabled") {
-            repo.activate(id, portfolioId, allocation, autonomous, if (autonomous && disclosureAccepted) _disclosure.value?.version else null)
+            positions: String? = null,
+        ) = act(if (autonomous) "Autonomous paper trading enabled" else "Notifications mode enabled") {
+            try {
+                val a = repo.activate(id, portfolioId, allocation, autonomous, if (autonomous && disclosureAccepted) _disclosure.value?.version else null, positions)
+                _replaced.value = a.replacedStrategyName?.let { ReplaceOutcome(it, a) }
+            } catch (e: ApiError.Http) {
+                if (e.code != "slot-occupied") throw e
+                _slotConflict.value = SlotConflict.from(e) { keep -> activate(portfolioId, allocation, autonomous, disclosureAccepted, if (keep) "KEEP" else "CLOSE") }
+            }
         }
 
-        fun deactivate() = act("Strategy paused") { repo.deactivate(id) }
+        private val _replaced = MutableStateFlow<ReplaceOutcome?>(null)
+
+        /** What happened to the replaced strategy's positions, shown once after a switch. */
+        val replaced: StateFlow<ReplaceOutcome?> = _replaced.asStateFlow()
+
+        fun resolveSlot(keep: Boolean?) {
+            val c = _slotConflict.value ?: return
+            _slotConflict.value = null
+            if (keep != null) c.retry(keep)
+        }
+
+        /** A backtest over recent history sized to the strategy's timeframe (Coinbase serves 20 pages of 300 bars). */
+        fun quickBacktest(timeframe: String?) =
+            act("Backtest finished") {
+                val end = repo.runtime().marketTime?.let { java.time.Instant.parse(it) } ?: java.time.Instant.now()
+                val days =
+                    when (timeframe) {
+                        "1m" -> 3L
+                        "5m" -> 14L
+                        "15m" -> 30L
+                        "1h", "4h" -> 180L
+                        else -> 730L
+                    }
+                repo.runBacktest(id, end.minus(java.time.Duration.ofDays(days)).toString(), end.toString(), "100000")
+                _backtests.value = repo.backtests(id)
+            }
+
+        fun deactivate() = act("Strategy stopped") { repo.deactivate(id) }
     }
+
+/** Another strategy holds the slot; [retry] re-sends the activation with KEEP (true) or CLOSE (false). */
+data class SlotConflict(
+    val currentName: String,
+    val openPositions: List<String>,
+    val retry: (Boolean) -> Unit,
+) {
+    companion object {
+        fun from(
+            e: ApiError.Http,
+            retry: (Boolean) -> Unit,
+        ): SlotConflict {
+            val p = e.properties
+            val name = p?.get("currentStrategyName")?.jsonPrimitive?.contentOrNull ?: "The current strategy"
+            val positions =
+                (p?.get("openPositions") as? JsonArray)
+                    ?.mapNotNull { el ->
+                        val o = el as? JsonObject ?: return@mapNotNull null
+                        "${o["side"]?.jsonPrimitive?.contentOrNull?.lowercase()} ${o["quantity"]?.jsonPrimitive?.contentOrNull} ${o["symbol"]?.jsonPrimitive?.contentOrNull}"
+                    }.orEmpty()
+            return SlotConflict(name, positions, retry)
+        }
+    }
+}
+
+data class ReplaceOutcome(
+    val replacedName: String,
+    val activation: app.strategyforge.android.core.model.Activation,
+)
 
 @HiltViewModel
 class PortfolioViewModel

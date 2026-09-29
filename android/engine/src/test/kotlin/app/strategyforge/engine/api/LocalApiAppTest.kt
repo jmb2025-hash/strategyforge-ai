@@ -404,6 +404,46 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-035 activating a second crypto strategy asks keep or close through the app's calls`() {
+        start()
+        runBlocking {
+            val p = repo.createPortfolio("Slots", "100000")
+
+            suspend fun eligible(name: String): String {
+                val id = repo.importStrategy(JacksonCanonical.mapper.writeValueAsString(Strategies.alwaysLong(name, "1m"))).strategy.id
+                repo.runBacktest(id, "2026-06-22T00:00:00Z", "2026-06-22T13:00:00Z", "100000")
+                return id
+            }
+            val a = eligible("First crypto")
+            val b = eligible("Second crypto")
+            repo.activate(a, p.id, "40", false, null)
+            assertThat(
+                repo
+                    .slots()
+                    .single { it.assetClass == "CRYPTO" }
+                    .strategy!!
+                    .name,
+            ).isEqualTo("First crypto")
+            assertThat(repo.slots().single { it.assetClass == "US_EQUITY" }.strategy).isNull()
+
+            val asked = assertThrows<ApiError.Http> { runBlocking { repo.activate(b, p.id, "40", false, null) } }
+            assertThat(asked.code).isEqualTo("slot-occupied")
+            assertThat(asked.properties!!["currentStrategyName"]!!.jsonPrimitive.content).isEqualTo("First crypto")
+
+            val switched = repo.activate(b, p.id, "40", false, null, "KEEP")
+            assertThat(switched.replacedStrategyName).isEqualTo("First crypto")
+            assertThat(switched.positions).isEqualTo("KEEP")
+            assertThat(
+                repo
+                    .slots()
+                    .single { it.assetClass == "CRYPTO" }
+                    .strategy!!
+                    .id,
+            ).isEqualTo(b)
+        }
+    }
+
+    @Test
     fun `unknown routes and engine errors come back as problem documents`() {
         start()
         runBlocking {

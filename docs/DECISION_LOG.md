@@ -329,3 +329,16 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Sources.** A conversation turn without web results is recorded and shown as such, not failed. Form-based research that required retrieval still needs citations before approval (MS-18 unchanged for it).
   - **Schema migrations.** Versioned, forward-only migrations run on every start. Fresh installs apply the base schema and then every migration, so new and existing phones follow one path. Migration 2 adds `research_runs.owner_message`. Backups record `engine-N`, and restore accepts backups from the same or older versions.
 - **Requirements affected:** FR-032 to FR-037, FR-112.
+
+## D-035 One crypto strategy and one stock strategy at a time
+
+- **Date:** 2026-10-01
+- **Context:** The owner wants one active crypto strategy and one active stock strategy, swapped for another saved strategy when one proves ineffective. The owner chose to be asked about open positions every time, with "keep" preselected.
+- **Decision:**
+  - **Slots.** Each asset class has one slot. Activating a strategy while another of the same asset class is active returns `slot-occupied`, naming that strategy and its open positions. The app asks "Replace X?" with keep preselected.
+  - **Keep.** The replaced strategy's open lots in symbols the new strategy trades are marked as managed by the new strategy (migration 3: `position_lots.managed_by_strategy_id`). The new strategy then applies its own exits to them. Lots in symbols it does not trade stay open and unmanaged, and the app lists them.
+  - **Close.** Market orders (source SYSTEM, linked to the replaced strategy) close the replaced strategy's positions.
+  - **One transaction.** The switch runs as a single transaction, and the new activation's gates still apply. If the new activation is refused, nothing changes: the old strategy keeps running and no closing orders remain.
+  - **Mode changes.** An active strategy can be re-activated to change its mode or allocation. The disclosure, recent-unlock and backtest gates apply again.
+  - **Screen and wording.** The Strategies screen shows the two slots ("Running now"). "Recommendation Mode" is shown as "Notifications mode: you approve each trade".
+- **Requirements affected:** FR-071, FR-072, FR-047.
