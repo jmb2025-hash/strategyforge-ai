@@ -32,6 +32,7 @@ import app.strategyforge.android.core.model.Page
 import app.strategyforge.android.core.model.Portfolio
 import app.strategyforge.android.core.model.PortfolioSummary
 import app.strategyforge.android.core.model.Provider
+import app.strategyforge.android.core.model.ProviderType
 import app.strategyforge.android.core.model.PushConfig
 import app.strategyforge.android.core.model.Recommendation
 import app.strategyforge.android.core.model.RecommendationDetail
@@ -40,6 +41,8 @@ import app.strategyforge.android.core.model.RecoveryCodes
 import app.strategyforge.android.core.model.ReportView
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.model.ResearchSession
+import app.strategyforge.android.core.model.RestoreResult
+import app.strategyforge.android.core.model.RuntimeState
 import app.strategyforge.android.core.model.SessionInfo
 import app.strategyforge.android.core.model.SessionResponse
 import app.strategyforge.android.core.model.Settings
@@ -429,6 +432,69 @@ class Repository(
 
     suspend fun testProvider(id: String): Provider = api.decode(api.post("/v1/providers/${seg(id)}/test").body, Provider.serializer())
 
+    suspend fun providerTypes(): List<ProviderType> = api.get("/v1/providers/types", ListSerializer(ProviderType.serializer()))
+
+    /** Adds an AI provider; the key goes straight to the phone's secure key store (D-030). */
+    suspend fun createProvider(
+        providerType: String,
+        displayName: String,
+        settings: Map<String, String>,
+        key: String?,
+    ): Provider =
+        api.decode(
+            api
+                .post(
+                    "/v1/providers",
+                    buildJsonObject {
+                        put("providerType", providerType)
+                        put("displayName", displayName)
+                        put("settings", JsonObject(settings.mapValues { JsonPrimitive(it.value) }))
+                        key?.takeIf { it.isNotBlank() }?.let { put("credential", it.trim()) }
+                    },
+                ).body,
+            Provider.serializer(),
+        )
+
+    suspend fun updateProvider(
+        id: String,
+        displayName: String,
+        settings: Map<String, String>,
+    ): Provider =
+        api.decode(
+            api
+                .put(
+                    "/v1/providers/${seg(id)}",
+                    buildJsonObject {
+                        put("displayName", displayName)
+                        put("settings", JsonObject(settings.mapValues { JsonPrimitive(it.value) }))
+                    },
+                ).body,
+            Provider.serializer(),
+        )
+
+    /** Replaces (or with null removes) a provider key; needs a recent device unlock. */
+    suspend fun setProviderKey(
+        id: String,
+        key: String?,
+    ): Provider =
+        api.decode(
+            api.put("/v1/providers/${seg(id)}/credential", buildJsonObject { put("credential", key?.trim()?.takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull) }).body,
+            Provider.serializer(),
+        )
+
+    suspend fun setProviderActive(
+        id: String,
+        active: Boolean,
+    ): Provider = api.decode(api.post("/v1/providers/${seg(id)}/activate", buildJsonObject { put("active", active) }).body, Provider.serializer())
+
+    // ----------------------------------------------------------------- on-device engine (D-027)
+
+    suspend fun runtime(): RuntimeState = api.get("/v1/runtime", RuntimeState.serializer())
+
+    suspend fun setMarketMode(mode: String): RuntimeState = api.decode(api.put("/v1/runtime", buildJsonObject { put("marketMode", mode) }).body, RuntimeState.serializer())
+
+    suspend fun setDemoSpeed(minutesPerTick: Int): RuntimeState = api.decode(api.put("/v1/runtime", buildJsonObject { put("demoStepMinutes", minutesPerTick) }).body, RuntimeState.serializer())
+
     fun research(): Flow<Resource<List<ResearchSession>>> = cached("research", ListSerializer(ResearchSession.serializer())) { api.get("/v1/research").body }
 
     suspend fun researchDetail(id: String): ResearchDetail = api.get("/v1/research/${seg(id)}", ResearchDetail.serializer())
@@ -562,6 +628,12 @@ class Repository(
     suspend fun verifyBackup(name: String): BackupVerification {
         require(name.matches(BACKUP_NAME)) { "Invalid backup name" }
         return api.decode(api.post("/v1/backups/$name/verify").body, BackupVerification.serializer())
+    }
+
+    /** Replaces all data with the backup; needs a recent device unlock and saves a safety backup first. */
+    suspend fun restoreBackup(name: String): RestoreResult {
+        require(name.matches(BACKUP_NAME)) { "Invalid backup name" }
+        return api.decode(api.post("/v1/backups/$name/restore").body, RestoreResult.serializer())
     }
 
     suspend fun export(request: ExportRequest): Download = api.download(request.path)

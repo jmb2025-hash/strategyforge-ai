@@ -55,182 +55,6 @@ private fun ReauthHost(
     }
 }
 
-// ------------------------------------------------------------------ security (FR-002)
-
-@Composable
-fun SecurityScreen(
-    vm: SecurityViewModel,
-    fmt: Formatters,
-    session: SessionViewModel,
-) {
-    val state by vm.state.collectAsStateWithLifecycle()
-    val action by vm.action.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
-        SecurityContent(
-            state = state,
-            fmt = fmt,
-            actions =
-                SecurityActions(
-                    startTotp = vm::startTotpSetup,
-                    openAuthenticator = { uri ->
-                        try {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
-                        } catch (e: ActivityNotFoundException) {
-                            // No authenticator app registered for otpauth:// links; the key is shown for manual entry.
-                        }
-                    },
-                    confirmTotp = vm::confirmTotp,
-                    cancelTotp = vm::cancelTotpSetup,
-                    disableTotp = vm::disableTotp,
-                    regenerateCodes = vm::regenerateRecoveryCodes,
-                    dismissCodes = vm::dismissRecoveryCodes,
-                    changePassword = vm::changePassword,
-                    revokeSession = vm::revokeSession,
-                    revokeOthers = vm::revokeOtherSessions,
-                    revokeDevice = vm::revokeDevice,
-                    retry = vm::load,
-                ),
-        )
-        ReauthHost(action, session, vm)
-    }
-}
-
-data class SecurityActions(
-    val startTotp: () -> Unit = {},
-    val openAuthenticator: (String) -> Unit = {},
-    val confirmTotp: (String) -> Unit = {},
-    val cancelTotp: () -> Unit = {},
-    val disableTotp: (String) -> Unit = {},
-    val regenerateCodes: () -> Unit = {},
-    val dismissCodes: () -> Unit = {},
-    val changePassword: (String, String, String) -> Unit = { _, _, _ -> },
-    val revokeSession: (String) -> Unit = {},
-    val revokeOthers: () -> Unit = {},
-    val revokeDevice: (String) -> Unit = {},
-    val retry: () -> Unit = {},
-)
-
-@Composable
-fun SecurityContent(
-    state: SecurityState,
-    fmt: Formatters,
-    actions: SecurityActions,
-) {
-    var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
-    SectionTitle("Security")
-    when {
-        state.loading -> Loading()
-        state.loadError != null -> {
-            Banner(state.loadError, BannerKind.ERROR)
-            TextButton(onClick = actions.retry) { Text("Retry") }
-        }
-    }
-    val me = state.me ?: return
-
-    // Two-factor authentication
-    SectionTitle("Two-factor authentication")
-    val setup = state.totpSetup
-    when {
-        setup != null -> {
-            Text("1. Add this key to your authenticator app (or open it directly). 2. Enter the 6-digit code it shows.")
-            SfCard {
-                Text("Setup key", style = MaterialTheme.typography.labelMedium)
-                Text(setup.secret.chunked(4).joinToString(" "), fontFamily = FontFamily.Monospace, modifier = Modifier.testTag("totp-secret"))
-            }
-            OutlinedButton(onClick = { actions.openAuthenticator(setup.otpauthUri) }, modifier = Modifier.fillMaxWidth()) { Text("Open in authenticator app") }
-            var code by rememberSaveable { mutableStateOf("") }
-            Field("6-digit code", code, { code = it }, number = true)
-            Row {
-                Button(onClick = { actions.confirmTotp(code) }, enabled = code.isNotBlank()) { Text("Turn on") }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = actions.cancelTotp) { Text("Cancel") }
-            }
-        }
-        me.totpEnabled -> {
-            Banner("Two-factor authentication is on. Sign-in and sensitive actions ask for a code.")
-            var code by rememberSaveable { mutableStateOf("") }
-            Field("Current 6-digit code", code, { code = it }, number = true)
-            OutlinedButton(onClick = { actions.disableTotp(code) }, enabled = code.isNotBlank()) { Text("Turn off two-factor authentication") }
-        }
-        else -> {
-            Banner("Two-factor authentication is off. Turning it on is strongly recommended.", BannerKind.WARNING)
-            Button(onClick = actions.startTotp) { Text("Set up two-factor authentication") }
-        }
-    }
-
-    // Recovery codes
-    SectionTitle("Recovery codes")
-    val codes = state.recoveryCodes
-    if (codes != null) {
-        Banner("Store these single-use codes offline now. They are shown only once.", BannerKind.WARNING)
-        SfCard { codes.forEach { Text(it, fontFamily = FontFamily.Monospace) } }
-        Button(onClick = actions.dismissCodes) { Text("I have stored these codes") }
-    } else {
-        LabelValue("Unused recovery codes", me.remainingRecoveryCodes.toString())
-        if (me.remainingRecoveryCodes <= LOW_CODES) Banner("Few recovery codes remain. Create a new set.", BannerKind.WARNING)
-        OutlinedButton(onClick = { confirm = "Create new recovery codes? All existing codes stop working." to actions.regenerateCodes }) { Text("Create new recovery codes") }
-    }
-
-    // Password
-    SectionTitle("Password")
-    var current by remember { mutableStateOf("") }
-    var new by remember { mutableStateOf("") }
-    var again by remember { mutableStateOf("") }
-    Field("Current password", current, { current = it }, password = true)
-    Field("New password (12+ characters)", new, { new = it }, password = true)
-    Field("Repeat new password", again, { again = it }, password = true)
-    Button(onClick = {
-        actions.changePassword(current, new, again)
-        current = ""
-        new = ""
-        again = ""
-    }, enabled = current.isNotBlank() && new.isNotBlank()) { Text("Change password") }
-
-    // Sessions
-    SectionTitle("Signed-in sessions")
-    state.sessions.forEach { s ->
-        SfCard(Modifier.testTag("session")) {
-            Row {
-                Text(s.deviceName ?: "Unknown device", style = MaterialTheme.typography.titleSmall)
-                if (s.current) {
-                    Spacer(Modifier.width(8.dp))
-                    StatusChip("THIS DEVICE")
-                }
-            }
-            s.lastSeenAt?.let { LabelValue("Last active", fmt.dateTime(it)) }
-            s.expiresAt?.let { LabelValue("Expires", fmt.dateTime(it)) }
-            if (!s.current) TextButton(onClick = { confirm = "Sign out ${s.deviceName ?: "this session"}?" to { actions.revokeSession(s.id) } }) { Text("Sign out") }
-        }
-    }
-    if (state.sessions.count { !it.current } > 0) {
-        OutlinedButton(onClick = { confirm = "Sign out every other session? Use this if a device is lost." to actions.revokeOthers }, modifier = Modifier.fillMaxWidth()) {
-            Text("Sign out all other sessions")
-        }
-    }
-
-    // Devices
-    SectionTitle("Devices")
-    if (state.devices.isEmpty()) Text("No devices registered for notifications.")
-    state.devices.forEach { d ->
-        SfCard(Modifier.testTag("device")) {
-            Text(d.name, style = MaterialTheme.typography.titleSmall)
-            LabelValue("Push notifications", if (d.pushEnabled && d.pushTokenRegistered) "On" else "Off")
-            d.lastSeenAt?.let { LabelValue("Last seen", fmt.dateTime(it)) }
-            TextButton(onClick = { confirm = "Remove ${d.name}? It stops receiving notifications." to { actions.revokeDevice(d.id) } }) { Text("Remove device") }
-        }
-    }
-
-    confirm?.let { (text, run) ->
-        ConfirmDialog("Please confirm", text, "Confirm", { confirm = null }) {
-            confirm = null
-            run()
-        }
-    }
-}
-
-private const val LOW_CODES = 3
-
 // ------------------------------------------------------------------ AI budget (FR-037)
 
 @Composable
@@ -267,7 +91,7 @@ fun BudgetContent(
     Field("Requests per day", daily, { daily = it }, number = true)
     Field("Maximum output tokens per request", maxOut, { maxOut = it }, number = true)
     Field("Maximum input characters per request", maxIn, { maxIn = it }, number = true)
-    Text("Lowering a limit applies immediately. Raising one asks for your password.", style = MaterialTheme.typography.bodySmall)
+    Text("Lowering a limit applies immediately. Raising one asks you to confirm with your screen lock.", style = MaterialTheme.typography.bodySmall)
     Button(onClick = { onSave(monthly, daily, maxOut, maxIn) }) { Text("Save limits") }
 }
 
@@ -281,9 +105,41 @@ fun BackupsScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
+    var saving by remember { mutableStateOf<String?>(null) }
+    var restoring by rememberSaveable { mutableStateOf<String?>(null) }
+    val saveAs =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+            val name = saving
+            saving = null
+            if (uri != null && name != null) vm.saveCopy(name, uri)
+        }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.importFile(uri) }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
-        BackupsContent(state, fmt, vm::create, vm::verify, vm::load)
+        BackupsContent(
+            state,
+            fmt,
+            vm::create,
+            vm::verify,
+            vm::load,
+            onSaveCopy = { name ->
+                saving = name
+                saveAs.launch(name)
+            },
+            onRestore = { restoring = it },
+            onImport = { pick.launch(arrayOf("*/*")) },
+        )
         ReauthHost(action, session, vm)
+    }
+    restoring?.let { name ->
+        ConfirmDialog(
+            "Restore this backup?",
+            "Everything on this phone (portfolios, strategies, orders, recommendations and history) is replaced by the backup from $name. A safety backup of the current state is saved first.",
+            "Restore",
+            onDismiss = { restoring = null },
+        ) {
+            restoring = null
+            vm.restore(name)
+        }
     }
 }
 
@@ -294,10 +150,17 @@ fun BackupsContent(
     onCreate: () -> Unit,
     onVerify: (String) -> Unit,
     onRetry: () -> Unit,
+    onSaveCopy: (String) -> Unit = {},
+    onRestore: (String) -> Unit = {},
+    onImport: () -> Unit = {},
 ) {
     SectionTitle("Backups")
-    Text("Backups are encrypted with the server's master key and stored on the backend host. Restoring is done on the host (see docs/BACKUP_RESTORE.md), never from the phone.")
+    Text(
+        "Backups are kept in the app's private storage and contain no AI keys. Save a copy somewhere safe (for example Google Drive) before uninstalling or moving to a new phone; " +
+            "restore it here with \"Restore from a file\".",
+    )
     Button(onClick = onCreate, modifier = Modifier.fillMaxWidth()) { Text("Back up now") }
+    OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Restore from a file") }
     when {
         state.loading -> Loading()
         state.loadError != null -> {
@@ -314,8 +177,12 @@ fun BackupsContent(
             val v = state.verifications[f.name]
             when {
                 v == null -> TextButton(onClick = { onVerify(f.name) }) { Text("Verify") }
-                v.valid -> Banner("Verified: schema ${v.schemaVersion}, ${v.tables} tables, ${v.rows} rows; every table hash matches.")
+                v.valid -> Banner("Verified: schema ${v.schemaVersion}, ${v.tables} tables, ${v.rows} rows; the checksum matches.")
                 else -> Banner("Verification failed: ${v.error ?: "unknown error"}", BannerKind.ERROR)
+            }
+            Row {
+                TextButton(onClick = { onSaveCopy(f.name) }) { Text("Save a copy") }
+                TextButton(onClick = { onRestore(f.name) }) { Text("Restore") }
             }
         }
     }

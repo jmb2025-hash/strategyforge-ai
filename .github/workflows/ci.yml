@@ -125,3 +125,39 @@ jobs:
         with:
           name: security-reports
           path: build/security/
+
+  # Installable phone build: the signed release APK from the android job, published as a
+  # pre-release so it can be downloaded straight to the phone (docs/ANDROID.md, "Install").
+  phone-release:
+    runs-on: ubuntu-24.04
+    needs: [android, security]
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: android-outputs, path: android }
+      - name: Publish the latest phone build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          out=android/app/build/outputs/apk
+          mkdir -p dist
+          cp "$out/release/app-release.apk" dist/StrategyForge.apk
+          cp "$out/release/SIGNING.txt" dist/SIGNING.txt
+          (cd dist && sha256sum StrategyForge.apk > SHA256SUMS)
+          {
+            echo "Latest StrategyForge phone build from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA}."
+            echo
+            echo "Paper trading only: no real money, brokerage connection or order routing."
+            echo
+            echo "Install: open this page on the phone, download StrategyForge.apk and allow installing from your browser when Android asks."
+            echo "Signing: $(grep '^signing=' dist/SIGNING.txt | cut -d= -f2). With an ephemeral CI key, save a backup copy (More > Backups) before installing a newer build, because Android asks you to uninstall first."
+            echo
+            echo "SHA-256: $(cut -d' ' -f1 dist/SHA256SUMS)"
+          } > dist/NOTES.md
+          gh release delete phone-latest --yes --cleanup-tag || true
+          gh release create phone-latest --prerelease --target "$GITHUB_SHA" \
+            --title "StrategyForge phone app (latest build)" --notes-file dist/NOTES.md \
+            dist/StrategyForge.apk dist/SHA256SUMS dist/SIGNING.txt

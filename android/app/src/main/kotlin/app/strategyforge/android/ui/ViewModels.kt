@@ -1,10 +1,8 @@
 package app.strategyforge.android.ui
 
-import android.app.Application
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.strategyforge.android.core.api.ServerUrl
 import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.data.Dashboard
 import app.strategyforge.android.core.data.OrderDraft
@@ -25,14 +23,11 @@ import app.strategyforge.android.core.model.ResearchSession
 import app.strategyforge.android.core.model.Settings
 import app.strategyforge.android.core.model.Strategy
 import app.strategyforge.android.core.model.StrategyDetail
-import app.strategyforge.android.core.state.AccessPresenter
 import app.strategyforge.android.core.state.ActionState
 import app.strategyforge.android.core.state.EmergencyPresenter
 import app.strategyforge.android.core.state.RecommendationPresenter
 import app.strategyforge.android.core.state.toFailure
-import app.strategyforge.android.platform.AllowInsecureLocal
 import app.strategyforge.android.platform.LocalConfig
-import app.strategyforge.android.push.PushSetup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -86,37 +81,29 @@ abstract class ResourceViewModel<T> : ViewModel() {
     }
 }
 
+/** App-wide state: display preferences and the device-lock confirmation for protected actions. */
 @HiltViewModel
 class SessionViewModel
     @Inject
     constructor(
-        private val app: Application,
         private val repo: Repository,
         val config: LocalConfig,
-        @AllowInsecureLocal private val allowInsecureLocal: Boolean,
     ) : ViewModel() {
-        val access =
-            AccessPresenter(
-                viewModelScope,
-                repo,
-                saveServer = { config.serverUrl = it },
-                validateServer = { ServerUrl.validate(it, allowInsecureLocal) },
-                initialServer = config.serverUrl,
-                signedIn = repo.signedIn(),
-            )
         private val _timezone = MutableStateFlow<String?>(null)
         val timezone: StateFlow<String?> = _timezone.asStateFlow()
         private val _reauth = MutableStateFlow<ActionState>(ActionState.Idle)
         val reauth: StateFlow<ActionState> = _reauth.asStateFlow()
 
-        /** After sign-in: register this device (and FCM when configured) and load display preferences. */
-        fun onSignedIn() {
+        fun onStarted() {
             viewModelScope.launch {
-                runCatching { PushSetup.register(app, repo, config) }
                 repo.settings().collect { r -> if (r is Resource.Data) _timezone.value = r.value.timezone }
             }
         }
 
+        /**
+         * Called after the device-lock prompt succeeded (see ReauthDialog); it tells the engine the
+         * owner confirmed recently (D-029). The password arguments are unused on the phone.
+         */
         fun reauthenticate(
             password: String,
             totp: String?,
@@ -129,14 +116,6 @@ class SessionViewModel
                         _reauth.value = ActionState.Idle
                         then()
                     }.onFailure { _reauth.value = it.toFailure() }
-            }
-        }
-
-        fun signOut() {
-            viewModelScope.launch {
-                runCatching { repo.logout() }
-                repo.clearCache()
-                access.signedOut()
             }
         }
     }

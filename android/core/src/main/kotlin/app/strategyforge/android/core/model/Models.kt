@@ -362,6 +362,43 @@ data class Provider(
     val active: Boolean,
     val lastTestStatus: String? = null,
     val lastTestDetail: String? = null,
+    val settings: Map<String, String> = emptyMap(),
+    val credentialConfigured: Boolean = false,
+    val credentialFingerprint: String? = null,
+)
+
+/** An AI provider the phone can call, with the presets that pre-fill the setup form (D-030). */
+@Serializable
+data class ProviderType(
+    val providerType: String,
+    val label: String,
+    val presets: Map<String, String> = emptyMap(),
+    val keyUrl: String? = null,
+    val settings: List<ProviderSetting> = emptyList(),
+)
+
+@Serializable
+data class ProviderSetting(
+    val name: String,
+    val type: String,
+    val required: Boolean = false,
+)
+
+/** What the on-device engine is running: demo (replay) or live data, and the demo speed. */
+@Serializable
+data class RuntimeState(
+    val marketMode: String,
+    val demoStepMinutes: Int? = null,
+    val marketTime: String? = null,
+    val tickSeconds: Int = 5,
+)
+
+@Serializable
+data class RestoreResult(
+    val restoredFrom: String,
+    val safetyBackup: String,
+    val tables: Int = 0,
+    val rows: Long = 0,
 )
 
 @Serializable

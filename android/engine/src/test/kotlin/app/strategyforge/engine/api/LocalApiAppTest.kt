@@ -66,7 +66,7 @@ class LocalApiAppTest {
                 )
             }
         val api = host.call { LocalApi(engine) }
-        val http = OkHttpClient.Builder().addInterceptor(LocalApiInterceptor(host) { api }).build()
+        val http = OkHttpClient.Builder().addInterceptor(LocalApiInterceptor(host, api::handle)).build()
         val tokens =
             object : TokenStore {
                 override fun token(): String? = null
@@ -204,7 +204,8 @@ class LocalApiAppTest {
             assertThat(denied.recentAuthRequired).isTrue()
 
             host.call { engine.auth.confirmed() }
-            client.post("/v1/backups/${backup.file.name}/restore")
+            val restored = repo.restoreBackup(backup.file.name)
+            assertThat(restored.safetyBackup).isNotEqualTo(backup.file.name)
             repo.clearCache()
             assertThat(repo.portfolios().value().map { it.name }).containsExactly("Before backup")
             assertThat(
@@ -301,6 +302,46 @@ class LocalApiAppTest {
                     .single()
                     .costUsd,
             ).isNotEqualTo("0")
+        }
+    }
+
+    @Test
+    fun `device unlock, runtime mode and the provider catalog are served for the phone screens`() {
+        start()
+        runBlocking {
+            val p = repo.createPortfolio("Auto", "100000")
+            val content = JacksonCanonical.mapper.writeValueAsString(Strategies.alwaysLong("App Auto", "1m", symbol = "ETH-USD", quantity = "0.1"))
+            val sid = repo.importStrategy(content).strategy.id
+            repo.runBacktest(sid, "2026-06-22T00:00:00Z", "2026-06-22T13:00:00Z", "100000")
+            val version = repo.disclosure().version
+            assertThrows<ApiError.Http> { runBlocking { repo.activate(sid, p.id, "50", true, version) } }
+            // What the app does after the device-lock prompt succeeds.
+            repo.reauthenticate("", null)
+            assertThat(repo.activate(sid, p.id, "50", true, version).mode).isEqualTo("AUTONOMOUS")
+
+            assertThat(repo.runtime().marketMode).isEqualTo("DEMO")
+            assertThat(repo.setMarketMode("LIVE").marketMode).isEqualTo("LIVE")
+            assertThat(host.call { engine.marketMode().name }).isEqualTo("LIVE")
+            val noScheduler = assertThrows<ApiError.Http> { runBlocking { repo.setDemoSpeed(5) } }
+            assertThat(noScheduler.status).isEqualTo(503)
+
+            // AI provider setup as the phone screen does it: Gemini preset, key into the key store.
+            val gemini = repo.providerTypes().single { it.providerType == "GEMINI" }
+            assertThat(gemini.presets["model"]).isEqualTo("gemini-2.5-flash")
+            assertThat(gemini.keyUrl).isEqualTo("https://aistudio.google.com/apikey")
+            val created = repo.createProvider("GEMINI", "Gemini", gemini.presets, "AIza-test-key-DO-NOT-LEAK")
+            assertThat(created.credentialConfigured).isTrue()
+            assertThat(created.credentialFingerprint).hasSize(12)
+            assertThat(created.settings["model"]).isEqualTo("gemini-2.5-flash")
+            host.call { engine.auth.forget() }
+            val keyChange = assertThrows<ApiError.Http> { runBlocking { repo.setProviderKey(created.id, "AIza-other") } }
+            assertThat(keyChange.recentAuthRequired).isTrue()
+            repo.reauthenticate("", null)
+            assertThat(repo.setProviderKey(created.id, null).credentialConfigured).isFalse()
+            assertThat(repo.setProviderActive(created.id, false).active).isFalse()
+            val renamed = repo.updateProvider(created.id, "Gemini Flash", gemini.presets + ("maxOutputTokens" to "2000"))
+            assertThat(renamed.displayName).isEqualTo("Gemini Flash")
+            assertThat(renamed.settings["maxOutputTokens"]).isEqualTo("2000")
         }
     }
 

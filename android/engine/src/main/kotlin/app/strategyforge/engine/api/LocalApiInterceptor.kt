@@ -15,7 +15,7 @@ import okio.Buffer
  */
 class LocalApiInterceptor(
     private val host: EngineHost,
-    private val api: () -> LocalApi,
+    private val handle: (LocalRequest) -> LocalResponse,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -30,7 +30,7 @@ class LocalApiInterceptor(
                 body,
                 request.header("If-Match"),
             )
-        val result = host.call { api().handle(local) }
+        val result = host.call { handle(local) }
         val builder =
             Response
                 .Builder()

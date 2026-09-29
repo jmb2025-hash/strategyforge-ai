@@ -9,18 +9,14 @@ import app.strategyforge.android.core.data.Repository
 import app.strategyforge.android.core.model.AiBudget
 import app.strategyforge.android.core.model.BackupFile
 import app.strategyforge.android.core.model.BackupVerification
-import app.strategyforge.android.core.model.Device
-import app.strategyforge.android.core.model.Me
 import app.strategyforge.android.core.model.Portfolio
-import app.strategyforge.android.core.model.SessionInfo
-import app.strategyforge.android.core.model.TotpSetup
 import app.strategyforge.android.core.state.ActionState
 import app.strategyforge.android.core.state.BudgetForm
 import app.strategyforge.android.core.state.ExportDataset
 import app.strategyforge.android.core.state.ExportFormat
 import app.strategyforge.android.core.state.ExportRequest
-import app.strategyforge.android.core.state.TotpCode
 import app.strategyforge.android.core.state.toFailure
+import app.strategyforge.android.platform.BackupFiles
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,9 +28,9 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Base for owner-account screens. These views are never cached on the device: sessions, devices,
- * budgets and backups are always read from the backend. An action blocked by the backend's
- * recent-authentication rule is remembered and re-run once the owner confirms the password.
+ * Base for the budget, backup and export screens. These views are always read fresh from the
+ * engine. An action refused for lack of a recent device-lock confirmation is remembered and re-run
+ * once the owner confirms.
  */
 abstract class AccountViewModel : ViewModel() {
     private val _action = MutableStateFlow<ActionState>(ActionState.Idle)
@@ -81,85 +77,6 @@ abstract class AccountViewModel : ViewModel() {
         _action.value = ActionState.Idle
     }
 }
-
-data class SecurityState(
-    val me: Me? = null,
-    val sessions: List<SessionInfo> = emptyList(),
-    val devices: List<Device> = emptyList(),
-    val totpSetup: TotpSetup? = null,
-    val recoveryCodes: List<String>? = null,
-    val loading: Boolean = true,
-    val loadError: String? = null,
-)
-
-/** FR-002: two-factor authentication, recovery codes, password, sessions and devices. */
-@HiltViewModel
-class SecurityViewModel
-    @Inject
-    constructor(
-        private val repo: Repository,
-    ) : AccountViewModel() {
-        private val _state = MutableStateFlow(SecurityState())
-        val state: StateFlow<SecurityState> = _state.asStateFlow()
-
-        init {
-            load()
-        }
-
-        override fun load() {
-            viewModelScope.launch {
-                runCatching { Triple(repo.me(), repo.sessions(), repo.devices()) }
-                    .onSuccess { (me, sessions, devices) ->
-                        _state.update { it.copy(me = me, sessions = sessions.filter { s -> s.revokedAt == null }, devices = devices.filter { d -> d.revokedAt == null }, loading = false, loadError = null) }
-                    }.onFailure { e -> _state.update { it.copy(loading = false, loadError = Repository.message(e)) } }
-            }
-        }
-
-        fun startTotpSetup() = act("Scan the key in your authenticator app, then enter a code to finish") { _state.update { it.copy(totpSetup = repo.beginTotpSetup()) } }
-
-        fun confirmTotp(input: String) {
-            val code = TotpCode.normalize(input) ?: return fail("Enter the 6-digit code from your authenticator app")
-            act("Two-factor authentication is on") {
-                repo.confirmTotp(code)
-                _state.update { it.copy(totpSetup = null) }
-            }
-        }
-
-        fun cancelTotpSetup() = _state.update { it.copy(totpSetup = null) }
-
-        fun disableTotp(input: String) {
-            val code = TotpCode.normalize(input) ?: return fail("Enter the 6-digit code from your authenticator app")
-            act("Two-factor authentication is off") { repo.disableTotp(code) }
-        }
-
-        fun regenerateRecoveryCodes() =
-            act("New recovery codes created; the old ones no longer work") {
-                val codes = repo.regenerateRecoveryCodes().recoveryCodes
-                _state.update { it.copy(recoveryCodes = codes) }
-            }
-
-        fun dismissRecoveryCodes() = _state.update { it.copy(recoveryCodes = null) }
-
-        fun changePassword(
-            current: String,
-            new: String,
-            confirm: String,
-        ) {
-            if (new != confirm) return fail("The new passwords do not match")
-            if (new.length < MIN_PASSWORD) return fail("The new password must have at least $MIN_PASSWORD characters")
-            act("Password changed") { repo.changePassword(current, new) }
-        }
-
-        fun revokeSession(id: String) = act("Session signed out") { repo.revokeSession(id) }
-
-        fun revokeOtherSessions() = act("All other sessions signed out") { repo.revokeOtherSessions() }
-
-        fun revokeDevice(id: String) = act("Device removed; it no longer receives notifications") { repo.revokeDevice(id) }
-
-        companion object {
-            const val MIN_PASSWORD = 12
-        }
-    }
 
 /** FR-037: AI spending and request ceilings. Raising a ceiling requires recent authentication. */
 @HiltViewModel
@@ -209,11 +126,12 @@ data class BackupsState(
     val loadError: String? = null,
 )
 
-/** FR-112: encrypted backups on the backend host. Restore stays an offline, host-side command. */
+/** FR-112: on-device backups, copies saved to and restored from files the owner picks. */
 @HiltViewModel
 class BackupsViewModel
     @Inject
     constructor(
+        private val app: Application,
         private val repo: Repository,
     ) : AccountViewModel() {
         private val _state = MutableStateFlow(BackupsState())
@@ -231,12 +149,38 @@ class BackupsViewModel
             }
         }
 
-        fun create() = act("Encrypted backup created") { repo.createBackup() }
+        fun create() = act("Backup created") { repo.createBackup() }
 
         fun verify(name: String) =
             act("Verification finished") {
                 val v = repo.verifyBackup(name)
                 _state.update { it.copy(verifications = it.verifications + (name to v)) }
+            }
+
+        /** Replaces all data with the backup (after a device-lock confirmation). */
+        fun restore(name: String) =
+            act("Backup restored") {
+                repo.restoreBackup(name)
+                repo.clearCache()
+            }
+
+        fun saveCopy(
+            name: String,
+            target: Uri,
+        ) = act("Copy saved") {
+            withContext(Dispatchers.IO) {
+                val out = app.contentResolver.openOutputStream(target) ?: error("Could not open the chosen file")
+                out.use { o -> BackupFiles.file(app, name).inputStream().use { it.copyTo(o) } }
+            }
+        }
+
+        /** Copies a chosen file into backup storage and verifies it; restoring is a separate step. */
+        fun importFile(source: Uri) =
+            act("Backup imported; verify it, then choose Restore") {
+                val name = withContext(Dispatchers.IO) { BackupFiles.import(app, source) }
+                val v = repo.verifyBackup(name)
+                _state.update { it.copy(verifications = it.verifications + (name to v)) }
+                if (!v.valid) error("The file is not a valid StrategyForge backup: ${v.error}")
             }
     }
 

@@ -14,7 +14,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,22 +35,24 @@ fun MoreScreen(
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         SectionTitle("More")
         listOf(
+            "engine" to "Market data and background running",
+            "ai-providers" to "AI providers and keys",
+            "research" to "AI research",
+            "budget" to "AI budget",
             "reports" to "Reports",
             "exports" to "Exports (CSV / JSON)",
-            "settings" to "Settings, providers and privacy",
-            "security" to "Security: two-factor, password, sessions, devices",
-            "budget" to "AI budget",
             "backups" to "Backups",
+            "settings" to "Settings and privacy",
             "diagnostics" to "Diagnostics",
             "emergency" to "Emergency controls",
-            "research" to "AI research",
         ).forEach { (route, label) ->
             OutlinedButton(onClick = { nav.navigate(route) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
         }
         SectionTitle("About")
-        Text("StrategyForge ${BuildConfig.VERSION_NAME}. Private, single-owner paper-trading app. There is no real-money trading, brokerage connection or order routing in this version.")
-        Text("Backend: ${session.config.serverUrl ?: "not configured"}")
-        Button(onClick = session::signOut, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }
+        Text(
+            "StrategyForge ${BuildConfig.VERSION_NAME}. Private, single-owner paper-trading app that runs entirely on this phone. " +
+                "All trading is simulated: there is no real money, brokerage connection or order routing.",
+        )
     }
 }
 
@@ -63,9 +64,9 @@ fun SettingsScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
-    val providers by vm.providers.collectAsStateWithLifecycle()
     var redact by rememberSaveable { mutableStateOf(vm.config.redactUnlocked) }
     var secure by rememberSaveable { mutableStateOf(vm.config.secureScreen) }
+    var lock by rememberSaveable { mutableStateOf(vm.config.appLock) }
     var showReauth by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         SectionTitle("Settings")
@@ -93,7 +94,6 @@ fun SettingsScreen(
                 }
             }
             Button(onClick = { vm.save(s, tz.trim(), currency, showCad, theme) }) { Text("Save") }
-            Text("Risk limits and notification categories are managed on the backend and apply to every device.")
         }
         SectionTitle("Privacy on this device")
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -112,15 +112,13 @@ fun SettingsScreen(
             Spacer(Modifier.width(8.dp))
             Text("Block screenshots and recent-apps previews (applies on next launch)")
         }
-        SectionTitle("Providers")
-        Text("Provider credentials are stored encrypted on the backend and are never sent to this app.")
-        providers.forEach { p ->
-            SfCard {
-                LabelValue(p.displayName, "${p.kind} · ${p.providerType}${if (p.active) " · active" else ""}")
-                p.lastTestStatus?.let { LabelValue("Last test", it) }
-                p.lastTestDetail?.let { Text(it) }
-                TextButton(onClick = { vm.testProvider(p.id) }) { Text("Run diagnostics") }
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(checked = lock, onCheckedChange = {
+                lock = it
+                vm.config.appLock = it
+            })
+            Spacer(Modifier.width(8.dp))
+            Text("Ask for the screen lock when the app opens")
         }
         ActionFeedback(action, onReauth = { showReauth = true })
     }

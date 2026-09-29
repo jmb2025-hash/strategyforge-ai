@@ -47,13 +47,11 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            buildConfigField("boolean", "ALLOW_INSECURE_LOCAL", "true")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("boolean", "ALLOW_INSECURE_LOCAL", "false")
             signingConfig = signingConfigs.findByName("release")
         }
     }
@@ -80,8 +78,22 @@ android {
     }
 
     packaging {
-        resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/LICENSE*", "/META-INF/NOTICE*")
+        resources.excludes +=
+            setOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/LICENSE*",
+                "/META-INF/NOTICE*",
+                "/META-INF/*.md",
+                "/META-INF/FastDoubleParser-*",
+                "/META-INF/DEPENDENCIES",
+                "/META-INF/INDEX.LIST",
+                "/META-INF/versions/*/module-info.class",
+                "/module-info.class",
+            )
     }
+
+    // Recorded replay market data for demo mode (D-006), read by the engine from assets/replay.
+    sourceSets["main"].assets.srcDir("../../fixtures")
 }
 
 kotlin {
@@ -90,6 +102,8 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+    // The on-device trading engine (D-027).
+    implementation(project(":engine"))
     implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
     implementation(libs.splashscreen)
@@ -106,13 +120,9 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.androidx.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
-    implementation(libs.work.runtime)
-    implementation(libs.firebase.messaging)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
@@ -122,7 +132,6 @@ dependencies {
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.okhttp.mockwebserver)
-    testImplementation(libs.work.testing)
     debugImplementation(libs.compose.ui.test.manifest)
 }
 

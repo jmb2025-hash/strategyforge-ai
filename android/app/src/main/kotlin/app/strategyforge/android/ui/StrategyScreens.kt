@@ -54,7 +54,7 @@ fun StrategiesScreen(
             OutlinedButton(onClick = { nav.navigate("research") }) { Text("AI research") }
         }
         if (showImport) {
-            Text("Paste a strategy file (JSON, schema 1.0). It is validated on the backend; unknown content requires manual review and executable content is rejected.")
+            Text("Paste a strategy file (JSON, schema 1.0). It is validated on this phone; unknown content requires manual review and executable content is rejected.")
             Field("Strategy JSON", json, { json = it }, singleLine = false, modifier = Modifier.testTag("strategy-json"))
             Button(onClick = { vm.import(json) }, enabled = json.isNotBlank()) { Text("Validate and import") }
         }
@@ -222,7 +222,7 @@ fun ResearchListScreen(
             }
         }
         SectionTitle("New research")
-        if (providers.isEmpty()) Text("Configure an AI provider on the backend first (More → Settings → Providers).")
+        if (providers.isEmpty()) Text("Add an AI provider first (More → AI providers and keys). Google Gemini has a free tier.")
         providers.forEach { p -> FilterChip(selected = providerId == p.id, onClick = { providerId = p.id }, label = { Text("${p.displayName} (${p.providerType})") }) }
         Field("Title", title, { title = it })
         Row {

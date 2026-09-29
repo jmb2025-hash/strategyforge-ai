@@ -95,11 +95,6 @@ fun MainShell(
     val dash by home.state.collectAsStateWithLifecycle()
     val anyActive = (dash as? Resource.Data<Dashboard>)?.value?.strategies?.any { it.status.startsWith("ACTIVE") } == true
     val paused = (dash as? Resource.Data<Dashboard>)?.value?.emergency?.pauseAll == true
-    // A revoked or expired session (HTTP 401) returns to the sign-in screen.
-    LaunchedEffect(dash) {
-        val err = (dash as? Resource.Failure)?.error ?: (dash as? Resource.Data<Dashboard>)?.error
-        if (err is app.strategyforge.android.core.api.ApiError.Unauthorized) session.signOut()
-    }
     LaunchedEffect(pendingRoute) {
         pendingRoute?.let {
             nav.navigate(routeFor(it))
@@ -178,7 +173,8 @@ fun MainShell(
                     ),
             ) { ReportsScreen(hiltViewModel(), fmt) }
             composable("settings") { SettingsScreen(hiltViewModel(), fmt, session) }
-            composable("security") { SecurityScreen(hiltViewModel(), fmt, session) }
+            composable("ai-providers") { AiProvidersScreen(hiltViewModel(), session) }
+            composable("engine") { EngineScreen(hiltViewModel(), fmt, session) }
             composable("budget") { BudgetScreen(hiltViewModel(), fmt, session) }
             composable("backups") { BackupsScreen(hiltViewModel(), fmt, session) }
             composable("exports") { ExportsScreen(hiltViewModel(), session) }

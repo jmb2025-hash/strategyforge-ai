@@ -103,6 +103,7 @@ class LocalResponse(
  */
 class LocalApi(
     private val engine: Engine,
+    private val scheduler: app.strategyforge.engine.EngineScheduler? = null,
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -232,7 +233,32 @@ class LocalApi(
 
     private fun access() {
         get("/v1/bootstrap") { _, _ -> mapOf("bootstrapped" to true, "bootstrapTokenRequired" to false) }
+        // The app calls this only after the owner passes the device-lock prompt (D-029); the
+        // request never leaves the phone and nothing else can reach this in-process API.
+        post("/v1/auth/reauthenticate") { _, _ ->
+            engine.auth.confirmed()
+            mapOf("confirmed" to true)
+        }
+        get("/v1/runtime") { _, _ -> runtime() }
+        put("/v1/runtime") { r, _ ->
+            val b = obj(r)
+            b.str("marketMode")?.let { engine.setMarketMode(enumOf<MarketMode>(it, "marketMode")) }
+            b.int("demoStepMinutes")?.let { v ->
+                val s = scheduler ?: throw Problems.unavailable("scheduler-unavailable", "The background engine is not running")
+                if (v !in 0..60) throw Problems.badRequest("invalid-demo-speed", "Demo speed must be 0-60 replay minutes per tick")
+                s.demoStepMinutes = v.toLong()
+            }
+            runtime()
+        }
     }
+
+    private fun runtime() =
+        mapOf(
+            "marketMode" to engine.marketMode(),
+            "demoStepMinutes" to scheduler?.demoStepMinutes,
+            "marketTime" to engine.marketClock.now(),
+            "tickSeconds" to app.strategyforge.engine.EngineScheduler.TICK_INTERVAL.seconds,
+        )
 
     // ------------------------------------------------------------------ home, diagnostics, market data
 
@@ -644,6 +670,24 @@ class LocalApi(
             val settings = (b["settings"] as? JsonObject)?.mapValues { (_, v) -> (v as? JsonPrimitive)?.contentOrNull ?: v.toString() } ?: type.presets
             provider(engine.aiProviders.create(type, b.str("displayName") ?: type.label, settings, b.str("credential")))
         }
+        get("/v1/providers/types") { _, _ ->
+            AiProviderType.entries.map { t ->
+                mapOf(
+                    "providerType" to t.name,
+                    "label" to t.label,
+                    "presets" to t.presets,
+                    "keyUrl" to t.keyUrl,
+                    "settings" to t.settings.map { (k, v) -> mapOf("name" to k, "type" to v.type.name, "required" to v.required) },
+                )
+            }
+        }
+        put("/v1/providers/{id}") { r, g ->
+            val b = obj(r)
+            val cur = engine.aiProviders.get(uuid(g[0]))
+            val settings = (b["settings"] as? JsonObject)?.mapValues { (_, v) -> (v as? JsonPrimitive)?.contentOrNull ?: v.toString() } ?: cur.settings
+            provider(engine.aiProviders.update(cur.id, b.str("displayName") ?: cur.displayName, settings))
+        }
+        post("/v1/providers/{id}/activate") { r, g -> provider(engine.aiProviders.setActive(uuid(g[0]), obj(r).bool("active") ?: true)) }
         put("/v1/providers/{id}/credential") { r, g -> provider(engine.aiProviders.setKey(uuid(g[0]), obj(r).str("credential"))) }
         post("/v1/providers/{id}/test") { _, g ->
             if (g[0] == COINBASE_ID) {

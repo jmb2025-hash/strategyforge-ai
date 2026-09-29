@@ -3,27 +3,15 @@ package app.strategyforge.android
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import androidx.hilt.work.HiltWorkerFactory
-import androidx.work.Configuration
 import app.strategyforge.android.core.notify.Channel
-import app.strategyforge.android.push.SyncWorker
+import app.strategyforge.android.engine.EngineService
 import dagger.hilt.android.HiltAndroidApp
-import javax.inject.Inject
 
 @HiltAndroidApp
-class StrategyForgeApp :
-    Application(),
-    Configuration.Provider {
-    @Inject
-    lateinit var workerFactory: HiltWorkerFactory
-
-    override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
-
+class StrategyForgeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         createChannels()
-        SyncWorker.schedule(this)
     }
 
     /** One channel per notification category (section 14). Critical channels use high importance. */
@@ -38,5 +26,6 @@ class StrategyForgeApp :
                 },
             )
         }
+        EngineService.createChannel(this)
     }
 }

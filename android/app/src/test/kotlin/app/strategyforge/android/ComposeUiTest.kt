@@ -17,12 +17,8 @@ import app.strategyforge.android.core.api.SfJson
 import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.data.Dashboard
 import app.strategyforge.android.core.model.RecommendationDetail
-import app.strategyforge.android.core.state.AccessState
-import app.strategyforge.android.core.state.AccessStep
 import app.strategyforge.android.core.state.RecommendationPresenter
 import app.strategyforge.android.core.state.RecommendationState
-import app.strategyforge.android.ui.AccessActions
-import app.strategyforge.android.ui.AccessScreen
 import app.strategyforge.android.ui.DashboardContent
 import app.strategyforge.android.ui.FreshnessBanner
 import app.strategyforge.android.ui.RecommendationContent
@@ -121,16 +117,17 @@ class ComposeUiTest {
         val now = Instant.parse("2026-06-22T14:00:00Z")
         val r = Resource.Data("x", Instant.parse("2026-06-22T13:50:00Z"), fromCache = true, stale = true, refreshing = false, offline = true, error = ApiError.Offline(null))
         rule.setContent { SfTheme { FreshnessBanner(r, fmt, now) } }
-        rule.onNodeWithText("Warning: Offline. Showing data from 10 min ago; actions are unavailable until the backend is reachable.").assertIsDisplayed()
+        rule.onNodeWithText("Warning: Offline. Showing data from 10 min ago; actions are unavailable until the engine responds.").assertIsDisplayed()
     }
 
     @Test
-    fun `first-run recovery codes are shown with a confirmation`() {
-        var saved = false
-        val actions = AccessActions({}, { _, _, _, _ -> }, { _, _, _ -> }, { _, _, _ -> }, {}, {}, { saved = true }, {})
-        rule.setContent { SfTheme { AccessScreen(AccessState(step = AccessStep.RECOVERY_CODES, recoveryCodes = listOf("aaaa-bbbb", "cccc-dddd")), actions) } }
-        assertEquals(2, rule.onAllNodesWithTag("code").fetchSemanticsNodes().size)
-        rule.onNodeWithText("I have stored them safely").performClick()
-        assertEquals(true, saved)
+    fun `the lock screen asks for the device lock on open and again from its button`() {
+        var prompts = 0
+        rule.setContent { SfTheme { LockScreen(onUnlock = { prompts++ }) } }
+        rule.onNodeWithText("StrategyForge is locked").assertIsDisplayed()
+        rule.waitForIdle()
+        assertEquals(1, prompts)
+        rule.onNodeWithTag("unlock").performClick()
+        assertEquals(2, prompts)
     }
 }

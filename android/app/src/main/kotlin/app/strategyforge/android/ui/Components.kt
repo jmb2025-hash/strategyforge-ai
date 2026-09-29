@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -146,8 +147,8 @@ fun FreshnessBanner(
     now: Instant = Instant.now(),
 ) {
     when {
-        resource.offline -> Banner("Offline. Showing data from ${fmt.age(resource.fetchedAt, now)}; actions are unavailable until the backend is reachable.", BannerKind.WARNING)
-        resource.error is ApiError.Unauthorized -> Banner("Session expired. Sign in again.", BannerKind.ERROR)
+        resource.offline -> Banner("Offline. Showing data from ${fmt.age(resource.fetchedAt, now)}; actions are unavailable until the engine responds.", BannerKind.WARNING)
+        resource.error is ApiError.Unauthorized -> Banner("Please unlock the app again.", BannerKind.ERROR)
         resource.error != null -> Banner("Could not refresh: ${resource.error?.message}. Showing data from ${fmt.age(resource.fetchedAt, now)}.", BannerKind.WARNING)
         resource.refreshing && resource.fromCache -> Banner("Showing cached data from ${fmt.age(resource.fetchedAt, now)}; refreshing…")
         resource.stale -> Banner("Data from ${fmt.age(resource.fetchedAt, now)} may be stale.", BannerKind.WARNING)
@@ -189,7 +190,7 @@ fun ErrorState(
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         val text =
             when (error) {
-                is ApiError.Offline -> "Offline: the backend could not be reached and nothing is cached yet."
+                is ApiError.Offline -> "The on-device engine did not respond and nothing is cached yet. Try again in a moment."
                 is ApiError.Http -> if (error.permissionDenied) "Permission denied: ${error.message}" else error.message ?: "Request failed"
                 else -> error.message ?: "Request failed"
             }
@@ -198,7 +199,7 @@ fun ErrorState(
     }
 }
 
-/** Shows the result of the last action; failures that need recent authentication open the password prompt. */
+/** Shows the result of the last action; failures that need recent authentication open the device-lock prompt. */
 @Composable
 fun ActionFeedback(
     action: ActionState,
@@ -211,7 +212,7 @@ fun ActionFeedback(
         is ActionState.Failed ->
             Column {
                 Banner(action.message, BannerKind.ERROR)
-                if (action.needsReauth && onReauth != null) Button(onClick = onReauth) { Text("Confirm password") }
+                if (action.needsReauth && onReauth != null) Button(onClick = onReauth) { Text("Confirm it's you") }
             }
     }
 }
@@ -268,27 +269,25 @@ fun Field(
     )
 }
 
-/** Password confirmation for operations the backend protects with recent authentication. */
+/**
+ * "Confirm it's you" with the phone's own lock (fingerprint, face or screen-lock PIN), D-029.
+ * [onConfirm] runs only after the prompt succeeds; its password arguments are unused on the phone.
+ */
 @Composable
 fun ReauthDialog(
     onDismiss: () -> Unit,
     onConfirm: (password: String, totp: String?) -> Unit,
 ) {
-    var password by remember { mutableStateOf("") }
-    var totp by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Confirm it's you") },
-        text = {
-            Column {
-                Text("This action changes safety settings. Enter your password.")
-                Field("Password", password, { password = it }, password = true)
-                Field("Authenticator code (if enabled)", totp, { totp = it }, number = true)
-            }
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(password, totp.ifBlank { null }) }, enabled = password.isNotBlank()) { Text("Confirm") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        app.strategyforge.android.platform.DeviceAuth.prompt(
+            context,
+            "Confirm it's you",
+            "This action changes safety settings or keys",
+            onSuccess = { onConfirm("", null) },
+            onCancel = onDismiss,
+        )
+    }
 }
 
 @Composable
