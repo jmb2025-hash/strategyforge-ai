@@ -110,4 +110,18 @@ class ResearchUiTest {
         rule.onNodeWithTag("open-strategy").performScrollTo().performClick()
         assertEquals(listOf("st1"), opened)
     }
+
+    @Test
+    fun `D-040 the message box counts characters against the budget limit and blocks sending when too long`() {
+        var started = 0
+        rule.setContent { SfTheme { NewResearch(busy = false, limit = 20) { _, _ -> started++ } } }
+        rule.onNodeWithTag("research-message").performTextReplacement("Research Chart Champions")
+        rule.onNodeWithText("24 / 20 characters", substring = true).assertExists()
+        rule.onNodeWithText("More → AI budget", substring = true).assertExists()
+        rule.onNodeWithTag("start-research").assertIsNotEnabled()
+        rule.onNodeWithTag("research-message").performTextReplacement("Research BTC")
+        rule.onNodeWithText("12 / 20 characters").assertExists()
+        rule.onNodeWithTag("start-research").assertIsEnabled().performClick()
+        assertEquals(1, started)
+    }
 }

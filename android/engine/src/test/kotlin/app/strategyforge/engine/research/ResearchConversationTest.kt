@@ -189,4 +189,25 @@ class ResearchConversationTest {
         assertThat(v.lastTestStatus).isEqualTo("FAILED")
         assertThat(v.lastTestDetail).contains("HTTP 400").contains("API key not valid").doesNotContain("AIza-test-not-real")
     }
+
+    @Test
+    fun `D-040 a long pasted message is accepted up to the AI budget's input ceiling`() {
+        gemini()
+        val limit = e.research.messageLimit()
+        assertThat(limit).`as`("the default 60,000-character ceiling leaves room for long messages").isGreaterThan(40_000)
+
+        server.enqueue(json(Fixtures.gemini("Summary of the pasted rules.", "STOP")))
+        val long = "Rule: buy when the close crosses above the 20-bar high. ".repeat(20_000 / 56 + 1).take(20_000)
+        val d = e.research.startConversation(ConversationStart(long, "CRYPTO"))
+        assertThat(d.runs.single().status).isEqualTo("SUCCEEDED")
+        assertThat(userText(sent())).contains(long)
+
+        assertThat(e.research.messageLimit("CRYPTO", null)).`as`("the app shows the smaller of the two limits").isGreaterThanOrEqualTo(limit)
+        val cryptoLimit = e.research.messageLimit("CRYPTO", null)
+        val tooLong = "x".repeat(cryptoLimit + 1)
+        val err = assertThrows<EngineException> { e.research.message(d.session.id, tooLong) }
+        assertThat(err.code).isEqualTo("message-too-long")
+        assertThat(err.message).contains("${cryptoLimit + 1} characters").contains("More → AI budget")
+        assertThat(assertThrows<EngineException> { e.research.startConversation(ConversationStart(tooLong, "CRYPTO")) }.code).isEqualTo("message-too-long")
+    }
 }

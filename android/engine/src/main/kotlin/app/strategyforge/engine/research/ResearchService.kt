@@ -238,8 +238,8 @@ class ResearchService(
 
     /** Creates a conversation from the owner's first message and sends it to the AI. */
     fun startConversation(req: ConversationStart): ResearchDetail {
-        val message = checkedMessage(req.message)
         val asset = runCatching { AssetClass.valueOf(req.assetClass) }.getOrElse { throw Problems.badRequest("invalid-asset-class", "assetClass must be US_EQUITY or CRYPTO") }
+        val message = checkedMessage(req.message, messageLimit(asset.name, null))
         val p = req.providerId?.let { aiProvider(it) } ?: defaultProvider()
         val title = (req.title?.trim()?.takeIf { it.isNotEmpty() } ?: message.lineSequence().first().trim()).let { if (it.length > MAX_TITLE) it.take(MAX_TITLE - 1) + "…" else it }
         val id = UUID.randomUUID()
@@ -275,12 +275,44 @@ class ResearchService(
     fun message(
         id: UUID,
         text: String,
-    ): ResearchDetail = turn(id, checkedMessage(text))
+    ): ResearchDetail = turn(id, checkedMessage(text, null))
 
-    private fun checkedMessage(text: String): String {
+    /**
+     * The longest message that fits the AI budget's input ceiling together with the app's
+     * instructions and context (D-040); earlier turns are dropped to make room, the message is not.
+     */
+    fun messageLimit(
+        assetClass: String,
+        legacyContext: String?,
+    ): Int {
+        val fixed = ResearchPrompts.conversationPrompt(assetClass, tradable(assetClass), legacyContext, emptyList(), "").length
+        return (budgets.get().maxInputChars - ResearchPrompts.CONVERSATION_SYSTEM.length - fixed - PROMPT_MARGIN).coerceAtLeast(0)
+    }
+
+    /** The limit shown in the app: the smaller of the crypto and stock limits for a new conversation. */
+    fun messageLimit(): Int = minOf(messageLimit(AssetClass.CRYPTO.name, null), messageLimit(AssetClass.US_EQUITY.name, null))
+
+    private fun checkedMessage(
+        text: String,
+        limit: Int?,
+    ): String {
         val m = text.trim()
-        if (m.isEmpty() || m.length > MAX_PROMPT) throw Problems.badRequest("invalid-message", "Write a message of 1-$MAX_PROMPT characters")
+        if (m.isEmpty()) throw Problems.badRequest("invalid-message", "Write a message first")
+        if (limit != null) tooLong(m, limit)
         return m
+    }
+
+    private fun tooLong(
+        m: String,
+        limit: Int,
+    ) {
+        if (m.length > limit) {
+            throw Problems.badRequest(
+                "message-too-long",
+                "Your message is ${m.length} characters; it can be at most $limit with the current AI budget. " +
+                    "Shorten it, or raise the maximum input characters in More → AI budget.",
+            )
+        }
     }
 
     /** The first active provider with a key, Gemini first. */
@@ -301,6 +333,7 @@ class ResearchService(
                 val p = aiProvider(s.providerId)
                 val retrieval = clients.retrievalAvailable(p) && p.webSearchPrice() != null
                 val context = legacyContext(s)
+                tooLong(message, messageLimit(s.assetClass, context))
                 val base = ResearchPrompts.conversationPrompt(s.assetClass, tradable(s.assetClass), context, emptyList(), message)
                 val room = budgets.get().maxInputChars - ResearchPrompts.CONVERSATION_SYSTEM.length - base.length - PROMPT_MARGIN
                 val prompt = ResearchPrompts.conversationPrompt(s.assetClass, tradable(s.assetClass), context, fittingHistory(id, s, room), message)

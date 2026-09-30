@@ -57,6 +57,7 @@ fun ResearchListScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
     val started by vm.started.collectAsStateWithLifecycle()
+    val limit by vm.limit.collectAsStateWithLifecycle()
     LaunchedEffect(started) {
         started?.let {
             vm.consumeStarted()
@@ -64,7 +65,7 @@ fun ResearchListScreen(
         }
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-        NewResearch(action is ActionState.Running, onStart = vm::start)
+        NewResearch(action is ActionState.Running, limit, onStart = vm::start)
         ActionFeedback(action)
         SectionTitle("Your research")
         ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No research yet.", art = Art.RESEARCH) { list ->
@@ -76,12 +77,13 @@ fun ResearchListScreen(
 @Composable
 fun NewResearch(
     busy: Boolean,
+    limit: Int? = null,
     onStart: (message: String, assetClass: String) -> Unit,
 ) {
     var message by rememberSaveable { mutableStateOf("") }
     var asset by rememberSaveable { mutableStateOf("CRYPTO") }
     Column {
-        NewResearchContent(message, { message = it }, asset, { asset = it }, busy) {
+        NewResearchContent(message, { message = it }, asset, { asset = it }, busy, limit) {
             onStart(message, asset)
             message = ""
         }
@@ -95,6 +97,7 @@ private fun NewResearchContent(
     asset: String,
     onAsset: (String) -> Unit,
     busy: Boolean,
+    limit: Int?,
     onStart: () -> Unit,
 ) {
     SectionTitle("Research an investor or strategy")
@@ -111,9 +114,10 @@ private fun NewResearchContent(
         }
     }
     Field("What should the AI research?", message, onMessage, singleLine = false, modifier = Modifier.testTag("research-message"))
+    CharCount(message.trim().length, limit)
     Button(
         onClick = onStart,
-        enabled = message.isNotBlank() && !busy,
+        enabled = message.isNotBlank() && !busy && fits(message, limit),
         modifier = Modifier.fillMaxWidth().testTag("start-research"),
     ) { Text("Start research") }
 }
@@ -146,6 +150,7 @@ fun ResearchDetailScreen(
 ) {
     val detail by vm.detail.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
+    val limit by vm.limit.collectAsStateWithLifecycle()
     var confirmCompile by rememberSaveable { mutableStateOf(false) }
     val d = detail
     if (d == null) {
@@ -163,6 +168,7 @@ fun ResearchDetailScreen(
         onRetry = vm::retry,
         onCompile = { confirmCompile = true },
         onOpenStrategy = { nav.navigate("strategy/$it") },
+        limit = limit,
     )
     if (confirmCompile) {
         ConfirmDialog(
@@ -187,6 +193,7 @@ fun ResearchConversation(
     onRetry: () -> Unit,
     onCompile: () -> Unit,
     onOpenStrategy: (String) -> Unit,
+    limit: Int? = null,
 ) {
     val running = d.session.status == "RUNNING"
     val research = d.runs.filter { it.purpose == "RESEARCH" }
@@ -212,12 +219,13 @@ fun ResearchConversation(
             OutlinedButton(onClick = onRetry, modifier = Modifier.testTag("retry")) { Text("Try again") }
         }
         Field("Reply or ask a follow-up question", reply, { reply = it }, singleLine = false, modifier = Modifier.testTag("reply"))
+        CharCount(reply.trim().length, limit)
         Button(
             onClick = {
                 onSend(reply)
                 reply = ""
             },
-            enabled = reply.isNotBlank() && !running && action !is ActionState.Running,
+            enabled = reply.isNotBlank() && !running && action !is ActionState.Running && fits(reply, limit),
             modifier = Modifier.fillMaxWidth().testTag("send"),
         ) { Text("Send") }
         ActionFeedback(action)
@@ -324,3 +332,25 @@ private fun issueMessages(c: Compilation): List<String> =
         .orEmpty()
 
 private const val MAX_ISSUES = 5
+
+private fun fits(
+    text: String,
+    limit: Int?,
+) = limit == null || text.trim().length <= limit
+
+/** "1,234 / 49,800 characters", in the error colour with advice once a message is too long (D-040). */
+@Composable
+fun CharCount(
+    length: Int,
+    limit: Int?,
+) {
+    if (limit == null || length == 0) return
+    val over = length > limit
+    Text(
+        String.format(java.util.Locale.US, "%,d / %,d characters", length, limit) +
+            if (over) " — too long: shorten it or raise the maximum input characters in More → AI budget" else "",
+        style = MaterialTheme.typography.labelMedium,
+        color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 4.dp).testTag("char-count"),
+    )
+}

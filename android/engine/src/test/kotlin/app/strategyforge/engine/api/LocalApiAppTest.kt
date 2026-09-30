@@ -378,6 +378,7 @@ class LocalApiAppTest {
 
             ai.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(Fixtures.gemini("Use the 4h chart.", "STOP")))
             d = repo.sendResearchMessage(d.session.id, "Focus on Bitcoin")
+            assertThat(repo.researchMessageLimit()).`as`("D-040 the default budget allows long messages").isGreaterThan(40_000)
             assertThat(d.runs.map { it.ownerMessage }).containsExactly("Research the crypto group Chart Champions", "Focus on Bitcoin")
 
             // The app's compile button: review, then compile.

@@ -645,8 +645,14 @@ class ResearchListViewModel
 
         override fun source() = repo.research()
 
+        private val _limit = MutableStateFlow<Int?>(null)
+
+        /** The longest message the AI budget allows (D-040). */
+        val limit: StateFlow<Int?> = _limit.asStateFlow()
+
         init {
             refresh()
+            viewModelScope.launch { runCatching { _limit.value = repo.researchMessageLimit() } }
         }
 
         fun start(
@@ -678,9 +684,14 @@ class ResearchDetailViewModel
         private val _action = MutableStateFlow<ActionState>(ActionState.Idle)
         val action: StateFlow<ActionState> = _action.asStateFlow()
         private var polling: Job? = null
+        private val _limit = MutableStateFlow<Int?>(null)
+
+        /** The longest message the AI budget allows (D-040). */
+        val limit: StateFlow<Int?> = _limit.asStateFlow()
 
         init {
             load()
+            viewModelScope.launch { runCatching { _limit.value = repo.researchMessageLimit() } }
         }
 
         fun load() {

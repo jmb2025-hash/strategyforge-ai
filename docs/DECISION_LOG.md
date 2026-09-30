@@ -426,3 +426,15 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Editable model.** A provider's model can be edited on its card.
   - **Test size.** The connectivity test allows 1,024 output tokens, so models that think before answering still reply.
 - **Requirements affected:** FR-004, FR-030.
+
+## D-040 Research messages are limited by the AI budget, not a fixed 8,000 characters
+
+- **Date:** 2026-10-01
+- **Context:** The owner wants to paste longer material, such as articles, transcripts or trading rules, into research. The message box was capped at 8,000 characters, a figure left over from the old one-line research question.
+- **Decision:**
+  - **Budget-based limit.** A conversation message may be as long as fits the AI budget's input ceiling (maximum input characters) together with the app's instructions and the tradable-symbol context. The default ceiling is 60,000 characters, which leaves about 50,000 for the message; the ceiling can be raised up to 400,000 in More → AI budget.
+  - **Oldest turns dropped first.** Earlier turns are still dropped, oldest first, to make room; the new message is never cut.
+  - **Clear refusal.** A message over the limit is refused with `message-too-long`, which gives its length, the limit and how to raise the ceiling.
+  - **Live counter.** The app shows a character counter against the limit (`GET /v1/research/limits`) and disables sending when a message is over it.
+  - **Spending limits unchanged.** Monthly cost and daily request limits still apply to every call.
+- **Requirements affected:** FR-032, FR-037.

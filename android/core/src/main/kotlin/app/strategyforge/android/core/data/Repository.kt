@@ -68,7 +68,9 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -586,6 +588,13 @@ class Repository(
                 ).body,
             ResearchDetail.serializer(),
         )
+
+    /** The longest research message the AI budget allows (D-040). */
+    suspend fun researchMessageLimit(): Int =
+        api
+            .get("/v1/research/limits")
+            .body.jsonObject["maxMessageChars"]!!
+            .jsonPrimitive.int
 
     suspend fun sendResearchMessage(
         id: String,

@@ -917,6 +917,7 @@ class LocalApi(
                 ),
             )
         }
+        get("/v1/research/limits") { _, _ -> mapOf("maxMessageChars" to engine.research.messageLimit()) }
         post("/v1/research/{id}/messages", 202) { r, g -> researchDetail(engine.research.message(uuid(g[0]), obj(r).req("message"))) }
         get("/v1/research/{id}") { _, g -> researchDetail(engine.research.detail(uuid(g[0]))) }
         post("/v1/research/{id}/run", 202) { _, g -> researchDetail(engine.research.run(uuid(g[0]))) }
