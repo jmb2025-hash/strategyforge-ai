@@ -66,6 +66,7 @@ fun ResearchListScreen(
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         NewResearch(action is ActionState.Running, limit, onStart = vm::start)
+        ImportResearch(action is ActionState.Running, onImport = vm::importResearch)
         ActionFeedback(action)
         SectionTitle("Your research")
         ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No research yet.", art = Art.RESEARCH) { list ->
@@ -260,9 +261,18 @@ private fun Turn(
     }
 }
 
-private fun failureText(r: ResearchRun): String =
+private fun failureText(r: ResearchRun): String {
+    val summary = failureSummary(r)
+    // The provider's own reason (for example which free-tier quota ran out, and for how long) follows the summary (D-041).
+    val reason = r.failureDetail?.substringAfter(": ", "")?.takeIf { it.isNotBlank() && r.failureCode in setOf("RATE_LIMITED", "BAD_REQUEST", "AUTHENTICATION") }
+    return if (reason == null) summary else "$summary\n\nProvider said: $reason"
+}
+
+private fun failureSummary(r: ResearchRun): String =
     when (r.failureCode) {
-        "RATE_LIMITED" -> "The AI provider's rate limit or free quota was reached. Wait a minute and try again."
+        "RATE_LIMITED" ->
+            "The AI provider's rate limit or free quota was reached. On Gemini's free tier this is usually a per-minute limit (wait a minute) " +
+                "or a daily limit (try tomorrow, or add a paid key). Long messages and web searches use more of the quota."
         "AUTHENTICATION" -> "The AI provider rejected the key. Check it in More → AI providers and keys."
         "TIMEOUT" -> "The AI took too long to answer. Try again."
         "TRUNCATED" -> "The answer was too long and got cut off. Ask for a shorter answer, or raise the output limit in More → AI budget."
@@ -353,4 +363,46 @@ fun CharCount(
         color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 4.dp).testTag("char-count"),
     )
+}
+
+/** Paste research done elsewhere (any length); the app digests it if needed and builds the strategy (D-041). */
+@Composable
+fun ImportResearch(
+    busy: Boolean,
+    onImport: (text: String, assetClass: String) -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf("") }
+    var asset by rememberSaveable { mutableStateOf("CRYPTO") }
+    var open by rememberSaveable { mutableStateOf(false) }
+    Column {
+        SectionTitle("Import research from another AI")
+        Text(
+            "Already researched a strategy elsewhere, for example in Claude.ai? Paste the research or the whole conversation here, however long. " +
+                "The app turns it into a strategy in one step; very long text is read in parts first.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (!open) {
+            OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().testTag("open-import")) { Text("Paste research") }
+        } else {
+            Row(Modifier.padding(vertical = 4.dp)) {
+                listOf("CRYPTO" to "Crypto", "US_EQUITY" to "Stocks").forEach { (a, label) ->
+                    FilterChip(selected = asset == a, onClick = { asset = a }, label = { Text(label) }, modifier = Modifier.testTag("import-asset-$a"))
+                    Spacer(Modifier.width(8.dp))
+                }
+            }
+            Field("Paste the research here", text, { text = it }, singleLine = false, modifier = Modifier.testTag("import-text"))
+            if (text.isNotBlank()) {
+                Text(String.format(java.util.Locale.US, "%,d characters", text.trim().length), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(
+                onClick = {
+                    onImport(text, asset)
+                    text = ""
+                    open = false
+                },
+                enabled = text.isNotBlank() && !busy,
+                modifier = Modifier.fillMaxWidth().testTag("import-research"),
+            ) { Text("Turn this research into a strategy") }
+        }
+    }
 }

@@ -190,6 +190,19 @@ class StrategiesViewModel
 
         private val _imported = MutableStateFlow<String?>(null)
         val imported: StateFlow<String?> = _imported.asStateFlow()
+        private val _instructions = MutableStateFlow<String?>(null)
+
+        /** Instructions for the owner's own AI, ready to copy (D-041). */
+        val instructions: StateFlow<String?> = _instructions.asStateFlow()
+
+        fun loadInstructions(assetClass: String) =
+            act("Instructions copied. Paste them into your AI chat, add your research, then paste its reply below.") {
+                _instructions.value = repo.authoringPrompt(assetClass)
+            }
+
+        fun instructionsCopied() {
+            _instructions.value = null
+        }
 
         fun import(json: String) =
             act("Strategy imported") {
@@ -660,6 +673,14 @@ class ResearchListViewModel
             assetClass: String,
         ) = act("Research started") {
             _started.value = repo.startConversation(message.trim(), assetClass).session.id
+        }
+
+        /** Research done elsewhere, pasted in whole (D-041). */
+        fun importResearch(
+            text: String,
+            assetClass: String,
+        ) = act("Research imported; the AI is turning it into a strategy") {
+            _started.value = repo.importResearch(text.trim(), assetClass).session.id
         }
 
         fun consumeStarted() {

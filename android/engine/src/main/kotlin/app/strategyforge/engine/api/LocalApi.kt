@@ -917,6 +917,16 @@ class LocalApi(
                 ),
             )
         }
+        post("/v1/research/imports", 201) { r, _ ->
+            val b = obj(r)
+            researchDetail(
+                engine.research.importResearch(
+                    app.strategyforge.engine.research
+                        .ResearchImport(b.req("text"), b.str("assetClass") ?: "CRYPTO", b.str("providerId")?.let { uuid(it) }, b.str("title")),
+                ),
+            )
+        }
+        get("/v1/research/authoring-prompt") { r, _ -> mapOf("prompt" to engine.research.authoringPrompt(r.query["assetClass"] ?: "CRYPTO")) }
         get("/v1/research/limits") { _, _ -> mapOf("maxMessageChars" to engine.research.messageLimit()) }
         post("/v1/research/{id}/messages", 202) { r, g -> researchDetail(engine.research.message(uuid(g[0]), obj(r).req("message"))) }
         get("/v1/research/{id}") { _, g -> researchDetail(engine.research.detail(uuid(g[0]))) }
@@ -959,6 +969,7 @@ class LocalApi(
             "updatedAt" to s.updatedAt,
             // Conversations have no fixed timeframe; the AI proposes it (D-034).
             "conversation" to s.timeframe.isBlank(),
+            "imported" to (s.importChunk != null),
         )
 
     private fun researchDetail(d: ResearchDetail) =

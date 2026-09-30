@@ -279,7 +279,7 @@ class Repository(
     fun strategy(id: String): Flow<Resource<StrategyDetail>> = cached("strategy:$id", StrategyDetail.serializer()) { api.get("/v1/strategies/${seg(id)}").body }
 
     suspend fun importStrategy(json: String): StrategyResult {
-        val content = SfJson.parseToJsonElement(json)
+        val content = SfJson.parseToJsonElement(StrategyText.extract(json))
         return api.decode(api.post("/v1/strategies", buildJsonObject { put("content", content) }).body, StrategyResult.serializer())
     }
 
@@ -589,6 +589,30 @@ class Repository(
             ResearchDetail.serializer(),
         )
 
+    /** Research done elsewhere, pasted in whole; the app digests and compiles it (D-041). */
+    suspend fun importResearch(
+        text: String,
+        assetClass: String,
+    ): ResearchDetail =
+        api.decode(
+            api
+                .post(
+                    "/v1/research/imports",
+                    buildJsonObject {
+                        put("text", text)
+                        put("assetClass", assetClass)
+                    },
+                ).body,
+            ResearchDetail.serializer(),
+        )
+
+    /** Instructions to paste into an AI chat of the owner's own, which replies with a strategy file (D-041). */
+    suspend fun authoringPrompt(assetClass: String): String =
+        api
+            .get("/v1/research/authoring-prompt?assetClass=${q(assetClass)}")
+            .body.jsonObject["prompt"]!!
+            .jsonPrimitive.content
+
     /** The longest research message the AI budget allows (D-040). */
     suspend fun researchMessageLimit(): Int =
         api
@@ -765,5 +789,25 @@ class Repository(
                 is IllegalArgumentException -> e.message ?: "Invalid input"
                 else -> "Unexpected error"
             }
+    }
+}
+
+/**
+ * A strategy file pasted from an AI chat (D-041): the JSON inside a ```json fence if there is one,
+ * else from the first "{" to the last "}", so surrounding explanation is ignored. The engine still
+ * validates everything; this only finds the object.
+ */
+object StrategyText {
+    private val fence = Regex("```(?:json|JSON)?\\s*\\n(.*?)\\n?```", RegexOption.DOT_MATCHES_ALL)
+
+    fun extract(text: String): String {
+        fence
+            .findAll(text)
+            .map { it.groupValues[1].trim() }
+            .firstOrNull { it.startsWith("{") }
+            ?.let { return it }
+        val start = text.indexOf('{')
+        val end = text.lastIndexOf('}')
+        return if (start >= 0 && end > start) text.substring(start, end + 1) else text.trim()
     }
 }

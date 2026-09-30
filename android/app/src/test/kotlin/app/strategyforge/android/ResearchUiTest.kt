@@ -1,6 +1,14 @@
 package app.strategyforge.android
 
 import android.app.Application
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -13,6 +21,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.strategyforge.android.core.api.SfJson
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.state.ActionState
+import app.strategyforge.android.ui.ImportResearch
+import app.strategyforge.android.ui.ImportStrategyPanel
 import app.strategyforge.android.ui.NewResearch
 import app.strategyforge.android.ui.ResearchConversation
 import app.strategyforge.android.ui.SfTheme
@@ -123,5 +133,43 @@ class ResearchUiTest {
         rule.onNodeWithText("12 / 20 characters").assertExists()
         rule.onNodeWithTag("start-research").assertIsEnabled().performClick()
         assertEquals(1, started)
+    }
+
+    @Test
+    fun `D-041 research from another AI can be pasted in whole and turned into a strategy`() {
+        val imported = mutableListOf<Pair<String, String>>()
+        rule.setContent { SfTheme { Column(Modifier.verticalScroll(rememberScrollState())) { ImportResearch(busy = false) { t, a -> imported += t to a } } } }
+        rule.onNodeWithTag("open-import").performClick()
+        rule.onNodeWithTag("import-asset-US_EQUITY").performClick()
+        val long = "Entry and exit rules. ".repeat(5_000)
+        rule.onNodeWithTag("import-text").performTextReplacement(long)
+        rule.onNodeWithText("109,999 characters", substring = true).assertExists()
+        rule.onNodeWithTag("import-research").performScrollTo().performClick()
+        assertEquals(listOf(long to "US_EQUITY"), imported)
+    }
+
+    @Test
+    fun `D-041 instructions for my own AI can be copied and its reply imported`() {
+        val copied = mutableListOf<String>()
+        var imports = 0
+        rule.setContent {
+            SfTheme {
+                var json by remember { mutableStateOf("") }
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    ImportStrategyPanel(json, { json = it }, onCopyInstructions = { copied += it }, onOpenAi = {}, onImport = { imports++ })
+                }
+            }
+        }
+        rule.onNodeWithTag("author-asset-US_EQUITY").performClick()
+        rule.onNodeWithTag("copy-instructions").performClick()
+        assertEquals(listOf("US_EQUITY"), copied)
+        rule.onNodeWithTag("import-strategy").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("strategy-json").performScrollTo().performTextReplacement("Here you go:\n```json\n{}\n```")
+        rule
+            .onNodeWithTag("import-strategy")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
+        assertEquals(1, imports)
     }
 }

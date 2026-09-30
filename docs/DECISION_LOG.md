@@ -438,3 +438,20 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Live counter.** The app shows a character counter against the limit (`GET /v1/research/limits`) and disables sending when a message is over it.
   - **Spending limits unchanged.** Monthly cost and daily request limits still apply to every call.
 - **Requirements affected:** FR-032, FR-037.
+
+## D-041 Research done elsewhere: import it, or have your own AI write the strategy
+
+- **Date:** 2026-10-01
+- **Context:** The owner researches strategies in other AI tools, for example Claude.ai on their Pro plan, and wants to bring that research in. Sending a long message in a Gemini free-tier conversation hit Google's quota: HTTP 429, which the app reported without Google's reason.
+- **Decision:**
+  - **Clearer quota errors.** Research failures now show the provider's own explanation, such as which quota ran out and when to retry, under a plain summary.
+  - **Use your own AI.** On Create / import, **Copy instructions** puts a prompt on the clipboard. It contains the strategy schema, the pattern guide and the tradable symbols, and asks for one JSON object with `createdBy` set to IMPORTED.
+    - The owner pastes it with their research into their own AI chat, then pastes the reply back.
+    - The importer takes the JSON from a fenced block, or from the first `{` to the last `}`, so surrounding chat is ignored.
+    - The regular validator decides, exactly as for any import. No app AI request or cost is involved.
+  - **Import research.** On the research screen, the owner can paste research of any length, up to 2,000,000 characters. The owner supplied the text, so it counts as reviewed.
+    - If it fits one compile request, it is recorded as the research (no AI call) and compiled directly.
+    - Otherwise it is split at paragraph, line or sentence breaks into parts that fit the budget's input ceiling. The AI extracts the trading rules from each part, one request at a time, without web search. The extracts are then compiled together.
+    - A failure (for example a quota error) pauses the import; **Try again** resumes at the failed part.
+    - Budget ceilings apply to every request. Migration 4 adds `research_sessions.import_chunk`.
+- **Requirements affected:** FR-032 to FR-037.

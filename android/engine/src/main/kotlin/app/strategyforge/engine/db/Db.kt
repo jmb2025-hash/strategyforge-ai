@@ -104,6 +104,9 @@ class Db(
                 Migration(3, "Strategy slots: open positions handed over to the strategy that replaced their opener") { db ->
                     db.addColumn("position_lots", "managed_by_strategy_id", "TEXT")
                 },
+                Migration(4, "Imported research: the part size used to split long pasted research") { db ->
+                    db.addColumn("research_sessions", "import_chunk", "INTEGER")
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1

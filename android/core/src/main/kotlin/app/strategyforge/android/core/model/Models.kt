@@ -542,6 +542,8 @@ data class ResearchSession(
     val conversation: Boolean = false,
     /** The first message (or, for older form-based research, the research question). */
     val prompt: String = "",
+    /** Research pasted in from elsewhere (D-041). */
+    val imported: Boolean = false,
 )
 
 @Serializable

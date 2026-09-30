@@ -45,6 +45,16 @@ fun StrategiesScreen(
     val action by vm.action.collectAsStateWithLifecycle()
     val imported by vm.imported.collectAsStateWithLifecycle()
     val slots by vm.slots.collectAsStateWithLifecycle()
+    val instructions by vm.instructions.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(instructions) {
+        instructions?.let {
+            context
+                .getSystemService(android.content.ClipboardManager::class.java)
+                ?.setPrimaryClip(android.content.ClipData.newPlainText("StrategyForge instructions", it))
+            vm.instructionsCopied()
+        }
+    }
     var showImport by rememberSaveable { mutableStateOf(false) }
     var json by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(imported) { imported?.let { nav.navigate("strategy/$it") } }
@@ -59,9 +69,19 @@ fun StrategiesScreen(
         }
         OutlinedButton(onClick = { nav.navigate("scorecards") }, modifier = Modifier.testTag("compare")) { Text("Compare results / build a better strategy") }
         if (showImport) {
-            Text("Paste a strategy file (JSON, schema 1.0). It is validated on this phone; unknown content requires manual review and executable content is rejected.")
-            Field("Strategy JSON", json, { json = it }, singleLine = false, modifier = Modifier.testTag("strategy-json"))
-            Button(onClick = { vm.import(json) }, enabled = json.isNotBlank()) { Text("Validate and import") }
+            ImportStrategyPanel(
+                json,
+                { json = it },
+                onCopyInstructions = vm::loadInstructions,
+                onOpenAi = {
+                    try {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://claude.ai/new")))
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        // No browser installed.
+                    }
+                },
+                onImport = { vm.import(json) },
+            )
         }
         ActionFeedback(action)
         ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No strategies yet. Import one or start AI research.", art = Art.STRATEGIES) { list ->
@@ -338,3 +358,42 @@ private fun symbols(d: app.strategyforge.android.core.model.StrategyDetail): Lis
     (((d.currentVersion?.content as? kotlinx.serialization.json.JsonObject)?.get("universe") as? kotlinx.serialization.json.JsonObject)?.get("symbols") as? kotlinx.serialization.json.JsonArray)
         ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
         .orEmpty()
+
+/**
+ * Create a strategy with an AI of the owner's own (D-041): copy the instructions, paste them and the
+ * research into e.g. Claude.ai, then paste its reply here. The reply may include chat around the JSON.
+ */
+@Composable
+fun ImportStrategyPanel(
+    json: String,
+    onJson: (String) -> Unit,
+    onCopyInstructions: (assetClass: String) -> Unit,
+    onOpenAi: () -> Unit,
+    onImport: () -> Unit,
+) {
+    var asset by rememberSaveable { mutableStateOf("CRYPTO") }
+    Column {
+        SfCard {
+            Text("Use your own AI", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "1. Copy the instructions below (they describe the app's strategy format and tradable symbols).\n" +
+                    "2. Paste them into your AI chat, for example Claude.ai, followed by your research or the whole conversation.\n" +
+                    "3. Copy the AI's reply and paste it in the box below. Extra text around the strategy is ignored.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            ChoiceRow(listOf("CRYPTO" to "Crypto", "US_EQUITY" to "Stocks"), asset, { asset = it }, "author-asset")
+            Row {
+                Button(onClick = { onCopyInstructions(asset) }, modifier = Modifier.testTag("copy-instructions")) { Text("Copy instructions") }
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = onOpenAi) { Text("Open Claude.ai") }
+            }
+        }
+        Text(
+            "Paste a strategy file or an AI's reply containing one. It is validated on this phone; unknown content requires manual review and executable content is rejected.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Field("Strategy (JSON or the AI's reply)", json, onJson, singleLine = false, modifier = Modifier.testTag("strategy-json"))
+        Button(onClick = onImport, enabled = json.isNotBlank(), modifier = Modifier.testTag("import-strategy")) { Text("Validate and import") }
+    }
+}

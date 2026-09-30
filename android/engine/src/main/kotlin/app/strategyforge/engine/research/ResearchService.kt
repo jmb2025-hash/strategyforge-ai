@@ -83,6 +83,16 @@ data class ResearchSession(
     val createdAt: Instant,
     val updatedAt: Instant,
     val version: Long,
+    /** Set for research the owner pasted in (D-041): the size of the parts it is digested in; 0 when it fit whole. */
+    val importChunk: Int? = null,
+)
+
+/** Research done elsewhere and pasted in whole (D-041). */
+data class ResearchImport(
+    val text: String,
+    val assetClass: String = "CRYPTO",
+    val providerId: UUID? = null,
+    val title: String? = null,
 )
 
 data class ResearchRunView(
@@ -315,6 +325,125 @@ class ResearchService(
         }
     }
 
+    // ------------------------------------------------------------------ imported research (D-041)
+
+    /**
+     * Research done elsewhere, pasted in whole. If it fits one compile request it is compiled directly;
+     * otherwise it is split into parts, the AI extracts the trading rules from each part (one request at
+     * a time, within the budget), and the extracts are compiled together. The owner supplied the text,
+     * so it counts as reviewed; the compiled strategy still goes through validation and backtesting.
+     */
+    fun importResearch(req: ResearchImport): ResearchDetail {
+        val text = req.text.trim()
+        if (text.isEmpty()) throw Problems.badRequest("invalid-message", "Paste the research first")
+        if (text.length > MAX_IMPORT) throw Problems.badRequest("message-too-long", "Imported research can be at most $MAX_IMPORT characters")
+        val asset = runCatching { AssetClass.valueOf(req.assetClass) }.getOrElse { throw Problems.badRequest("invalid-asset-class", "assetClass must be US_EQUITY or CRYPTO") }
+        val p = req.providerId?.let { aiProvider(it) } ?: defaultProvider()
+        val direct = text.length <= compileRoom(asset.name)
+        val chunk = if (direct) 0 else digestRoom()
+        if (!direct && chunk < MIN_IMPORT_CHUNK) {
+            throw Problems.badRequest("message-too-long", "The AI budget's maximum input characters is too small to import this. Raise it in More → AI budget.")
+        }
+        val title = "Imported: " + (req.title?.trim()?.takeIf { it.isNotEmpty() } ?: text.lineSequence().first { it.isNotBlank() }.trim()).let { if (it.length > MAX_TITLE - 10) it.take(MAX_TITLE - 11) + "…" else it }
+        val id = UUID.randomUUID()
+        val now = clock.instant()
+        db.tx {
+            db
+                .sql(
+                    """
+                    insert into research_sessions(id, title, provider_id, provider_type, model, asset_class, universe, horizon, timeframe, approach, prompt, retrieval,
+                      max_requests, max_cost_usd, status, review_status, created_at, updated_at, import_chunk)
+                    values (:id, :t, :p, :pt, :m, :a, '[]', '', '', '', :pr, 0, :mr, :mc, 'DRAFT', 'UNVERIFIED', :now, :now, :ch)
+                    """.trimIndent(),
+                ).param("id", id)
+                .param("t", title)
+                .param("p", p.id)
+                .param("pt", p.type.name)
+                .param("m", p.string("model"))
+                .param("a", asset.name)
+                .param("pr", text)
+                .param("mr", CONVERSATION_MAX_REQUESTS)
+                .param("mc", Decimals.money(budgets.get().monthlyCostLimitUsd))
+                .param("now", now)
+                .param("ch", chunk)
+                .update()
+            audit.record(AuditCategory.RESEARCH, "RESEARCH_IMPORTED", entityType = "ResearchSession", entityId = id, details = mapOf("chars" to text.length, "parts" to parts(text, chunk).size, "provider" to p.type))
+            if (direct) {
+                // The pasted text is recorded as the research itself; no AI request is made for it.
+                db
+                    .sql(
+                        """
+                        insert into research_runs(id, session_id, purpose, provider_id, provider_type, model, prompt_version, system_prompt, user_prompt, parameters, status,
+                          response_text, input_tokens, output_tokens, search_requests, reserved_cost_usd, estimated_cost_usd, sources_required, started_at, completed_at, owner_message)
+                        values (:id, :s, 'RESEARCH', :p, :pt, 'imported', :pv, '', '', '{}', 'SUCCEEDED', :t, 0, 0, 0, '0', '0', 0, :now, :now, :om)
+                        """.trimIndent(),
+                    ).param("id", UUID.randomUUID())
+                    .param("s", id)
+                    .param("p", p.id)
+                    .param("pt", p.type.name)
+                    .param("pv", ResearchPrompts.IMPORT_VERSION)
+                    .param("t", text)
+                    .param("now", now)
+                    .param("om", "Imported research (${text.length} characters)")
+                    .update()
+                db
+                    .sql("update research_sessions set status = 'COMPLETED', updated_at = :now, version = version + 1 where id = :id")
+                    .param("now", now)
+                    .param("id", id)
+                    .update()
+            }
+        }
+        return continueImport(id)
+    }
+
+    /** Instructions to paste into an AI chat of the owner's own, which replies with a strategy file (D-041). */
+    fun authoringPrompt(assetClass: String): String {
+        val asset = runCatching { AssetClass.valueOf(assetClass) }.getOrElse { throw Problems.badRequest("invalid-asset-class", "assetClass must be US_EQUITY or CRYPTO") }
+        return ResearchPrompts.authoringPrompt(schema, asset.name, tradable(asset.name))
+    }
+
+    /** Digests the next part, or compiles once every part is done; "Try again" resumes here after a failure. */
+    private fun continueImport(id: UUID): ResearchDetail {
+        val s = get(id)
+        val chunk = s.importChunk ?: return detail(id)
+        if (s.status == "RUNNING") return detail(id)
+        val parts = parts(s.prompt, chunk)
+        val done = if (chunk == 0) parts.size else digestedParts(id)
+        if (done < parts.size) {
+            val k = done + 1
+            val runId =
+                reserving {
+                    val locked = lock(id)
+                    val p = aiProvider(locked.providerId)
+                    val request = AiRequest(ResearchPrompts.IMPORT_DIGEST_SYSTEM, ResearchPrompts.importDigestPrompt(k, parts.size, parts[k - 1]), 0, false)
+                    start(locked, p, "RESEARCH", ResearchPrompts.IMPORT_VERSION, request, ownerMessage = "Imported research, part $k of ${parts.size} (${parts[k - 1].length} characters): extract the trading rules")
+                }
+            launch(runId)
+            return detail(id)
+        }
+        if (compilations("session_id", id).isNotEmpty()) return detail(id)
+        db.tx { setReview(lock(id), "REVIEWED", "Imported by the owner") }
+        return compile(id)
+    }
+
+    private fun digestedParts(id: UUID): Int =
+        db
+            .sql("select count(*) from research_runs where session_id = :s and purpose = 'RESEARCH' and status = 'SUCCEEDED' and prompt_version = :pv")
+            .param("s", id)
+            .param("pv", ResearchPrompts.IMPORT_VERSION)
+            .long()
+            .toInt()
+
+    /** Room for research text in one compile request. */
+    private fun compileRoom(assetClass: String): Int {
+        val system = ResearchPrompts.conversationCompileSystem(schema)
+        val empty = ResearchPrompts.conversationCompilePrompt(assetClass, tradable(assetClass), "")
+        return budgets.get().maxInputChars - system.length - empty.length - PROMPT_MARGIN - TRANSCRIPT_OVERHEAD
+    }
+
+    /** Room for one part in a digest request. */
+    private fun digestRoom(): Int = budgets.get().maxInputChars - ResearchPrompts.IMPORT_DIGEST_SYSTEM.length - PROMPT_MARGIN - TRANSCRIPT_OVERHEAD
+
     /** The first active provider with a key, Gemini first. */
     private fun defaultProvider(): AiProviderConfig {
         val candidates = providers.list().sortedBy { if (it.providerType == AiProviderType.GEMINI) 0 else 1 }
@@ -398,6 +527,7 @@ class ResearchService(
      */
     fun run(id: UUID): ResearchDetail {
         val s = get(id)
+        if (s.importChunk != null) return continueImport(id)
         if (s.timeframe.isBlank() || latestResearchRun(id) != null) return turn(id, lastOwnerMessage(id) ?: s.prompt)
         val runId =
             reserving {
@@ -632,6 +762,11 @@ class ResearchService(
                     .param("id", sessionId)
                     .update()
                 audit.record(AuditCategory.RESEARCH, "AI_RESEARCH_COMPLETED", entityType = "ResearchRun", entityId = runId, details = mapOf("sources" to r.sources.size, "costUsd" to cost, "label" to "UNVERIFIED", "provider" to p.type))
+            }
+            // Imported research moves on to its next part, or to compilation once every part is digested.
+            val digest = db.sql("select prompt_version from research_runs where id = :id").param("id", runId).single { it.str("prompt_version") } == ResearchPrompts.IMPORT_VERSION
+            if (digest && get(sessionId).importChunk != null) {
+                runCatching { continueImport(sessionId) }.onFailure { log.warn("Imported research {} paused: {}", sessionId, it.message) }
             }
         }
     }
@@ -987,6 +1122,7 @@ class ResearchService(
             rs.instant("created_at"),
             rs.instant("updated_at"),
             rs.long("version") ?: 0L,
+            rs.string("import_chunk")?.toIntOrNull(),
         )
     }
 
@@ -1000,6 +1136,34 @@ class ResearchService(
         const val MAX_TITLE = 120
         const val MAX_FIELD = 2000
         const val MAX_PROMPT = 8000
+
+        /** Imported research: at most this many characters, digested in parts of at least [MIN_IMPORT_CHUNK]. */
+        const val MAX_IMPORT = 2_000_000
+        const val MIN_IMPORT_CHUNK = 4_000
+        private const val TRANSCRIPT_OVERHEAD = 100
+
+        /** Splits imported text into parts of at most [chunk] characters, preferring paragraph, then line, then sentence breaks. */
+        fun parts(
+            text: String,
+            chunk: Int,
+        ): List<String> {
+            if (chunk <= 0 || text.length <= chunk) return listOf(text)
+            val out = mutableListOf<String>()
+            var start = 0
+            while (start < text.length) {
+                var end = minOf(text.length, start + chunk)
+                if (end < text.length) {
+                    val window = text.substring(start, end)
+                    val cut =
+                        listOf("\n\n", "\n", ". ").firstNotNullOfOrNull { sep -> window.lastIndexOf(sep).takeIf { it > chunk / 2 }?.let { it + sep.length } }
+                    if (cut != null) end = start + cut
+                }
+                out += text.substring(start, end)
+                start = end
+            }
+            return out
+        }
+
         const val MAX_EDIT = 100_000
         const val MAX_UNIVERSE = 500
         const val MAX_REQUESTS = 20
