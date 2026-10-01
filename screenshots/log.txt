@@ -1,0 +1,34 @@
+screen 1080x2400
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?><map><boolean name="secureScreen" value="false" /><boolean name="appLock" value="false" /></map>
+
+saved 01_home_first_run.png
+saved 02_portfolio_empty.png
+saved 03_portfolio_created.png
+saved 04_portfolio_with_positions.png
+saved 05_portfolio_positions_scrolled.png
+saved 06_portfolio_orders.png
+saved 07_strategies_empty.png
+saved 08_strategy_import.png
+saved 09_strategy_detail.png
+saved 10_strategy_detail_chart.png
+STEP FAILED: backtest: could not find 'Backtest on recent history'
+STEP FAILED: activate: could not find 'Activate with notifications'
+saved 11_strategies_running.png
+saved 12_scorecards.png
+saved 13_ai_research.png
+saved 14_home.png
+saved 15_home_scrolled.png
+saved 16_portfolio_after_trading.png
+STEP FAILED: chart: could not find 'BTC-USD ·'
+saved 17_activity_recommendations.png
+saved 18_activity_inbox.png
+saved 19_more_menu.png
+saved 20_more_market_data_and_background_running.png
+saved 21_more_ai_providers_and_keys.png
+saved 22_more_ai_budget.png
+saved 23_more_reports.png
+saved 24_more_exports_csv_json.png
+saved 25_more_backups.png
+saved 26_more_settings_and_privacy.png
+saved 27_more_diagnostics.png
+saved 28_more_emergency_controls.png
