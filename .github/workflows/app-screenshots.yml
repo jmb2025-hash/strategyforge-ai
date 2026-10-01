@@ -5,7 +5,7 @@ name: app-screenshots
 on:
   push:
     branches: ["claude/vibrant-johnson-i4sc6m"]
-    paths: [".github/workflows/app-screenshots.yml", "scripts/app_screenshots.py"]
+    paths: [".github/workflows/app-screenshots.yml", "scripts/app_screenshots.py", "patches/**"]
   workflow_dispatch:
 
 permissions:
@@ -30,9 +30,13 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "21" }
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build debug APK
+      - name: Apply proposed fixes (patches/*.patch) to the app
+        run: |
+          shopt -s nullglob
+          for p in tools/patches/*.patch; do echo "applying $p"; git -C app apply --verbose "$GITHUB_WORKSPACE/$p"; done
+      - name: Format check, unit and Compose UI tests, debug APK
         working-directory: app/android
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: ./gradlew --no-daemon spotlessCheck :core:test :app:testDebugUnitTest :app:assembleDebug
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

@@ -1,0 +1,111 @@
+diff --git a/android/app/src/main/kotlin/app/strategyforge/android/ui/MainScreens.kt b/android/app/src/main/kotlin/app/strategyforge/android/ui/MainScreens.kt
+index 5cf51c4..8b5401a 100644
+--- a/android/app/src/main/kotlin/app/strategyforge/android/ui/MainScreens.kt
++++ b/android/app/src/main/kotlin/app/strategyforge/android/ui/MainScreens.kt
+@@ -273,6 +273,8 @@ fun HomeScreen(
+             ?.portfolio
+             ?.id
+     LaunchedEffect(primaryId) { primaryId?.let { vm.loadEquity(it) } }
++    // The view model outlives this tab, so reload whenever Home is shown; cached data shows meanwhile.
++    LaunchedEffect(Unit) { vm.refresh() }
+     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+         ResourceContent(state, fmt, onRetry = vm::refresh) { d -> DashboardContent(d, fmt, equity, onOpen = { nav.navigate(it) }) }
+         TextButton(onClick = vm::refresh) { Text("Refresh") }
+diff --git a/android/app/src/main/kotlin/app/strategyforge/android/ui/PortfolioAndActivity.kt b/android/app/src/main/kotlin/app/strategyforge/android/ui/PortfolioAndActivity.kt
+index 8f720f7..299c027 100644
+--- a/android/app/src/main/kotlin/app/strategyforge/android/ui/PortfolioAndActivity.kt
++++ b/android/app/src/main/kotlin/app/strategyforge/android/ui/PortfolioAndActivity.kt
+@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
+ import androidx.navigation.NavHostController
+ import app.strategyforge.android.core.cache.Resource
+ import app.strategyforge.android.core.data.OrderDraft
++import app.strategyforge.android.core.data.Repository
+ import app.strategyforge.android.core.format.Formatters
+ import app.strategyforge.android.core.model.PortfolioSummary
+ import app.strategyforge.android.core.notify.DeepLinks
+@@ -100,6 +101,8 @@ fun PortfolioScreen(
+             }
+             SectionTitle("Orders")
+             val o = orders
++            if (o is Resource.Loading) Text("Loading orders…")
++            if (o is Resource.Failure) Text("Orders could not be loaded: ${Repository.message(o.error)}")
+             if (o is Resource.Data) {
+                 if (o.value.items.isEmpty()) Text("No orders yet.")
+                 o.value.items.take(50).forEach { order ->
+diff --git a/android/app/src/main/kotlin/app/strategyforge/android/ui/ViewModels.kt b/android/app/src/main/kotlin/app/strategyforge/android/ui/ViewModels.kt
+index df160ab..5071edb 100644
+--- a/android/app/src/main/kotlin/app/strategyforge/android/ui/ViewModels.kt
++++ b/android/app/src/main/kotlin/app/strategyforge/android/ui/ViewModels.kt
+@@ -504,7 +504,14 @@ class PortfolioViewModel
+             return if (id == null) kotlinx.coroutines.flow.flowOf(Resource.Loading) else repo.portfolioSummary(id)
+         }
+ 
++        private var ordersJob: Job? = null
++
+         init {
++            loadPortfolios()
++            reload()
++        }
++
++        private fun loadPortfolios() {
+             viewModelScope.launch {
+                 repo.portfolios().collect { r ->
+                     if (r is Resource.Data) {
+@@ -516,7 +523,6 @@ class PortfolioViewModel
+                     }
+                 }
+             }
+-            reload()
+         }
+ 
+         fun select(id: String) {
+@@ -537,8 +543,14 @@ class PortfolioViewModel
+ 
+         fun reload() {
+             refresh()
++            loadOrdersAndEquity()
++        }
++
++        /** Orders and the equity curve are loaded separately from the summary that [refresh] reloads. */
++        private fun loadOrdersAndEquity() {
+             val id = _selected.value ?: return
+-            viewModelScope.launch { repo.orders(id).collect { _orders.value = it } }
++            ordersJob?.cancel()
++            ordersJob = viewModelScope.launch { repo.orders(id).collect { _orders.value = it } }
+             loadEquity()
+         }
+ 
+@@ -548,11 +560,31 @@ class PortfolioViewModel
+         ) = act("Portfolio created") {
+             val p = repo.createPortfolio(name, balance)
+             _selected.value = p.id
++            _orders.value = Resource.Loading
++            _equity.value = null
++            loadPortfolios()
++            loadOrdersAndEquity()
+         }
+ 
+-        fun placeOrder(d: OrderDraft) = act("Paper order submitted") { repo.placeOrder(d) }
++        fun placeOrder(d: OrderDraft) =
++            act("Paper order submitted") {
++                try {
++                    repo.placeOrder(d)
++                } finally {
++                    // A rejected order is still recorded, so reload the list either way.
++                    loadOrdersAndEquity()
++                }
++            }
+ 
+-        fun cancel(orderId: String) = act("Order cancelled") { repo.cancelOrder(orderId) }
++        fun cancel(orderId: String) =
++            act("Order cancelled") {
++                try {
++                    repo.cancelOrder(orderId)
++                } finally {
++                    // A rejected order is still recorded, so reload the list either way.
++                    loadOrdersAndEquity()
++                }
++            }
+     }
+ 
+ @HiltViewModel
