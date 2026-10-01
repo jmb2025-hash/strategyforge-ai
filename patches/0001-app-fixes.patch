@@ -32,6 +32,30 @@ index 8f720f7..299c027 100644
              if (o is Resource.Data) {
                  if (o.value.items.isEmpty()) Text("No orders yet.")
                  o.value.items.take(50).forEach { order ->
+diff --git a/android/app/src/main/kotlin/app/strategyforge/android/ui/StrategyScreens.kt b/android/app/src/main/kotlin/app/strategyforge/android/ui/StrategyScreens.kt
+index a42878c..4a73f13 100644
+--- a/android/app/src/main/kotlin/app/strategyforge/android/ui/StrategyScreens.kt
++++ b/android/app/src/main/kotlin/app/strategyforge/android/ui/StrategyScreens.kt
+@@ -222,6 +222,8 @@ fun StrategyDetailScreen(
+     var autonomous by rememberSaveable { mutableStateOf(false) }
+     var accepted by rememberSaveable { mutableStateOf(false) }
+     var portfolioId by rememberSaveable { mutableStateOf<String?>(null) }
++    // With a single paper portfolio there is nothing to choose, so select it.
++    LaunchedEffect(portfolios) { if (portfolioId == null) portfolioId = portfolios.singleOrNull()?.id }
+     var showReauth by remember { mutableStateOf(false) }
+     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+         ResourceContent(state, fmt, vm::refresh) { d ->
+@@ -300,6 +302,10 @@ fun StrategyDetailScreen(
+             }
+             run {
+                 Text("Notifications mode is the default: every trade waits for your approval. Activating replaces the ${if (s.assetClass == "CRYPTO") "crypto" else "stock"} strategy that is running now.")
++                when {
++                    portfolios.isEmpty() -> Text("Create a paper portfolio on the Portfolio tab first.", style = MaterialTheme.typography.bodySmall)
++                    portfolioId == null -> Text("Choose the paper portfolio this strategy trades in:", style = MaterialTheme.typography.bodySmall)
++                }
+                 portfolios.forEach { p ->
+                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                         FilterChip(selected = portfolioId == p.id, onClick = { portfolioId = p.id }, label = { Text(p.name) })
 diff --git a/android/app/src/main/kotlin/app/strategyforge/android/ui/ViewModels.kt b/android/app/src/main/kotlin/app/strategyforge/android/ui/ViewModels.kt
 index df160ab..5071edb 100644
 --- a/android/app/src/main/kotlin/app/strategyforge/android/ui/ViewModels.kt

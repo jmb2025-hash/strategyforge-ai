@@ -261,8 +261,12 @@ step("activate", activate)
 
 
 def strategies_overview():
-    back()
     tab("Strategies")
+    # The tab restores its back stack, so step back from the strategy page to the list.
+    for _ in range(3):
+        if nodes("Compare results", exact=False):
+            break
+        back()
     scroll_top()
     shot("strategies_running")
     tap("Compare results / build a better strategy")
@@ -301,6 +305,13 @@ def chart():
         raise RuntimeError("no position to open")
     shot("candlestick_chart", 4)
     back()
+    tab("Portfolio")
+    for _ in range(8):
+        if nodes("Orders"):
+            break
+        swipe_up()
+    swipe_up()
+    shot("portfolio_orders_later")
 
 
 def activity():
