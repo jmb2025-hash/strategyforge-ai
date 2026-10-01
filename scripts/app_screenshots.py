@@ -125,19 +125,38 @@ def back():
 
 
 def type_text(text):
-    # adb "input text" treats %s as a space; send in chunks so long strings are not dropped.
-    for i in range(0, len(text), 120):
-        chunk = text[i : i + 120].replace(" ", "%s")
+    # adb "input text" treats %s as a space. Small, paced chunks: larger ones drop characters.
+    for i in range(0, len(text), 25):
+        chunk = text[i : i + 25].replace(" ", "%s")
         sh("input text " + shlex.quote(chunk))
+        time.sleep(0.35)
     time.sleep(0.5)
+
+
+def focused_text():
+    for n in dump().iter("node"):
+        if n.get("focused") == "true" and "EditText" in (n.get("class") or ""):
+            return n.get("text") or ""
+    return None
+
+
+def clear_focused():
+    sh("input keycombination 113 29")  # Ctrl+A
+    sh("input keyevent 67")
+    time.sleep(0.3)
 
 
 def fill(label, value, clear=False):
     tap(label, exact=False)
     if clear:
-        sh("input keyevent KEYCODE_MOVE_END")
-        sh("input keyevent " + " ".join(["67"] * 30))
-    type_text(value)
+        clear_focused()
+    for attempt in range(3):
+        type_text(value)
+        got = focused_text()
+        if got is None or got == value:
+            break
+        log(f"field '{label}' read back wrong (attempt {attempt + 1}), retyping")
+        clear_focused()
     hide_keyboard()
 
 
@@ -196,7 +215,7 @@ def orders():
         fill("Symbol", sym, clear=True)
         fill("Quantity", qty, clear=True)
         tap("Submit paper order")
-        time.sleep(4)
+        time.sleep(6)
         scroll_top()
     shot("portfolio_with_positions", 4)
     swipe_up()
@@ -272,7 +291,14 @@ def chart():
     tab("Portfolio")
     scroll_top()
     shot("portfolio_after_trading", 2)
-    tap("BTC-USD ·", exact=False)
+    for sym in ("BTC-USD ·", "ETH-USD ·", "SOL-USD ·"):
+        try:
+            tap(sym, exact=False, scroll=True)
+            break
+        except RuntimeError:
+            scroll_top()
+    else:
+        raise RuntimeError("no position to open")
     shot("candlestick_chart", 4)
     back()
 
