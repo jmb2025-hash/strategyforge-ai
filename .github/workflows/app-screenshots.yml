@@ -1,0 +1,67 @@
+name: app-screenshots
+
+# Builds the app from the delivery branch, runs it on an Android emulator in demo mode, taps
+# through the main screens and commits the screenshots to screenshots/ on this branch.
+on:
+  push:
+    branches: ["claude/vibrant-johnson-i4sc6m"]
+    paths: [".github/workflows/app-screenshots.yml", "scripts/app_screenshots.py"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-screenshots
+  cancel-in-progress: true
+
+env:
+  APP_REF: claude/strategyforge-v1-delivery-vgf1ah
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: tools }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.APP_REF }}", path: app }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build debug APK
+        working-directory: app/android
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run app on emulator and capture screens
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 tools/scripts/app_screenshots.py app/android/app/build/outputs/apk/debug/app-debug.apk app/android/engine/src/test/resources/strategies/valid_crypto_rsi.json shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-screenshots
+          path: shots/
+      - name: Commit screenshots to this branch
+        if: always()
+        working-directory: tools
+        run: |
+          [ -d ../shots ] || exit 0
+          rm -rf screenshots && mkdir -p screenshots
+          cp -r ../shots/. screenshots/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add screenshots
+          git commit -m "App screenshots from $APP_REF@$(git -C ../app rev-parse --short HEAD)" || exit 0
+          git push origin HEAD:${GITHUB_REF_NAME}
