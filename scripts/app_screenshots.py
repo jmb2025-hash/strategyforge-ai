@@ -160,6 +160,17 @@ def fill(label, value, clear=False):
     hide_keyboard()
 
 
+def wait_done(what, limit=120):
+    """Waits until the app's 'Working' progress bar is gone and logs how long the action took."""
+    start = time.time()
+    while time.time() - start < limit:
+        if not nodes("Working"):
+            log(f"{what}: finished in {time.time() - start:.1f}s")
+            return
+        time.sleep(1)
+    log(f"{what}: STILL RUNNING after {limit}s")
+
+
 def shot(name, wait=2.0):
     global counter
     time.sleep(wait)
@@ -184,6 +195,8 @@ def step(name, fn):
 # ---------------------------------------------------------------------------------------------
 
 adb("install", "-r", "-g", apk, check=True)
+adb("logcat", "-c")
+logcat = subprocess.Popen(["adb", "logcat", "-v", "time"], stdout=open(debug / "logcat_full.txt", "wb"), stderr=subprocess.DEVNULL)
 W, H = screen_size()
 log(f"screen {W}x{H}")
 # The app blocks screenshots and asks for the screen lock by default. Turn both off on this
@@ -206,6 +219,7 @@ def portfolio():
     shot("portfolio_empty")
     fill("Name", "Main paper portfolio")
     tap("Create")
+    wait_done("create portfolio")
     shot("portfolio_created", 3)
 
 
@@ -215,6 +229,7 @@ def orders():
         fill("Symbol", sym, clear=True)
         fill("Quantity", qty, clear=True)
         tap("Submit paper order")
+        wait_done(f"order {sym}")
         time.sleep(6)
         scroll_top()
     shot("portfolio_with_positions", 4)
@@ -238,6 +253,7 @@ def strategies():
     shot("strategy_import")
     fill("Strategy (JSON", strategy)
     tap("Validate and import")
+    wait_done("import strategy")
     shot("strategy_detail", 5)
     swipe_up()
     shot("strategy_detail_chart")
@@ -245,6 +261,7 @@ def strategies():
 
 def backtest():
     tap("Backtest on recent history")
+    wait_done("backtest", 300)
     shot("strategy_backtest", 20)
     swipe_up()
     shot("strategy_backtest_results")
@@ -252,6 +269,7 @@ def backtest():
 
 def activate():
     tap("Activate with notifications")
+    wait_done("activate strategy")
     shot("strategy_activated", 4)
 
 
@@ -356,6 +374,7 @@ for item in more_items:
 
     step("more_" + item, open_item)
 
+logcat.terminate()
 (out / "log.txt").write_text("\n".join(log_lines) + "\n")
 with open(debug / "logcat.txt", "wb") as f:
     f.write(adb("logcat", "-d", "-t", "3000").stdout)
