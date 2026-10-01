@@ -11,24 +11,24 @@ saved 07_strategies_empty.png
 saved 08_strategy_import.png
 saved 09_strategy_detail.png
 saved 10_strategy_detail_chart.png
-STEP FAILED: backtest: could not find 'Backtest on recent history'
-STEP FAILED: activate: could not find 'Activate with notifications'
-saved 11_strategies_running.png
-saved 12_scorecards.png
-saved 13_ai_research.png
-saved 14_home.png
-saved 15_home_scrolled.png
-saved 16_portfolio_after_trading.png
-STEP FAILED: chart: could not find 'BTC-USD ·'
-saved 17_activity_recommendations.png
-saved 18_activity_inbox.png
-saved 19_more_menu.png
-saved 20_more_market_data_and_background_running.png
-saved 21_more_ai_providers_and_keys.png
-saved 22_more_ai_budget.png
-saved 23_more_reports.png
-saved 24_more_exports_csv_json.png
-saved 25_more_backups.png
-saved 26_more_settings_and_privacy.png
-saved 27_more_diagnostics.png
-saved 28_more_emergency_controls.png
+saved 11_strategy_backtest.png
+saved 12_strategy_backtest_results.png
+saved 13_strategy_activated.png
+saved 14_strategies_running.png
+STEP FAILED: strategies_overview: could not find 'Compare results / build a better strategy'
+saved 15_home.png
+saved 16_home_scrolled.png
+saved 17_portfolio_after_trading.png
+saved 18_candlestick_chart.png
+saved 19_activity_recommendations.png
+saved 20_activity_inbox.png
+saved 21_more_menu.png
+saved 22_more_market_data_and_background_running.png
+saved 23_more_ai_providers_and_keys.png
+saved 24_more_ai_budget.png
+saved 25_more_reports.png
+saved 26_more_exports_csv_json.png
+saved 27_more_backups.png
+saved 28_more_settings_and_privacy.png
+saved 29_more_diagnostics.png
+saved 30_more_emergency_controls.png
