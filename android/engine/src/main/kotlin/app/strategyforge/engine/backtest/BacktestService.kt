@@ -280,7 +280,9 @@ class BacktestService(
         val benchSymbol = req.benchmarkSymbol ?: if (def.assetClass == AssetClass.CRYPTO) "BTC-USD" else "SPY"
         val benchmark = benchmark(benchSymbol, req.from, asOf, issues)
         val out = BacktestEngine(def, BacktestParams(req.from, asOf, req.startingCapital!!, req.costModel!!, req.executionDelayBars, req.riskProfile ?: RiskLimits())).run(series)
-        val metrics = BacktestMetrics.compute(out, req.startingCapital, req.from, asOf, benchmark?.get("returnFraction") as BigDecimal?)
+        val metrics =
+            BacktestMetrics.compute(out, req.startingCapital, req.from, asOf, benchmark?.get("returnFraction") as BigDecimal?) +
+                ("setups" to BacktestMetrics.bySetup(out, def))
         val status =
             when {
                 issues.any { it.severity == "CRITICAL" } -> "CRITICAL"
@@ -348,8 +350,8 @@ class BacktestService(
                 .sql(
                     """
                     insert into backtest_trades(backtest_id, symbol, side, entry_time, entry_price, exit_time, exit_price, quantity, gross_pnl, fees, spread_cost, slippage_cost,
-                      borrow_cost, dividends, net_pnl, holding_bars, exit_reason, partial_fill)
-                    values (:b, :s, :side, :et, :ep, :xt, :xp, :q, :g, :f, :sc, :sl, :bc, :d, :n, :h, :r, :pf)
+                      borrow_cost, dividends, net_pnl, holding_bars, exit_reason, partial_fill, setup_id)
+                    values (:b, :s, :side, :et, :ep, :xt, :xp, :q, :g, :f, :sc, :sl, :bc, :d, :n, :h, :r, :pf, :su)
                     """.trimIndent(),
                 ).param("b", id)
                 .param("s", t.symbol)
@@ -369,6 +371,7 @@ class BacktestService(
                 .param("h", t.holdingBars)
                 .param("r", t.exitReason)
                 .param("pf", t.partialFill)
+                .param("su", t.setup)
                 .update()
         }
 
@@ -455,6 +458,7 @@ class BacktestService(
                     "holdingBars" to rs.int("holding_bars"),
                     "exitReason" to rs.string("exit_reason"),
                     "partialFill" to rs.bool("partial_fill"),
+                    "setup" to (rs.string("setup_id") ?: "MAIN"),
                 )
             }
 

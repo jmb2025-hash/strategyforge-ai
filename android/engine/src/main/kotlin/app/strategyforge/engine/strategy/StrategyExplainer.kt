@@ -4,10 +4,16 @@ import java.math.BigDecimal
 
 /** Plain-English explanation of a validated strategy (FR-046). Deterministic; no AI involved. */
 object StrategyExplainer {
-    fun explain(d: StrategyDefinition): String {
-        val sb = StringBuilder()
+    fun explain(d: StrategyDefinition): String = if (d.isPlan) plan(d) else single(d)
+
+    private fun market(d: StrategyDefinition): String {
         val universe = if (d.symbols.size <= 8) d.symbols.joinToString(", ") else "${d.symbols.take(8).joinToString(", ")} and ${d.symbols.size - 8} more"
-        val market = "$universe (${d.assetClass.name.replace('_', ' ').lowercase()}) on ${label(d.timeframe.code)} bars"
+        return "$universe (${d.assetClass.name.replace('_', ' ').lowercase()}) on ${label(d.timeframe.code)} bars"
+    }
+
+    private fun single(d: StrategyDefinition): String {
+        val sb = StringBuilder()
+        val market = market(d)
         when (d.direction) {
             Direction.LONG_ONLY -> sb.append("Buy $market when ${group(d.entry, d)}. ")
             Direction.SHORT_ONLY -> sb.append("Open simulated short positions in $market when ${group(d.entry, d)}. ")
@@ -16,6 +22,19 @@ object StrategyExplainer {
                 d.shortEntry?.let { sb.append("Open a simulated short when ${group(it, d)}. ") }
             }
         }
+        trade(d, sb)
+        sb.append(", placed as ${d.order.orderType.lowercase()} orders (${d.order.timeInForce})")
+        d.order.limitOffsetPercent?.let { sb.append(" with a ${pct(it)} limit offset") }
+        sb.append(". ")
+        risk(d, sb)
+        return sb.toString()
+    }
+
+    /** Exits, partial profits and sizing of one strategy or setup. */
+    private fun trade(
+        d: StrategyDefinition,
+        sb: StringBuilder,
+    ) {
         sb.append("Exit at a ${pct(d.exit.stopLossPercent)} stop loss, a ${pct(d.exit.takeProfitPercent)} profit target")
         d.exit.trailingStopPercent?.let { sb.append(", a ${pct(it)} trailing stop") }
         sb.append(", or after ${d.exit.maximumHoldingBars} bars")
@@ -36,14 +55,61 @@ object StrategyExplainer {
                         " (at most ${pct(d.risk.maximumPositionPercent ?: java.math.BigDecimal(100))} of equity in one position)"
             },
         )
-        sb.append(", placed as ${d.order.orderType.lowercase()} orders (${d.order.timeInForce})")
-        d.order.limitOffsetPercent?.let { sb.append(" with a ${pct(it)} limit offset") }
-        sb.append(". ")
+    }
+
+    private fun risk(
+        d: StrategyDefinition,
+        sb: StringBuilder,
+    ) {
         sb.append("At most ${d.risk.maximumOpenPositions} open positions and ${d.risk.maximumDailyTrades} trades per day; stop for the day after a ${pct(d.risk.maximumDailyLossPercent)} loss")
         d.risk.maximumDrawdownPercent?.let { sb.append("; suspend after a ${pct(it)} drawdown") }
         d.risk.maximumDailyLosingTrades?.let { sb.append("; no new trades after $it losing trade(s) in a day") }
         sb.append(". Requires ${d.minimumHistoryBars} bars of history and quotes no older than ${d.maximumQuoteAgeSeconds} seconds. ")
         sb.append("Global, portfolio and order risk limits also apply; the strictest limit always wins. Paper trading only.")
+    }
+
+    /** A trading plan (D-045): its context and policies, each setup in priority order, then plan-wide risk. */
+    private fun plan(d: StrategyDefinition): String {
+        val sb = StringBuilder()
+        sb.append("Trading plan with ${d.setups.size} setup(s) on ${market(d)}. ")
+        d.plan.longWhen?.let { sb.append("Longs are only taken while ${group(it, d)}. ") }
+        d.plan.shortWhen?.let { sb.append("Shorts are only taken while ${group(it, d)}. ") }
+        sb.append(
+            when (d.plan.conflictPolicy) {
+                ConflictPolicy.ONE_PER_SYMBOL -> "One position per symbol: when several setups fire, the highest-priority setup takes it. "
+                ConflictPolicy.STACK -> "Setups may each hold a position in the same symbol (same direction only), one new entry per symbol per bar. "
+            },
+        )
+        sb.append(
+            when (d.plan.capitalPolicy) {
+                CapitalPolicy.SHARED -> "All setups size from the whole portfolio. "
+                CapitalPolicy.ALLOCATED -> "Each setup sizes from, and is capped at, its own share of the portfolio. "
+            },
+        )
+        d.plan.maximumOpenRiskPercent?.let { sb.append("No new position while more than ${pct(it)} of equity is at risk to the stops. ") }
+        d.setups.forEachIndexed { n, s ->
+            val sd = s.def
+            sb.append("\n\nSetup ${n + 1}: ${s.name} (priority ${s.priority}")
+            s.allocationPercent?.takeIf { d.plan.capitalPolicy == CapitalPolicy.ALLOCATED }?.let { sb.append(", ${pct(it)} of capital") }
+            s.maximumOpenPositions?.let { sb.append(", at most $it open") }
+            sb.append("). ")
+            s.description?.let { sb.append(it.trim().removeSuffix(".")).append(". ") }
+            s.appliesWhen?.let { sb.append("Applies only while ${group(it, d)}. ") }
+            when (sd.direction) {
+                Direction.LONG_ONLY -> sb.append("Buy when ${group(sd.entry, d)}. ")
+                Direction.SHORT_ONLY -> sb.append("Open a simulated short when ${group(sd.entry, d)}. ")
+                Direction.BOTH -> {
+                    sb.append("Buy when ${group(sd.entry, d)}. ")
+                    sd.shortEntry?.let { sb.append("Open a simulated short when ${group(it, d)}. ") }
+                }
+            }
+            trade(sd, sb)
+            sb.append(".")
+        }
+        sb.append("\n\nOrders are ${d.order.orderType.lowercase()} (${d.order.timeInForce})")
+        d.order.limitOffsetPercent?.let { sb.append(" with a ${pct(it)} limit offset") }
+        sb.append(". Across the whole plan: ")
+        risk(d, sb)
         return sb.toString()
     }
 

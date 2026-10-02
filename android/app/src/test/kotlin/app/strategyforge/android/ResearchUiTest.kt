@@ -27,6 +27,7 @@ import app.strategyforge.android.ui.ImportNotesSection
 import app.strategyforge.android.ui.ImportResearch
 import app.strategyforge.android.ui.ImportStrategyPanel
 import app.strategyforge.android.ui.NewResearch
+import app.strategyforge.android.ui.PlanSection
 import app.strategyforge.android.ui.ResearchConversation
 import app.strategyforge.android.ui.SfTheme
 import app.strategyforge.android.ui.formatters
@@ -195,5 +196,46 @@ class ResearchUiTest {
         rule.onNodeWithText("• Long when price sweeps the 42-bar low and closes back above it").assertIsDisplayed()
         rule.onNodeWithTag("notes-research").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("notes-missing").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `D-045 a plan shows its setups with results and its rules can be changed`() {
+        val saved = mutableListOf<Triple<String, String, String?>>()
+        val plan =
+            app.strategyforge.android.core.model.PlanInfo(
+                maximumOpenRiskPercent = "3",
+                longContext = true,
+                setups =
+                    listOf(
+                        app.strategyforge.android.core.model
+                            .SetupInfo("SFP_HIGH", "Swing failure at range high", priority = 2, direction = "SHORT_ONLY"),
+                        app.strategyforge.android.core.model
+                            .SetupInfo("SFP_LOW", "Swing failure at range low", priority = 1, conditional = true),
+                    ),
+            )
+        val scores =
+            listOf(
+                app.strategyforge.android.core.model
+                    .SetupScore("SFP_LOW", "Swing failure at range low", backtestTrades = 42, backtestWinRatePercent = "55", backtestNetPnl = "1200"),
+            )
+        rule.setContent {
+            SfTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    PlanSection(plan, scores, "PAPER_ELIGIBLE") { c, k, r -> saved += Triple(c, k, r) }
+                }
+            }
+        }
+        rule.onNodeWithText("Setups (2)").assertExists()
+        rule.onNodeWithText("1. Swing failure at range low").assertExists()
+        rule.onNodeWithText("2. Swing failure at range high").assertExists()
+        rule.onNodeWithTag("setup-backtest-SFP_LOW").assertExists()
+        rule.onNodeWithTag("save-plan-rules").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("conflict-STACK").performScrollTo().performClick()
+        rule
+            .onNodeWithTag("save-plan-rules")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
+        assertEquals(listOf(Triple("STACK", "SHARED", "3")), saved)
     }
 }

@@ -535,3 +535,32 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Demo mode.** `ReplayDerivatives` derives synthetic values from the replay candles: delta from each candle's body, open interest as slow waves that build with one-sided bars, and funding from the premium over the one-day average. Demo strategies can exercise the rules; the values say nothing about real markets.
   - **AI instructions.** The research, compile and copy-instructions prompts describe the three indicators with examples.
 - **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066.
+
+## D-045 Trading plans replace single strategies
+
+- **Date:** 2026-10-02
+- **Context:** Traders such as Chart Champions use a method made of several setups, each valid in certain market conditions and each with its own trade management, under overall risk rules. One strategy object either merged those setups (with shared exits and sizing) or dropped them. The owner chose a container of setups ("trading plan"), with configurable conflict and capital policies (defaults: one position per symbol and shared capital), and asked to start fresh rather than migrate existing strategies.
+- **Decision:**
+  - **Format.** A trading plan is a strategy document with `schemaVersion` "2.0" (`trading-plan-schema-2.0.json`) containing:
+    - plan metadata, universe and indicators (declared once, up to 40);
+    - `context.longWhen` / `context.shortWhen`: the market bias that allows each side;
+    - `planRules`: `conflictPolicy` ONE_PER_SYMBOL (default) or STACK, `capitalPolicy` SHARED (default) or ALLOCATED, and `maximumOpenRiskPercent`;
+    - 1 to 8 `setups`, each with id, name, description, priority, direction, optional `appliesWhen`, `allocationPercent` and `maximumOpenPositions`, and its own entries, exits and sizing;
+    - plan-wide orders, risk limits and inactivity conditions.
+  - **One engine for both.** Each setup is turned into a complete 1.0 strategy document carrying the plan's metadata, universe, the indicators it uses, orders and risk. Every setup therefore goes through the same validation, safety scan and rule evaluation as a single strategy. Context and applies-when groups are checked as entry rules. Plan-level checks cover unique setup ids, allocations (required and at most 100% in total when ALLOCATED) and unknown fields. Issues point at the setup or context they belong to. A 1.0 strategy is treated as a plan with one setup ("MAIN").
+  - **Backtests.**
+    - Each position belongs to the setup that opened it and is managed by that setup's stops, targets, partials, holding time and exit rules.
+    - Each bar, held positions are managed first. Then setups are tried in priority order.
+    - ONE_PER_SYMBOL: the first setup to fire takes the symbol.
+    - STACK: each setup may hold its own position in the symbol, same direction only.
+    - ALLOCATED: a setup sizes from, and is capped at, its share of equity. The open-risk cap blocks entries that would put more than the cap at risk to the stops.
+    - Trades record their setup. Backtest metrics include per-setup trades, win rate, net P&L and profit factor.
+  - **Live paper trading.**
+    - Signals record their setup (migration 7 `signals.setup_id`, `backtest_trades.setup_id`). Orders reach it through their signal, and lots through their opening order.
+    - Holdings are computed per setup. A closing order relieves its own setup's lots first, so stacked setups keep separate positions.
+    - At most one signal per symbol per bar, exits first. A second stacked entry therefore comes on a later bar.
+  - **Explanations and results.** "How it works" describes the context, policies, each setup in priority order and plan-wide risk. Scorecards and the strategy page show paper and backtest results per setup, and the "build a better plan" brief includes them.
+  - **Editing rules.** The strategy page shows the setups and lets the owner change the conflict policy, capital policy and open-risk cap. Saving creates a new version, which needs a new backtest.
+  - **AI.** Copy instructions, the research compile and the memo compile all ask for a trading plan, using the plan schema and a plan-writing guide. The readback is per setup.
+  - **Starting fresh.** Migration 7 ends every active strategy and archives every existing strategy with the reason "Retired: replaced by trading plans (1.8.0)". Strategy versions are immutable and orders reference them, so they are retired, not deleted. Portfolios, orders, trades and open positions are kept; positions those strategies opened stay in the portfolio as ordinary holdings.
+- **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066, FR-091.

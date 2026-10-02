@@ -452,12 +452,27 @@ class LocalApi(
                 "validation" to validation?.let { validation(it) },
                 "explanation" to explanation,
                 "importNotes" to engine.strategies.importNotes(s.id)?.let { importNotes(it) },
+                "plan" to
+                    v?.takeIf { it.validationStatus != "VALIDATION_FAILED" }?.let {
+                        runCatching { engine.strategies.definition(it.id) }.getOrNull()?.takeIf { d -> d.isPlan }?.let { d -> plan(d) }
+                    },
                 "activation" to engine.activations.active(s.id)?.let { activation(it) },
                 "history" to engine.strategies.statusHistoryOf(s.id),
             )
         }
         post("/v1/strategies/{id}/validate") { _, g -> strategyResult(engine.strategies.revalidate(uuid(g[0]))) }
         post("/v1/strategies/{id}/archive") { _, g -> strategy(engine.strategies.archive(uuid(g[0]))) }
+        post("/v1/strategies/{id}/plan-rules") { r, g ->
+            val b = obj(r)
+            strategyResult(
+                engine.strategies.setPlanRules(
+                    uuid(g[0]),
+                    enumOf(b.req("conflictPolicy"), "conflictPolicy"),
+                    enumOf(b.req("capitalPolicy"), "capitalPolicy"),
+                    b.str("maximumOpenRiskPercent")?.let { v -> v.toBigDecimalOrNull()?.takeIf { it.signum() > 0 && it <= java.math.BigDecimal(100) } ?: throw Problems.badRequest("invalid-open-risk", "maximumOpenRiskPercent must be above 0 and at most 100") },
+                ),
+            )
+        }
         get("/v1/backtests") { r, _ -> engine.backtests.list(r.query["strategyId"]?.let { uuid(it) }).map { backtest(it) } }
         post("/v1/backtests", 202) { r, _ ->
             val b = obj(r)
@@ -586,6 +601,21 @@ class LocalApi(
                     )
                 },
             "sampleWarning" to c.sampleWarning,
+            "setups" to
+                c.setups.map { s ->
+                    mapOf(
+                        "id" to s.id,
+                        "name" to s.name,
+                        "priority" to s.priority,
+                        "liveClosedTrades" to s.liveClosedTrades,
+                        "liveWinRatePercent" to s.liveWinRatePercent,
+                        "liveRealizedPnl" to s.liveRealizedPnl,
+                        "backtestTrades" to s.backtestTrades,
+                        "backtestWinRatePercent" to s.backtestWinRatePercent,
+                        "backtestNetPnl" to s.backtestNetPnl,
+                        "backtestProfitFactor" to s.backtestProfitFactor,
+                    )
+                },
         )
 
     private fun holding(h: app.strategyforge.engine.autonomy.SlotHolding) = mapOf("portfolioId" to h.portfolioId, "symbol" to h.symbol, "side" to h.side, "quantity" to h.quantity)
@@ -618,6 +648,28 @@ class LocalApi(
             "sourceRef" to v.sourceRef,
             "validationStatus" to v.validationStatus,
             "createdAt" to v.createdAt,
+        )
+
+    private fun plan(d: app.strategyforge.engine.strategy.StrategyDefinition) =
+        mapOf(
+            "conflictPolicy" to d.plan.conflictPolicy,
+            "capitalPolicy" to d.plan.capitalPolicy,
+            "maximumOpenRiskPercent" to d.plan.maximumOpenRiskPercent,
+            "longContext" to (d.plan.longWhen != null),
+            "shortContext" to (d.plan.shortWhen != null),
+            "setups" to
+                d.setups.map { s ->
+                    mapOf(
+                        "id" to s.id,
+                        "name" to s.name,
+                        "description" to s.description,
+                        "priority" to s.priority,
+                        "direction" to s.def.direction,
+                        "allocationPercent" to s.allocationPercent,
+                        "maximumOpenPositions" to s.maximumOpenPositions,
+                        "conditional" to (s.appliesWhen != null),
+                    )
+                },
         )
 
     private fun importNotes(n: app.strategyforge.engine.research.ImportNotes) = mapOf("readback" to n.readback, "furtherResearch" to n.furtherResearch, "stillMissing" to n.stillMissing, "other" to n.other)

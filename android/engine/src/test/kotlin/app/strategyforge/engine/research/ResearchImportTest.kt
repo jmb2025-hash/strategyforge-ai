@@ -61,9 +61,9 @@ class ResearchImportTest {
     fun `long research is digested part by part, resumes after a quota error, then compiles the digests`() {
         gemini()
         val b = e.aiBudget.get()
-        e.aiBudget.update(AiBudgetUpdate(b.monthlyCostLimitUsd, b.dailyRequestLimit, b.maxOutputTokens, 20_000), b.version)
+        e.aiBudget.update(AiBudgetUpdate(b.monthlyCostLimitUsd, b.dailyRequestLimit, b.maxOutputTokens, 30_000), b.version)
         val paragraph = "Entry: buy ETH when RSI(14) crosses above 30 on the 1h chart and volume is 1.5x its average. "
-        val text = (1..400).joinToString("\n\n") { "Section $it. $paragraph" }
+        val text = (1..800).joinToString("\n\n") { "Section $it. $paragraph" }
         assertThat(text.length).isGreaterThan(30_000)
         val parts = ResearchService.parts(text, 15_000)
         assertThat(parts.joinToString("")).isEqualTo(text)
@@ -78,7 +78,7 @@ class ResearchImportTest {
         var d = e.research.importResearch(ResearchImport(text, "CRYPTO"))
         val n = d.session.importChunk!!.let { ResearchService.parts(text, it).size }
         assertThat(n).isGreaterThanOrEqualTo(3)
-        assertThat(userText()).contains("<part number=\"1\" of=\"$n\">").doesNotContain("Section 400.")
+        assertThat(userText()).contains("<part number=\"1\" of=\"$n\">").doesNotContain("Section 800.")
         assertThat(userText()).contains("<part number=\"2\"")
         val failed = d.runs.last()
         assertThat(failed.status).isEqualTo("FAILED")
@@ -118,6 +118,10 @@ class ResearchImportTest {
             .contains("\"schemaVersion\"")
             .contains("BULLISH_ENGULFING")
             .contains("research that specific point")
+            .contains("trading plan")
+            .contains("\"schemaVersion\": \"2.0\"")
+            .contains("\"setups\"")
+            .contains("conflictPolicy")
             .contains("RULE READBACK")
             .contains("FURTHER RESEARCH")
             .contains("STILL MISSING")

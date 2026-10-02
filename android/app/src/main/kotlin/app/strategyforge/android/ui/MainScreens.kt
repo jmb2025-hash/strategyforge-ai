@@ -73,7 +73,7 @@ private data class Tab(
 private val tabs =
     listOf(
         Tab("home", "Home", Icons.Filled.Home),
-        Tab("strategies", "Strategies", SfIcons.Candles),
+        Tab("strategies", "Plans", SfIcons.Candles),
         Tab("portfolio", "Portfolio", SfIcons.Wallet),
         Tab("activity", "Activity", Icons.Filled.Notifications),
         Tab("more", "More", Icons.Filled.MoreVert),

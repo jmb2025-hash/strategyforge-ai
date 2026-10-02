@@ -388,6 +388,16 @@ class StrategyDetailViewModel
 
         fun revalidate() = act("Validation re-run") { repo.revalidate(id) }
 
+        /** Saves the plan's conflict and capital policies (D-045); the new version needs a fresh backtest. */
+        fun setPlanRules(
+            conflictPolicy: String,
+            capitalPolicy: String,
+            maximumOpenRiskPercent: String?,
+        ) = act("Plan rules saved as a new version. Run a backtest before trading it.") {
+            repo.setPlanRules(id, conflictPolicy, capitalPolicy, maximumOpenRiskPercent)
+            runCatching { _scorecard.value = repo.scorecard(id) }
+        }
+
         fun backtest(
             from: String,
             to: String,

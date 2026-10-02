@@ -1,10 +1,10 @@
 # StrategyForge AI — Project State Manifesto
 
-Save point: **2026-10-02T05:52Z** · version **1.7.0** (versionCode 10) · branch `claude/strategyforge-v1-delivery-vgf1ah`
+Save point: **2026-10-02T19:22Z** · version **1.8.0** (versionCode 11) · branch `claude/strategyforge-v1-delivery-vgf1ah`
 
 ```text
 === STRATEGYFORGE AI — PROJECT STATE MANIFESTO ===
-SAVE POINT: 2026-10-02T05:52Z | v1.7.0 (versionCode 10) | engine 193/193, core 27/27
+SAVE POINT: 2026-10-02T19:22Z | v1.8.0 (versionCode 11) | engine 206/206, core 27/27
 BRANCH: claude/strategyforge-v1-delivery-vgf1ah (push: git push -u origin <branch>; NO PR unless asked)
 APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest (StrategyForge.apk, CI-published)
 
@@ -68,6 +68,14 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         value,change%), FUNDING_RATE(value %/h, annualized), CVD(period: value=sum delta, delta). Causal alignment
         (OI/funding latest at-or-before bar open, delta summed within bar). Backtest integrity FUTURES_DATA_*; live
         blocks PROVIDER_UNAVAILABLE / MISSING_HISTORY. Demo = ReplayDerivatives synthetic. More > Engine > "Test futures data".
+- 1.8.0 (D-045) TRADING PLANS replace single strategies. Schema 2.0 (trading-plan-schema-2.0.json): context.longWhen/
+        shortWhen, planRules{conflictPolicy ONE_PER_SYMBOL|STACK, capitalPolicy SHARED|ALLOCATED, maximumOpenRiskPercent},
+        setups[1..8]{id,name,priority,direction,appliesWhen,allocationPercent,maximumOpenPositions,entry/exit/sizing}.
+        Each setup -> synthesized 1.0 doc (TradingPlans.setupDocument) so validator/evaluator are reused. StrategyDefinition
+        .setups/.plan/.setupsOrSelf(); 1.0 = one setup "MAIN". Backtester positions keyed symbol|setup; per-setup metrics.
+        Live: signals.setup_id (migration 7), holdings per setup via signal->order->lot, setup-first lot relief.
+        Migration 7 archives all old strategies (retired, history kept). App: Plans tab, setups + per-setup results,
+        plan-rules editor (POST /v1/strategies/{id}/plan-rules -> new version). Prompts ask for plans.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -81,12 +89,12 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - Known approximations: volume profile and CVD derived from candles (not tick data).
 
 4. NEXT IMMEDIATE STEPS (ranked)
- 1. Owner verifies live Kraken Futures on the phone (More > Engine > Test futures data, then a backtest of a
-    strategy using OPEN_INTEREST/FUNDING_RATE/CVD in Live mode). If a format differs, the error names the fields:
-    adjust KrakenFuturesProvider.parseAnalytics. futures.kraken.com is blocked in this cloud env.
- 2. Open offer: live streaming upgrade (Coinbase websocket + Alpaca IEX) - unanswered.
- 3. Optional: persist futures history (DB table) if Kraken analytics history proves too short for long backtests.
- 4. Per release: D-045 entry, bump version, tests, spotless, gitleaks, push, wait CI, confirm phone-latest.
+ 1. 1.9.0 (agreed): "Copy analysis prompt" export (plan JSON + per-setup backtest/paper results + trades, capped) for any
+    outside AI, reply pastes back as an improved plan; plan comparison charts; "build a better plan" on plans.
+ 2. Owner verifies live Kraken Futures on the phone (More > Engine > Test futures data).
+ 3. Open offer: live streaming upgrade (Coinbase websocket + Alpaca IEX).
+ 4. Known limits: signals UNIQUE(strategy, instrument, bucket, action) -> one signal per symbol per bar (stacked entries
+    on later bars); one plan timeframe for all setups.
 
 5. CRITICAL CAVEATS & CONSTRAINTS
 - Paper trading only. Never real orders. Shorts are simulated.
@@ -98,8 +106,10 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-045). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-046). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
+- Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
+  (schema 1.0) working as one-setup plans (tests rely on them).
 - Indicators must be causal; HTF values only from completed periods (period complete when a bar closes
   at/after period end or a later period's bar arrives). Keep the "no past value changes" test passing.
 - Calendar: crypto UTC days; US stocks New York days; weeks start Monday.

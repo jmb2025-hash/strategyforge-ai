@@ -187,7 +187,7 @@ class ResearchService(
 ) {
     private val log = EngineLog.of(javaClass)
     private val mapper: ObjectMapper = JacksonCanonical.mapper
-    private val schema = javaClass.getResource("/strategy/strategy-schema-1.0.json")!!.readText()
+    private val schema = javaClass.getResource("/strategy/trading-plan-schema-2.0.json")!!.readText()
 
     fun create(req: ResearchCreate): ResearchSession {
         val p = aiProvider(req.providerId)

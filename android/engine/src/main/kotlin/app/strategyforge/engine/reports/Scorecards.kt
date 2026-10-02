@@ -49,12 +49,28 @@ data class BacktestStats(
     val completedAt: Instant?,
 )
 
+/** Results of one setup of a trading plan (D-045): paper trades it closed and its share of the latest backtest. */
+data class SetupScore(
+    val id: String,
+    val name: String,
+    val priority: Int,
+    val liveClosedTrades: Int,
+    val liveWinRatePercent: BigDecimal?,
+    val liveRealizedPnl: BigDecimal,
+    val backtestTrades: Int?,
+    val backtestWinRatePercent: BigDecimal?,
+    val backtestNetPnl: BigDecimal?,
+    val backtestProfitFactor: BigDecimal?,
+)
+
 data class Scorecard(
     val strategy: StrategyView,
     val live: LiveStats,
     val backtest: BacktestStats?,
     /** Plain warning when the numbers rest on too few trades to judge. */
     val sampleWarning: String?,
+    /** Per-setup results of a trading plan; empty for a single strategy. */
+    val setups: List<SetupScore> = emptyList(),
 )
 
 /**
@@ -119,13 +135,61 @@ class ScorecardService(
                 "backtest: ${it.netReturnPercent ?: "?"}% net return, ${it.maxDrawdownPercent ?: "?"}% max drawdown, ${it.trades ?: "?"} trades, " +
                     "${it.winRatePercent ?: "?"}% winners, profit factor ${it.profitFactor ?: "?"}"
             } ?: "no backtest"
-        return "$n. ${c.strategy.name}\nResults: $paper; $bt.\nRules: $rules"
+        val setups =
+            c.setups.joinToString("") { s ->
+                "\n- Setup ${s.name}: ${s.liveClosedTrades} paper trades, P&L ${s.liveRealizedPnl} USD; backtest ${s.backtestTrades ?: 0} trades, " +
+                    "${s.backtestWinRatePercent ?: "?"}% winners, net ${s.backtestNetPnl ?: "?"} USD, profit factor ${s.backtestProfitFactor ?: "?"}"
+            }
+        return "$n. ${c.strategy.name}\nResults: $paper; $bt.$setups\nRules: $rules"
     }
 
     private fun scorecard(s: StrategyView): Scorecard {
         val live = live(s.id)
         val bt = latestBacktest(s)
-        return Scorecard(s, live, bt, warning(live, bt))
+        return Scorecard(s, live, bt, warning(live, bt), setupScores(s))
+    }
+
+    /** Each plan setup's closed paper trades (by the setup of the opening signal) and its latest backtest results. */
+    private fun setupScores(s: StrategyView): List<SetupScore> {
+        val def = s.currentVersionId?.let { runCatching { strategies.definition(it) }.getOrNull() } ?: return emptyList()
+        if (!def.isPlan) return emptyList()
+        val closes =
+            db
+                .sql(
+                    """
+                    select e.realized_pnl, sg.setup_id from paper_executions e join paper_orders o on o.id = e.order_id
+                    left join signals sg on sg.id = o.signal_id
+                    where o.strategy_id = :s and e.side in ('SELL', 'BUY_TO_COVER')
+                    """.trimIndent(),
+                ).param("s", s.id)
+                .list { it.dec("realized_pnl") to (it.string("setup_id") ?: def.setups.first().id) }
+        val bt =
+            backtests
+                .list(s.id)
+                .firstOrNull { it.status == "COMPLETED" && it.metrics != null }
+                ?.metrics
+                ?.get("setups")
+                ?.associateBy { it["id"]?.asText() }
+                .orEmpty()
+
+        fun dec(n: com.fasterxml.jackson.databind.JsonNode?) = n?.takeIf { !it.isNull }?.let { runCatching { BigDecimal(it.asText()) }.getOrNull() }
+        return def.setups.map { st ->
+            val pnls = closes.filter { it.second == st.id }.map { it.first }
+            val wins = pnls.count { it.signum() > 0 }
+            val b = bt[st.id]
+            SetupScore(
+                st.id,
+                st.name,
+                st.priority,
+                pnls.size,
+                if (pnls.isEmpty()) null else pct(wins, pnls.size),
+                Decimals.money(pnls.fold(BigDecimal.ZERO, BigDecimal::add)),
+                b?.get("trades")?.takeIf { it.canConvertToInt() }?.asInt(),
+                dec(b?.get("winRatePercent")),
+                dec(b?.get("netPnl")),
+                dec(b?.get("profitFactor")),
+            )
+        }
     }
 
     private fun live(id: UUID): LiveStats {

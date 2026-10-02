@@ -61,13 +61,13 @@ fun StrategiesScreen(
     LaunchedEffect(Unit) { vm.loadSlots() }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         SlotsSection(slots, onOpen = { nav.navigate("strategy/$it") }, onStop = vm::stop)
-        SectionTitle("Strategy library")
+        SectionTitle("Trading plans")
         Row {
             Button(onClick = { showImport = !showImport }) { Text(if (showImport) "Close import" else "Create / import") }
             Spacer(Modifier.width(8.dp))
             OutlinedButton(onClick = { nav.navigate("research") }) { Text("AI research") }
         }
-        OutlinedButton(onClick = { nav.navigate("scorecards") }, modifier = Modifier.testTag("compare")) { Text("Compare results / build a better strategy") }
+        OutlinedButton(onClick = { nav.navigate("scorecards") }, modifier = Modifier.testTag("compare")) { Text("Compare results / build a better plan") }
         if (showImport) {
             ImportStrategyPanel(
                 json,
@@ -253,6 +253,7 @@ fun StrategyDetailScreen(
                 SectionTitle("How it works")
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
+            d.plan?.let { PlanSection(it, scorecard?.setups.orEmpty(), s.status, vm::setPlanRules) }
             d.importNotes?.let { ImportNotesSection(it) }
             val syms = symbols(d)
             if (syms.isNotEmpty()) {
@@ -350,6 +351,79 @@ fun StrategyDetailScreen(
     conflict?.let { SlotConflictDialog(it, vm::resolveSlot) }
 }
 
+private fun policyLabel(p: String) =
+    when (p) {
+        "ONE_PER_SYMBOL" -> "One position per symbol"
+        "STACK" -> "Setups may stack"
+        "SHARED" -> "Shared capital"
+        "ALLOCATED" -> "Capital per setup"
+        else -> p.lowercase().replace('_', ' ')
+    }
+
+/**
+ * A trading plan's setups with their results, and its plan-wide rules (D-045). The conflict and
+ * capital policies and the open-risk cap can be changed here; saving creates a new version.
+ */
+@Composable
+fun PlanSection(
+    plan: app.strategyforge.android.core.model.PlanInfo,
+    scores: List<app.strategyforge.android.core.model.SetupScore>,
+    status: String,
+    onSave: (conflictPolicy: String, capitalPolicy: String, maximumOpenRiskPercent: String?) -> Unit,
+) {
+    SectionTitle("Setups (${plan.setups.size})")
+    plan.setups.sortedBy { it.priority }.forEach { st ->
+        SfCard(modifier = Modifier.testTag("setup-${st.id}")) {
+            Text("${st.priority}. ${st.name}", style = MaterialTheme.typography.titleSmall)
+            val facts =
+                listOfNotNull(
+                    when (st.direction) {
+                        "SHORT_ONLY" -> "Shorts"
+                        "BOTH" -> "Longs and shorts"
+                        else -> "Longs"
+                    },
+                    st.allocationPercent?.takeIf { plan.capitalPolicy == "ALLOCATED" }?.let { "$it% of capital" },
+                    st.maximumOpenPositions?.let { "at most $it open" },
+                    "only in its own conditions".takeIf { st.conditional },
+                )
+            Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+            st.description?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            scores.firstOrNull { it.id == st.id }?.let { r ->
+                Text(
+                    "Backtest: ${r.backtestTrades ?: 0} trades, ${r.backtestWinRatePercent ?: "-"}% winners, net ${r.backtestNetPnl ?: "-"} USD, profit factor ${r.backtestProfitFactor ?: "-"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("setup-backtest-${st.id}"),
+                )
+                Text(
+                    "Paper: ${r.liveClosedTrades} closed, ${r.liveWinRatePercent ?: "-"}% winners, ${r.liveRealizedPnl} USD",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+    SectionTitle("Plan rules")
+    val context =
+        listOfNotNull("longs".takeIf { plan.longContext }, "shorts".takeIf { plan.shortContext })
+    if (context.isNotEmpty()) Text("Market context limits ${context.joinToString(" and ")} (see How it works).", style = MaterialTheme.typography.bodySmall)
+    var conflict by rememberSaveable(plan.conflictPolicy) { mutableStateOf(plan.conflictPolicy) }
+    var capital by rememberSaveable(plan.capitalPolicy) { mutableStateOf(plan.capitalPolicy) }
+    var risk by rememberSaveable(plan.maximumOpenRiskPercent) { mutableStateOf(plan.maximumOpenRiskPercent ?: "") }
+    Text("When two setups want the same symbol", style = MaterialTheme.typography.bodySmall)
+    ChoiceRow(listOf("ONE_PER_SYMBOL" to policyLabel("ONE_PER_SYMBOL"), "STACK" to policyLabel("STACK")), conflict, { conflict = it }, "conflict")
+    Text("How setups share capital", style = MaterialTheme.typography.bodySmall)
+    ChoiceRow(listOf("SHARED" to policyLabel("SHARED"), "ALLOCATED" to policyLabel("ALLOCATED")), capital, { capital = it }, "capital")
+    if (capital == "ALLOCATED" && plan.setups.any { it.allocationPercent == null }) {
+        Banner("Capital per setup needs each setup's share in the plan file; without it the new version will fail validation.", BannerKind.WARNING)
+    }
+    Field("Most equity at risk across open positions (%, blank for none)", risk, { risk = it }, number = true, modifier = Modifier.testTag("open-risk"))
+    val changed = conflict != plan.conflictPolicy || capital != plan.capitalPolicy || risk != (plan.maximumOpenRiskPercent ?: "")
+    val active = status.startsWith("ACTIVE")
+    if (active && changed) Text("Stop the plan before changing its rules.", style = MaterialTheme.typography.bodySmall)
+    OutlinedButton(onClick = { onSave(conflict, capital, risk.trim().ifBlank { null }) }, enabled = changed && !active, modifier = Modifier.testTag("save-plan-rules")) {
+        Text("Save plan rules (new version)")
+    }
+}
+
 /**
  * The readback and research log the owner's own AI wrote with an imported strategy (D-043). Compare the
  * readback with "How it works" above: that is the app's own reading of the rules it will actually run.
@@ -422,9 +496,9 @@ fun ImportStrategyPanel(
         SfCard {
             Text("Use your own AI", style = MaterialTheme.typography.titleMedium)
             Text(
-                "1. Copy the instructions below (they describe the app's strategy format and tradable symbols).\n" +
+                "1. Copy the instructions below (they describe the app's trading plan format and tradable symbols).\n" +
                     "2. Paste them into your AI chat, for example Claude.ai, followed by your research or the whole conversation.\n" +
-                    "3. The AI checks every rule, researches anything the research left vague, and replies with the strategy plus a rule readback and a list of what it looked up.\n" +
+                    "3. The AI builds a trading plan (market context, each setup with its own entries, exits and sizing, and plan-wide risk), researches anything left vague, and replies with the plan plus a rule readback and a list of what it looked up.\n" +
                     "4. Paste the whole reply below. The strategy is validated; the readback and research notes are kept and shown on the strategy's page.",
                 style = MaterialTheme.typography.bodyMedium,
             )

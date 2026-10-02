@@ -113,6 +113,20 @@ class Db(
                 Migration(6, "Imported strategies: the readback and research notes the owner's AI wrote with them") { db ->
                     db.addColumn("strategies", "import_notes", "TEXT")
                 },
+                Migration(7, "Trading plans: the setup behind each trade, and the single strategies retired in favour of plans") { db ->
+                    db.addColumn("backtest_trades", "setup_id", "TEXT")
+                    db.addColumn("signals", "setup_id", "TEXT")
+                    // D-045: the owner chose to start fresh with trading plans. Single strategies from earlier
+                    // versions stop and leave the library; their trades and portfolio history are kept.
+                    db
+                        .sql("update strategy_activations set status = 'ENDED', ended_at = :now, end_reason = 'Retired: replaced by trading plans (1.8.0)' where status = 'ACTIVE'")
+                        .param("now", java.time.Instant.now())
+                        .update()
+                    db
+                        .sql("update strategies set status = 'ARCHIVED', status_reason = 'Retired: replaced by trading plans (1.8.0)', archived_at = :now, updated_at = :now where status <> 'ARCHIVED'")
+                        .param("now", java.time.Instant.now())
+                        .update()
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1

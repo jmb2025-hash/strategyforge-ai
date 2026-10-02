@@ -94,6 +94,11 @@ class StrategyValidator(
             .getInstance(SpecVersion.VersionFlag.V202012)
             .getSchema(javaClass.getResourceAsStream("/strategy/strategy-schema-1.0.json"))
 
+    private val planSchema =
+        JsonSchemaFactory
+            .getInstance(SpecVersion.VersionFlag.V202012)
+            .getSchema(javaClass.getResourceAsStream("/strategy/trading-plan-schema-2.0.json"))
+
     fun validateBytes(bytes: ByteArray): ValidationReport {
         if (bytes.size > MAX_BYTES) return fail(ValidationIssue("TOO_LARGE", IssueCategory.FORMAT, IssueSeverity.ERROR, "$", "Strategy file exceeds ${MAX_BYTES / 1024} KiB"))
         if (bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()) {
@@ -129,15 +134,24 @@ class StrategyValidator(
 
         val unknown = mutableListOf<String>()
         val pruned = doc.deepCopy()
-        prune(pruned, Shape.ROOT, "$", unknown)
+        val plan = TradingPlans.isPlan(doc)
+        prune(pruned, if (plan) Shape.PLAN else Shape.ROOT, "$", unknown)
         unknown.forEach { issues += ValidationIssue("UNKNOWN_FIELD", IssueCategory.UNKNOWN_CONTENT, IssueSeverity.REVIEW, it, "Unrecognised field requires manual review; it is never ignored") }
 
-        schema.validate(pruned).forEach { m ->
+        (if (plan) planSchema else schema).validate(pruned).forEach { m ->
             issues += ValidationIssue("SCHEMA_${m.type.uppercase()}", IssueCategory.SCHEMA, IssueSeverity.ERROR, m.instanceLocation.toString(), m.message.take(300))
         }
-        if (issues.none { it.category == IssueCategory.SCHEMA }) semantic(pruned, issues)
+        if (issues.none { it.category == IssueCategory.SCHEMA }) {
+            if (plan) planSemantic(pruned, issues) else semantic(pruned, issues)
+        }
         val hasErrors = issues.any { it.severity == IssueSeverity.ERROR }
         val definition = if (!hasErrors) StrategyDefinition.from(pruned) else null
+        if (definition != null && plan) {
+            val declared = pruned["dataRequirements"]["minimumHistoryBars"].intValue()
+            if (declared < definition.minimumHistoryBars) {
+                issues += ValidationIssue("HISTORY_RAISED", IssueCategory.DATA, IssueSeverity.WARNING, "$.dataRequirements.minimumHistoryBars", "minimumHistoryBars raised from $declared to ${definition.minimumHistoryBars} for the plan's indicators")
+            }
+        }
         if (definition != null) dataAvailability(definition, issues)
         val outcome =
             when {
@@ -189,7 +203,7 @@ class StrategyValidator(
 
     // ---------------------------------------------------------------- unknown fields
 
-    private enum class Shape { ROOT, METADATA, UNIVERSE, DATA, INDICATOR, GROUP, CONDITION, EXIT, PARTIAL, SIZING, ORDER, RISK, SCHEDULE, LEAF }
+    private enum class Shape { ROOT, PLAN, CONTEXT, PLAN_RULES, SETUP, METADATA, UNIVERSE, DATA, INDICATOR, GROUP, CONDITION, EXIT, PARTIAL, SIZING, ORDER, RISK, SCHEDULE, LEAF }
 
     private val known: Map<Shape, Map<String, Shape>> =
         mapOf(
@@ -209,6 +223,33 @@ class StrategyValidator(
                     "riskLimits" to Shape.RISK,
                     "schedule" to Shape.SCHEDULE,
                     "inactivityConditions" to Shape.LEAF,
+                ),
+            Shape.PLAN to
+                mapOf(
+                    "schemaVersion" to Shape.LEAF,
+                    "strategyId" to Shape.LEAF,
+                    "version" to Shape.LEAF,
+                    "metadata" to Shape.METADATA,
+                    "universe" to Shape.UNIVERSE,
+                    "dataRequirements" to Shape.DATA,
+                    "context" to Shape.CONTEXT,
+                    "planRules" to Shape.PLAN_RULES,
+                    "setups" to Shape.SETUP,
+                    "orderInstructions" to Shape.ORDER,
+                    "riskLimits" to Shape.RISK,
+                    "schedule" to Shape.SCHEDULE,
+                    "inactivityConditions" to Shape.LEAF,
+                ),
+            Shape.CONTEXT to mapOf("longWhen" to Shape.GROUP, "shortWhen" to Shape.GROUP),
+            Shape.PLAN_RULES to listOf("conflictPolicy", "capitalPolicy", "maximumOpenRiskPercent").associateWith { Shape.LEAF },
+            Shape.SETUP to
+                listOf("id", "name", "description", "priority", "allocationPercent", "direction", "maximumOpenPositions").associateWith { Shape.LEAF } +
+                mapOf(
+                    "appliesWhen" to Shape.GROUP,
+                    "entryRules" to Shape.GROUP,
+                    "shortEntryRules" to Shape.GROUP,
+                    "exitRules" to Shape.EXIT,
+                    "positionSizing" to Shape.SIZING,
                 ),
             Shape.METADATA to listOf("name", "description", "assetClass", "timeframe", "createdBy", "direction", "tags").associateWith { Shape.LEAF },
             Shape.UNIVERSE to mapOf("symbols" to Shape.LEAF),
@@ -287,6 +328,78 @@ class StrategyValidator(
         msg: String,
     ) {
         issues += ValidationIssue(code, IssueCategory.SEMANTIC, IssueSeverity.ERROR, path, msg)
+    }
+
+    /**
+     * Semantic rules for a trading plan (D-045): plan indicators once, then each setup as a complete
+     * strategy and each context or applies-when condition group as entry rules, with issue paths
+     * pointing back into the plan.
+     */
+    private fun planSemantic(
+        doc: JsonNode,
+        issues: MutableList<ValidationIssue>,
+    ) {
+        val out = linkedSetOf<ValidationIssue>()
+        indicatorRules(doc, issues)
+        val setups = doc["setups"]
+        val ids = setups.map { it["id"].asText() }
+        ids.groupingBy { it }.eachCount().filter { it.value > 1 }.keys.forEach { id ->
+            out += ValidationIssue("DUPLICATE_SETUP_ID", IssueCategory.SEMANTIC, IssueSeverity.ERROR, "$.setups", "Setup id '$id' is used more than once")
+        }
+        val capital = doc["planRules"]?.get("capitalPolicy")?.asText() ?: "SHARED"
+        val allocations = setups.mapNotNull { it["allocationPercent"]?.decimalValue() }
+        if (capital == "ALLOCATED") {
+            setups.forEachIndexed { i, s -> if (s["allocationPercent"] == null) out += ValidationIssue("MISSING_PARAMETER", IssueCategory.SEMANTIC, IssueSeverity.ERROR, "$.setups[$i].allocationPercent", "capitalPolicy ALLOCATED requires every setup's allocationPercent") }
+            val total = allocations.fold(BigDecimal.ZERO, BigDecimal::add)
+            if (total > BigDecimal(100)) out += ValidationIssue("UNSAFE_VALUE", IssueCategory.SEMANTIC, IssueSeverity.ERROR, "$.setups", "Setup allocations add up to ${total.stripTrailingZeros().toPlainString()}%, more than 100%")
+        } else if (allocations.isNotEmpty()) {
+            out += ValidationIssue("IGNORED_SETTING", IssueCategory.RISK, IssueSeverity.WARNING, "$.planRules.capitalPolicy", "allocationPercent only applies when capitalPolicy is ALLOCATED")
+        }
+
+        fun mapped(
+            sub: List<ValidationIssue>,
+            prefix: String,
+            label: String,
+            moves: Map<String, String>,
+        ) {
+            sub.forEach { v ->
+                if (v.path.startsWith("$.dataRequirements.indicators") || v.code == "HISTORY_RAISED") return@forEach
+                val move = moves.entries.firstOrNull { v.path == it.key || v.path.startsWith(it.key + ".") || v.path.startsWith(it.key + "[") }
+                out +=
+                    if (move != null) {
+                        v.copy(path = prefix + move.value + v.path.removePrefix(move.key), message = "$label: ${v.message}")
+                    } else {
+                        v
+                    }
+            }
+        }
+        setups.forEachIndexed { i, s ->
+            val sub = mutableListOf<ValidationIssue>()
+            semantic(TradingPlans.setupDocument(doc, s), sub)
+            val label = "Setup ${s["id"].asText()}"
+            mapped(
+                sub,
+                "$.setups[$i]",
+                label,
+                mapOf("$.entryRules" to ".entryRules", "$.shortEntryRules" to ".shortEntryRules", "$.exitRules" to ".exitRules", "$.positionSizing" to ".positionSizing", "$.metadata.direction" to ".direction"),
+            )
+            s["appliesWhen"]?.let { g -> probe(doc, g, "$.setups[$i].appliesWhen", "$label applies-when", ::mapped) }
+        }
+        doc["context"]?.get("longWhen")?.let { probe(doc, it, "$.context.longWhen", "Plan context (longs)", ::mapped) }
+        doc["context"]?.get("shortWhen")?.let { probe(doc, it, "$.context.shortWhen", "Plan context (shorts)", ::mapped) }
+        issues += out
+    }
+
+    private fun probe(
+        doc: JsonNode,
+        group: JsonNode,
+        path: String,
+        label: String,
+        mapped: (List<ValidationIssue>, String, String, Map<String, String>) -> Unit,
+    ) {
+        val sub = mutableListOf<ValidationIssue>()
+        semantic(TradingPlans.probeDocument(doc, group), sub)
+        mapped(sub.filter { it.path.startsWith("$.entryRules") }, path, label, mapOf("$.entryRules" to ""))
     }
 
     private fun indicatorRules(

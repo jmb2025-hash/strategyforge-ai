@@ -69,19 +69,23 @@ class LotService(
         return id
     }
 
-    /** Removes [quantity] from the oldest lots first; the final slice of a lot takes its exact remaining cost. */
+    /**
+     * Removes [quantity] from the oldest lots first; the final slice of a lot takes its exact remaining
+     * cost. Lots in [first] (a plan setup's own lots, D-045) are relieved before any others.
+     */
     fun relieveFifo(
         portfolioId: UUID,
         instrumentId: UUID,
         side: LotSide,
         quantity: BigDecimal,
         at: Instant,
+        first: Set<UUID> = emptySet(),
     ): Relief =
         db.tx {
             var remaining = quantity
             var cost = BigDecimal.ZERO
             val touched = mutableListOf<Pair<UUID, BigDecimal>>()
-            for (lot in openLots(portfolioId, instrumentId).filter { it.side == side }) {
+            for (lot in openLots(portfolioId, instrumentId).filter { it.side == side }.sortedBy { if (it.id in first) 0 else 1 }) {
                 if (remaining.signum() <= 0) break
                 val take = remaining.min(lot.quantityRemaining)
                 val portion =

@@ -207,7 +207,7 @@ class ExecutionEngine(
                 lots.open(o.portfolioId, o.instrumentId, LotSide.LONG, qty, notional, now, executionId)
             }
             OrderSide.SELL -> {
-                val relief = lots.relieveFifo(o.portfolioId, o.instrumentId, LotSide.LONG, qty, now)
+                val relief = lots.relieveFifo(o.portfolioId, o.instrumentId, LotSide.LONG, qty, now, setupLots(o))
                 val x = relief.cost.subtract(notional)
                 postings += Posting(Account.POSITION, relief.cost.negate(), o.instrumentId, qty.negate())
                 postings += Posting(Account.CASH, notional)
@@ -220,7 +220,7 @@ class ExecutionEngine(
                 lots.open(o.portfolioId, o.instrumentId, LotSide.SHORT, qty, notional.negate(), now, executionId)
             }
             OrderSide.BUY_TO_COVER -> {
-                val relief = lots.relieveFifo(o.portfolioId, o.instrumentId, LotSide.SHORT, qty, now)
+                val relief = lots.relieveFifo(o.portfolioId, o.instrumentId, LotSide.SHORT, qty, now, setupLots(o))
                 val x = notional.add(relief.cost)
                 postings += Posting(Account.POSITION, relief.cost.negate(), o.instrumentId, qty)
                 postings += Posting(Account.CASH, notional.negate())
@@ -384,4 +384,26 @@ class ExecutionEngine(
                     rs.instant("recorded_at"),
                 )
             }
+
+    /**
+     * Open lots opened by the same plan setup as [o]'s signal (D-045), so a setup's exit closes its
+     * own position first when several setups hold the same instrument.
+     */
+    private fun setupLots(o: PaperOrder): Set<UUID> {
+        val signal = o.signalId ?: return emptySet()
+        return db
+            .sql(
+                """
+                select l.id from position_lots l join paper_executions e on e.id = l.open_execution_id join paper_orders po on po.id = e.order_id
+                join signals sg on sg.id = po.signal_id
+                where l.portfolio_id = :p and l.instrument_id = :i and l.closed_at is null and po.strategy_id = :s
+                  and sg.setup_id = (select setup_id from signals where id = :sig)
+                """.trimIndent(),
+            ).param("p", o.portfolioId)
+            .param("i", o.instrumentId)
+            .param("s", o.strategyId)
+            .param("sig", signal)
+            .list { it.uuid("id") }
+            .toSet()
+    }
 }

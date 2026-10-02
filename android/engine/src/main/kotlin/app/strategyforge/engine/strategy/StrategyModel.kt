@@ -265,7 +265,18 @@ data class StrategyDefinition(
     val inactivityConditions: Set<String>,
     /** Short entries for strategies that trade both directions (D-042). */
     val shortEntry: RuleGroup? = null,
+    /** The setups of a trading plan (D-045); empty for a single strategy, which is its own only setup. */
+    val setups: List<Setup> = emptyList(),
+    /** Plan-wide context and policies (D-045). */
+    val plan: PlanRules = PlanRules.DEFAULT,
 ) {
+    val isPlan: Boolean get() = setups.isNotEmpty()
+
+    /** The setups to evaluate, best priority first: a single strategy is one setup. */
+    fun setupsOrSelf(): List<Setup> = setups.ifEmpty { listOf(Setup(Setup.SINGLE, name, description, 1, null, null, null, this)) }
+
+    fun setup(id: String?): Setup? = setupsOrSelf().let { all -> all.firstOrNull { it.id == id } ?: all.takeIf { id == null || !isPlan }?.first() }
+
     /** Whether any rule reads perpetual-futures data (D-044). */
     val usesDerivatives: Boolean get() = indicators.any { it.type in IndicatorType.DERIVATIVES }
 
@@ -285,6 +296,8 @@ data class StrategyDefinition(
             base: Timeframe,
             assetClass: AssetClass,
         ): Int = (indicators.maxOfOrNull { it.lookback(base, assetClass) } ?: 1) + maxOffset + 1
+
+        fun maxOffsetOf(n: RuleNode?): Int = maxOffset(n)
 
         private fun maxOffset(n: RuleNode?): Int =
             when (n) {
@@ -317,8 +330,24 @@ data class StrategyDefinition(
                 },
             )
 
-        /** Builds the definition from a document that has passed schema and semantic validation. */
+        fun indicator(i: JsonNode): IndicatorSpec =
+            IndicatorSpec(
+                i["id"].asText(),
+                IndicatorType.valueOf(i["type"].asText()),
+                int(i["period"]),
+                int(i["fastPeriod"]),
+                int(i["slowPeriod"]),
+                int(i["signalPeriod"]),
+                dec(i["standardDeviations"]),
+                i["source"]?.asText()?.let { PriceField.valueOf(it) } ?: PriceField.CLOSE,
+                i["timeframe"]?.asText()?.let { Anchor.ofCode(it) },
+                i["anchor"]?.asText()?.let { Anchor.valueOf(it) },
+                i["anchorPoint"]?.asText()?.let { AnchorPoint.valueOf(it) },
+            )
+
+        /** Builds the definition from a document (a strategy or a trading plan) that has passed validation. */
         fun from(doc: JsonNode): StrategyDefinition {
+            if (TradingPlans.isPlan(doc)) return TradingPlans.definition(doc)
             val m = doc["metadata"]
             val d = doc["dataRequirements"]
             val e = doc["exitRules"]
@@ -333,22 +362,7 @@ data class StrategyDefinition(
                 symbols = doc["universe"]["symbols"].map { it.asText() },
                 minimumHistoryBars = d["minimumHistoryBars"].intValue(),
                 maximumQuoteAgeSeconds = d["maximumQuoteAgeSeconds"].longValue(),
-                indicators =
-                    d["indicators"].map { i ->
-                        IndicatorSpec(
-                            i["id"].asText(),
-                            IndicatorType.valueOf(i["type"].asText()),
-                            int(i["period"]),
-                            int(i["fastPeriod"]),
-                            int(i["slowPeriod"]),
-                            int(i["signalPeriod"]),
-                            dec(i["standardDeviations"]),
-                            i["source"]?.asText()?.let { PriceField.valueOf(it) } ?: PriceField.CLOSE,
-                            i["timeframe"]?.asText()?.let { Anchor.ofCode(it) },
-                            i["anchor"]?.asText()?.let { Anchor.valueOf(it) },
-                            i["anchorPoint"]?.asText()?.let { AnchorPoint.valueOf(it) },
-                        )
-                    },
+                indicators = d["indicators"].map(::indicator),
                 entry = group(doc["entryRules"]),
                 exit =
                     ExitRules(

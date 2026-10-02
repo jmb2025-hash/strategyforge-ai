@@ -301,6 +301,26 @@ class Repository(
         )
     }
 
+    /** Changes a trading plan's conflict and capital policies and open-risk cap; this creates a new version (D-045). */
+    suspend fun setPlanRules(
+        id: String,
+        conflictPolicy: String,
+        capitalPolicy: String,
+        maximumOpenRiskPercent: String?,
+    ): StrategyResult =
+        api.decode(
+            api
+                .post(
+                    "/v1/strategies/${seg(id)}/plan-rules",
+                    buildJsonObject {
+                        put("conflictPolicy", conflictPolicy)
+                        put("capitalPolicy", capitalPolicy)
+                        maximumOpenRiskPercent?.takeIf { it.isNotBlank() }?.let { put("maximumOpenRiskPercent", it) }
+                    },
+                ).body,
+            StrategyResult.serializer(),
+        )
+
     suspend fun revalidate(id: String): StrategyResult = api.decode(api.post("/v1/strategies/${seg(id)}/validate").body, StrategyResult.serializer())
 
     suspend fun backtests(strategyId: String): List<Backtest> = api.decode(api.get("/v1/backtests?strategyId=${q(strategyId)}").body, ListSerializer(Backtest.serializer()))

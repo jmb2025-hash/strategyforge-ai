@@ -41,7 +41,9 @@ import app.strategyforge.engine.portfolio.PortfolioService
 import app.strategyforge.engine.risk.OrderIntent
 import app.strategyforge.engine.risk.OrderSource
 import app.strategyforge.engine.risk.RiskEngine
+import app.strategyforge.engine.strategy.CapitalPolicy
 import app.strategyforge.engine.strategy.Condition
+import app.strategyforge.engine.strategy.ConflictPolicy
 import app.strategyforge.engine.strategy.Indicators
 import app.strategyforge.engine.strategy.Operand
 import app.strategyforge.engine.strategy.RuleEvaluator
@@ -91,6 +93,8 @@ data class SignalDraft(
     val referencePrice: BigDecimal,
     val triggered: List<String>,
     val rationale: String,
+    /** The plan setup behind the signal (D-045). */
+    val setupId: String? = null,
 )
 
 /**
@@ -291,7 +295,12 @@ class EvaluationService(
         )
     }
 
-    /** Builds an entry or exit signal for one symbol from verified closed bars (point in time). */
+    /**
+     * Builds an entry or exit signal for one symbol from verified closed bars (point in time). Each
+     * held position is managed by the setup that opened it; when none needs to exit, setups are
+     * tried for an entry in priority order under the plan's conflict and capital policies (D-045).
+     * At most one signal per symbol is produced per bar.
+     */
     private fun draft(
         a: Activation,
         def: StrategyDefinition,
@@ -302,7 +311,9 @@ class EvaluationService(
     ): SignalDraft? {
         val ev = RuleEvaluator(bars, Indicators.compute(def.indicators, bars, SeriesContext.of(def.timeframe, def.assetClass).copy(derivatives = derivatives)))
         val idx = bars.lastIndex
-        val held = strategyHolding(a, i.id)
+        val setups = def.setupsOrSelf()
+        val all = planHoldings(a, setups.first().id, setups.map { it.id }.toSet())
+        val here = all.filter { it.instrumentId == i.id }
         val openOrder =
             db
                 .sql("select count(*) n from paper_orders where strategy_id = :s and instrument_id = :i and status in ('VALIDATED','PENDING','PARTIALLY_FILLED')")
@@ -317,31 +328,63 @@ class EvaluationService(
                 Pricing.roundToIncrement(if (buy) price.multiply(BigDecimal.ONE.subtract(f)) else price.multiply(BigDecimal.ONE.add(f)), i.priceIncrement, RoundingMode.HALF_EVEN)
             }
         }
-        if (held != null) return exitDraft(def, i, bars, ev, idx, held, last, limitFor)
-        val position = portfolios.positionViews(portfolios.get(a.portfolioId)).firstOrNull { it.instrumentId == i.id }
-        if (position != null) return null // the instrument is held outside this strategy; do not mix
+        here.forEach { h ->
+            val setup = def.setup(h.setupId) ?: setups.first()
+            exitDraft(setup.def, i, bars, ev, idx, h.holding, last, limitFor)?.let { return it.copy(setupId = setup.id) }
+        }
+        if (here.isEmpty()) {
+            val position = portfolios.positionViews(portfolios.get(a.portfolioId)).firstOrNull { it.instrumentId == i.id }
+            if (position != null) return null // the instrument is held outside this strategy; do not mix
+        }
+        if (def.plan.conflictPolicy == ConflictPolicy.ONE_PER_SYMBOL && here.isNotEmpty()) return null
         // No new entries once today's losing trades reach the strategy's cap (D-042).
         def.risk.maximumDailyLosingTrades?.let { cap -> if (losingTradesToday(a) >= cap) return null }
-        val long = def.entryFor(false)?.let { ev.evaluate(it, idx) } ?: false
-        val shortSignal = def.entryFor(true)?.let { ev.evaluate(it, idx) } ?: false
-        // Conflicting long and short signals on the same bar: no trade.
-        if (long == shortSignal) return null
-        val short = shortSignal
-        if (short && !portfolios.get(a.portfolioId).shortingEnabled) return null
-        val rules = def.entryFor(short)!!
+        val portfolio = portfolios.get(a.portfolioId)
         val equity = portfolios.summary(a.portfolioId).equity
         val limits = runCatching { riskLimits(a.portfolioId, a.strategyId) }.getOrNull()
         val tradeCap = listOfNotNull(limits?.maxTradePercentOfEquity, limits?.maxInstrumentAllocationPercent).minOrNull()
-        val qty = Decimals.floorToStep(sizing(def, equity, last, tradeCap, limits?.maxTradeValue), i.quantityIncrement)
-        if (qty < i.minQuantity) return null
-        val side = if (short) OrderSide.SELL_SHORT else OrderSide.BUY
-        val triggered = triggeredConditions(rules, ev, idx)
-        val bar = bars.last()
-        val rationale =
-            "${if (short) "Short entry" else "Entry"}: ${triggered.joinToString("; ")} on the ${def.timeframe.code} bar that closed at ${BarSchedule.closeTime(i.assetClass, def.timeframe, bar.openTime)}. " +
-                "Last price ${last.stripTrailingZeros().toPlainString()}; size ${def.sizing.method.name.lowercase().replace('_', ' ')} ${def.sizing.value.stripTrailingZeros().toPlainString()}."
-        val limit = limitFor(last, side.buys)
-        return SignalDraft(i, if (short) "ENTER_SHORT" else "ENTER_LONG", side, qty, if (limit != null) OrderType.LIMIT else OrderType.MARKET, limit, last, triggered, rationale)
+        for (setup in setups) {
+            if (here.any { it.setupId == setup.id }) continue
+            setup.maximumOpenPositions?.let { cap -> if (all.count { it.setupId == setup.id } >= cap) continue }
+            val short = setup.signal(def.plan, ev, idx) ?: continue
+            if (short && !portfolio.shortingEnabled) continue
+            // Never long and short in the same symbol at once.
+            if (here.any { it.holding.short != short }) continue
+            val sd = setup.def
+            val allocated = def.plan.capitalPolicy == CapitalPolicy.ALLOCATED && setup.allocationPercent != null
+            val budget = if (allocated) equity.multiply(setup.allocationPercent).divide(Decimals.HUNDRED, Decimals.MC) else equity
+            val qty = Decimals.floorToStep(sizing(sd, budget, last, tradeCap, limits?.maxTradeValue), i.quantityIncrement)
+            if (qty < i.minQuantity) continue
+            val notional = qty.multiply(last)
+            if (allocated && all.filter { it.setupId == setup.id }.fold(BigDecimal.ZERO) { acc, h -> acc.add(h.holding.quantity.multiply(h.holding.averageCost)) }.add(notional) > budget.multiply(BigDecimal("1.001"))) continue
+            val overRisk =
+                def.plan.maximumOpenRiskPercent?.let { cap ->
+                    val open =
+                        all.fold(BigDecimal.ZERO) { acc, h ->
+                            val stop = (def.setup(h.setupId) ?: setups.first()).def.exit.stopLossPercent
+                            acc.add(
+                                h.holding.quantity
+                                    .multiply(h.holding.averageCost)
+                                    .multiply(stop)
+                                    .divide(Decimals.HUNDRED, Decimals.MC),
+                            )
+                        }
+                    val add = notional.multiply(sd.exit.stopLossPercent).divide(Decimals.HUNDRED, Decimals.MC)
+                    equity.signum() > 0 && open.add(add).multiply(Decimals.HUNDRED).divide(equity, Decimals.MC) > cap
+                } ?: false
+            if (overRisk) continue
+            val side = if (short) OrderSide.SELL_SHORT else OrderSide.BUY
+            val rules = sd.entryFor(short)!!
+            val triggered = triggeredConditions(rules, ev, idx)
+            val bar = bars.last()
+            val label = if (def.isPlan) "${setup.name}: " else ""
+            val rationale =
+                "$label${if (short) "Short entry" else "Entry"}: ${triggered.joinToString("; ")} on the ${def.timeframe.code} bar that closed at ${BarSchedule.closeTime(i.assetClass, def.timeframe, bar.openTime)}. " +
+                    "Last price ${last.stripTrailingZeros().toPlainString()}; size ${sd.sizing.method.name.lowercase().replace('_', ' ')} ${sd.sizing.value.stripTrailingZeros().toPlainString()}."
+            val limit = limitFor(last, side.buys)
+            return SignalDraft(i, if (short) "ENTER_SHORT" else "ENTER_LONG", side, qty, if (limit != null) OrderType.LIMIT else OrderType.MARKET, limit, last, triggered, rationale, setup.id)
+        }
+        return null
     }
 
     /** Stop, partial target, target, trailing stop, holding time and exit rules for a held position. */
@@ -445,16 +488,27 @@ class EvaluationService(
         val partialTaken: Boolean,
     )
 
+    private data class HeldBy(
+        val instrumentId: UUID,
+        val setupId: String,
+        val holding: Holding,
+    )
+
     /**
-     * Quantity, average cost, first entry time and side of the lots this strategy manages: those its
-     * orders opened, plus those handed to it when it replaced another strategy (D-035).
+     * Quantity, average cost, first entry time and side of the lots this strategy manages, per
+     * instrument and plan setup: those its orders opened (the setup comes from the order's signal),
+     * plus those handed to it when it replaced another strategy (D-035), which belong to the first
+     * setup like any lot whose setup is not part of this plan (D-045).
      */
-    private fun strategyHolding(
+    private fun planHoldings(
         a: Activation,
-        instrumentId: UUID,
-    ): Holding? {
+        defaultSetup: String,
+        setupIds: Set<String>,
+    ): List<HeldBy> {
         // Summed in Kotlin: quantities and costs are exact decimal text.
         data class Lot(
+            val instrument: UUID,
+            val setup: String,
             val remaining: BigDecimal,
             val open: BigDecimal,
             val cost: BigDecimal,
@@ -465,19 +519,24 @@ class EvaluationService(
             db
                 .sql(
                     """
-                    select l.quantity_remaining, l.quantity_open, l.cost_remaining, l.opened_at, l.side from position_lots l
+                    select l.instrument_id, sg.setup_id, l.quantity_remaining, l.quantity_open, l.cost_remaining, l.opened_at, l.side from position_lots l
                     join paper_executions e on e.id = l.open_execution_id join paper_orders o on o.id = e.order_id
-                    where l.portfolio_id = :p and l.instrument_id = :i and coalesce(l.managed_by_strategy_id, o.strategy_id) = :s and l.closed_at is null
+                    left join signals sg on sg.id = o.signal_id
+                    where l.portfolio_id = :p and coalesce(l.managed_by_strategy_id, o.strategy_id) = :s and l.closed_at is null
                     """.trimIndent(),
                 ).param("p", a.portfolioId)
-                .param("i", instrumentId)
                 .param("s", a.strategyId)
-                .list { rs -> Lot(rs.dec("quantity_remaining"), rs.dec("quantity_open"), rs.dec("cost_remaining").abs(), rs.instant("opened_at"), rs.str("side") == "SHORT") }
-        val q = lots.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.remaining) }
-        if (lots.isEmpty() || q.signum() == 0) return null
-        val opened = lots.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.open) }
-        val c = lots.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.cost) }
-        return Holding(q, c.divide(q, Decimals.MC), lots.minOf { it.at }, lots.first().short, q < opened)
+                .list { rs ->
+                    val setup = rs.string("setup_id")?.takeIf { it in setupIds } ?: defaultSetup
+                    Lot(rs.uuid("instrument_id"), setup, rs.dec("quantity_remaining"), rs.dec("quantity_open"), rs.dec("cost_remaining").abs(), rs.instant("opened_at"), rs.str("side") == "SHORT")
+                }
+        return lots.groupBy { it.instrument to it.setup }.mapNotNull { (k, ls) ->
+            val q = ls.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.remaining) }
+            if (q.signum() == 0) return@mapNotNull null
+            val opened = ls.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.open) }
+            val c = ls.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.cost) }
+            HeldBy(k.first, k.second, Holding(q, c.divide(q, Decimals.MC), ls.minOf { it.at }, ls.first().short, q < opened))
+        }
     }
 
     /** Persists the signal, evaluates risk, then either recommends (default) or executes autonomously. */
@@ -504,8 +563,8 @@ class EvaluationService(
                     .sql(
                         """
                         insert or ignore into signals(id, strategy_id, version_id, content_hash, activation_id, evaluation_id, portfolio_id, instrument_id, bucket_start, action, side, quantity,
-                          order_type, limit_price, reference_price, market_snapshot_id, triggered_rules, rationale, expires_at, disposition, created_at)
-                        values (:id, :s, :v, :h, :a, :e, :p, :i, :b, :act, :side, :q, :t, :l, :ref, :snap, :tr, :rat, :exp, 'RECOMMENDED', :now)
+                          order_type, limit_price, reference_price, market_snapshot_id, triggered_rules, rationale, expires_at, disposition, created_at, setup_id)
+                        values (:id, :s, :v, :h, :a, :e, :p, :i, :b, :act, :side, :q, :t, :l, :ref, :snap, :tr, :rat, :exp, 'RECOMMENDED', :now, :su)
                         """.trimIndent(),
                     ).param("id", id)
                     .param("s", a.strategyId)
@@ -527,6 +586,7 @@ class EvaluationService(
                     .param("rat", d.rationale.take(2000))
                     .param("exp", (expires))
                     .param("now", (clock.instant()))
+                    .param("su", d.setupId)
                     .update()
             if (inserted == 0) return@tx false
             dispatcher.dispatch(a, id, d)

@@ -239,6 +239,29 @@ class StrategyService(
         return result
     }
 
+    /**
+     * Changes a trading plan's conflict policy, capital policy and open-risk cap (D-045). Like any
+     * edit it creates a new version, which is validated again and needs a new backtest.
+     */
+    fun setPlanRules(
+        id: UUID,
+        conflictPolicy: ConflictPolicy,
+        capitalPolicy: CapitalPolicy,
+        maximumOpenRiskPercent: java.math.BigDecimal?,
+    ): StrategyResult {
+        val s = get(id)
+        val v = s.currentVersionId?.let { version(it) } ?: throw Problems.conflict("no-version", "The plan has no version to change")
+        if (!TradingPlans.isPlan(v.content)) throw Problems.unprocessable("not-a-plan", "Only trading plans have plan rules")
+        val doc = (v.content.deepCopy<JsonNode>() as ObjectNode)
+        val rules = doc.putObject("planRules")
+        rules.put("conflictPolicy", conflictPolicy.name)
+        rules.put("capitalPolicy", capitalPolicy.name)
+        maximumOpenRiskPercent?.let { rules.put("maximumOpenRiskPercent", it) }
+        doc.remove("strategyId")
+        doc.remove("version")
+        return update(id, doc, s.version)
+    }
+
     /** Edits create a new immutable version; active strategies must be paused first. */
     fun update(
         id: UUID,

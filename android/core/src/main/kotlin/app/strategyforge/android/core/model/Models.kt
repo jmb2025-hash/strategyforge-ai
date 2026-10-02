@@ -188,6 +188,30 @@ data class ImportNotes(
     val other: String? = null,
 )
 
+/** One setup of a trading plan (D-045). */
+@Serializable
+data class SetupInfo(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val priority: Int = 1,
+    val direction: String = "LONG_ONLY",
+    val allocationPercent: String? = null,
+    val maximumOpenPositions: Int? = null,
+    val conditional: Boolean = false,
+)
+
+/** A trading plan's setups and plan-wide policies (D-045). */
+@Serializable
+data class PlanInfo(
+    val conflictPolicy: String = "ONE_PER_SYMBOL",
+    val capitalPolicy: String = "SHARED",
+    val maximumOpenRiskPercent: String? = null,
+    val longContext: Boolean = false,
+    val shortContext: Boolean = false,
+    val setups: List<SetupInfo> = emptyList(),
+)
+
 @Serializable
 data class StrategyDetail(
     val strategy: Strategy,
@@ -195,6 +219,7 @@ data class StrategyDetail(
     val validation: Validation? = null,
     val explanation: String? = null,
     val importNotes: ImportNotes? = null,
+    val plan: PlanInfo? = null,
 )
 
 @Serializable
@@ -324,6 +349,22 @@ data class Scorecard(
     val live: LiveStats = LiveStats(),
     val backtest: BacktestStats? = null,
     val sampleWarning: String? = null,
+    val setups: List<SetupScore> = emptyList(),
+)
+
+/** One plan setup's paper and backtest results (D-045). */
+@Serializable
+data class SetupScore(
+    val id: String,
+    val name: String,
+    val priority: Int = 1,
+    val liveClosedTrades: Int = 0,
+    val liveWinRatePercent: String? = null,
+    val liveRealizedPnl: String = "0",
+    val backtestTrades: Int? = null,
+    val backtestWinRatePercent: String? = null,
+    val backtestNetPnl: String? = null,
+    val backtestProfitFactor: String? = null,
 )
 
 @Serializable
