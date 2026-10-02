@@ -30,7 +30,7 @@ cyclonedx = "2.4.1"
 # On-device engine (D-027)
 sqlite-jdbc = "3.53.4.0"
 anthropic = "2.34.0"
-jackson = "2.21.6"
+jackson = "2.21.7"
 # Patch level above what the Anthropic SDK brings (D-025): CVE-2026-54399, CVE-2026-54428.
 httpcore5 = "5.4.3"
 json-schema-validator = "1.5.9"

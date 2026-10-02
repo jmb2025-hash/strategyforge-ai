@@ -31,7 +31,7 @@ extra["kotlin.version"] = libs.versions.kotlin.get()
 extra["tomcat.version"] = "10.1.60"
 extra["postgresql.version"] = "42.7.13"
 extra["httpcore5.version"] = "5.4.3"
-extra["jackson-bom.version"] = "2.21.6"
+extra["jackson-bom.version"] = "2.21.7"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
