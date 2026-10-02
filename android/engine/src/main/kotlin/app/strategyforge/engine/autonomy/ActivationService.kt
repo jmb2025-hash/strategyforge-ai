@@ -94,6 +94,9 @@ class ActivationService(
         val p = portfolios.find(req.portfolioId)
         if (p == null || p.status != "ACTIVE") gates += "An active paper portfolio is required"
         if (p != null && p.reconciliationStatus != "OK") gates += "Portfolio reconciliation must pass"
+        // A strategy that can open short positions needs simulated shorting on its portfolio (D-042).
+        val canShort = runCatching { strategies.definition(versionId).direction != app.strategyforge.engine.strategy.Direction.LONG_ONLY }.getOrDefault(false)
+        if (canShort && p != null && !p.shortingEnabled) gates += "This strategy can open short positions: turn on simulated short selling for portfolio ${p.name} first (Portfolio tab)"
         if (req.allocationPercent <= BigDecimal.ZERO || req.allocationPercent > BigDecimal(100)) gates += "Allocation must be greater than 0 and at most 100 percent"
         val otherAllocations =
             db
@@ -110,7 +113,7 @@ class ActivationService(
         }
         if (gates.isNotEmpty()) {
             audit.record(AuditCategory.AUTONOMY, "ACTIVATION_DENIED", AuditOutcome.BLOCKED, "Strategy", strategyId, mapOf("mode" to req.mode, "gates" to gates))
-            throw Problems.unprocessable("activation-gates-failed", "Activation requirements are not met", mapOf("gates" to gates))
+            throw Problems.unprocessable("activation-gates-failed", "Activation requirements are not met: ${gates.joinToString("; ")}", mapOf("gates" to gates))
         }
         if (req.mode == ActivationMode.AUTONOMOUS) auth.require("turn on autonomous paper trading")
         return db.tx { store(strategyId, s.status, versionId, v.contentHash, backtest!!.id, req) }

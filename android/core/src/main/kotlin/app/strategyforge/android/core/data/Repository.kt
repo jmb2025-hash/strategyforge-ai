@@ -235,6 +235,12 @@ class Repository(
 
     fun orders(portfolioId: String): Flow<Resource<Page<Order>>> = cached("orders:$portfolioId", Page.serializer(Order.serializer())) { api.get("/v1/orders?portfolioId=${q(portfolioId)}&limit=100").body }
 
+    /** Turns simulated short selling on or off for a portfolio; turning it on needs a recent device unlock (D-042). */
+    suspend fun setShorting(
+        portfolioId: String,
+        enabled: Boolean,
+    ): Portfolio = api.decode(api.post("/v1/portfolios/${seg(portfolioId)}/shorting", buildJsonObject { put("enabled", enabled) }).body, Portfolio.serializer())
+
     suspend fun createPortfolio(
         name: String,
         startingBalance: String,

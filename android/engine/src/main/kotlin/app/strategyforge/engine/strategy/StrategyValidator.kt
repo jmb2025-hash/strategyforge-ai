@@ -189,7 +189,7 @@ class StrategyValidator(
 
     // ---------------------------------------------------------------- unknown fields
 
-    private enum class Shape { ROOT, METADATA, UNIVERSE, DATA, INDICATOR, GROUP, CONDITION, EXIT, SIZING, ORDER, RISK, SCHEDULE, LEAF }
+    private enum class Shape { ROOT, METADATA, UNIVERSE, DATA, INDICATOR, GROUP, CONDITION, EXIT, PARTIAL, SIZING, ORDER, RISK, SCHEDULE, LEAF }
 
     private val known: Map<Shape, Map<String, Shape>> =
         mapOf(
@@ -202,6 +202,7 @@ class StrategyValidator(
                     "universe" to Shape.UNIVERSE,
                     "dataRequirements" to Shape.DATA,
                     "entryRules" to Shape.GROUP,
+                    "shortEntryRules" to Shape.GROUP,
                     "exitRules" to Shape.EXIT,
                     "positionSizing" to Shape.SIZING,
                     "orderInstructions" to Shape.ORDER,
@@ -212,13 +213,33 @@ class StrategyValidator(
             Shape.METADATA to listOf("name", "description", "assetClass", "timeframe", "createdBy", "direction", "tags").associateWith { Shape.LEAF },
             Shape.UNIVERSE to mapOf("symbols" to Shape.LEAF),
             Shape.DATA to mapOf("minimumHistoryBars" to Shape.LEAF, "maximumQuoteAgeSeconds" to Shape.LEAF, "indicators" to Shape.INDICATOR),
-            Shape.INDICATOR to listOf("id", "type", "period", "fastPeriod", "slowPeriod", "signalPeriod", "standardDeviations", "source").associateWith { Shape.LEAF },
+            Shape.INDICATOR to listOf("id", "type", "period", "fastPeriod", "slowPeriod", "signalPeriod", "standardDeviations", "source", "timeframe", "anchor", "anchorPoint").associateWith { Shape.LEAF },
             Shape.GROUP to mapOf("operator" to Shape.LEAF, "conditions" to Shape.CONDITION),
             Shape.CONDITION to listOf("left", "comparison", "right", "offsetBars").associateWith { Shape.LEAF },
-            Shape.EXIT to mapOf("stopLossPercent" to Shape.LEAF, "takeProfitPercent" to Shape.LEAF, "trailingStopPercent" to Shape.LEAF, "maximumHoldingBars" to Shape.LEAF, "conditions" to Shape.GROUP),
+            Shape.EXIT to
+                mapOf(
+                    "stopLossPercent" to Shape.LEAF,
+                    "takeProfitPercent" to Shape.LEAF,
+                    "trailingStopPercent" to Shape.LEAF,
+                    "maximumHoldingBars" to Shape.LEAF,
+                    "conditions" to Shape.GROUP,
+                    "shortConditions" to Shape.GROUP,
+                    "partialTakeProfit" to Shape.PARTIAL,
+                ),
+            Shape.PARTIAL to listOf("atPercent", "closePercent", "moveStopToEntry").associateWith { Shape.LEAF },
             Shape.SIZING to mapOf("method" to Shape.LEAF, "value" to Shape.LEAF),
             Shape.ORDER to mapOf("orderType" to Shape.LEAF, "timeInForce" to Shape.LEAF, "limitOffsetPercent" to Shape.LEAF),
-            Shape.RISK to listOf("maximumOpenPositions", "maximumDailyTrades", "maximumDailyLossPercent", "maximumDrawdownPercent", "maximumPositionPercent", "maximumConsecutiveLosses", "allowShort").associateWith { Shape.LEAF },
+            Shape.RISK to
+                listOf(
+                    "maximumOpenPositions",
+                    "maximumDailyTrades",
+                    "maximumDailyLossPercent",
+                    "maximumDrawdownPercent",
+                    "maximumPositionPercent",
+                    "maximumConsecutiveLosses",
+                    "allowShort",
+                    "maximumDailyLosingTrades",
+                ).associateWith { Shape.LEAF },
             Shape.SCHEDULE to mapOf("evaluate" to Shape.LEAF, "sessions" to Shape.LEAF),
         )
 
@@ -291,10 +312,28 @@ class StrategyValidator(
                     IndicatorType.BOLLINGER_BANDS -> setOf("period", "standardDeviations")
                     // Candlestick patterns are fixed shapes (D-036).
                     in IndicatorType.PATTERNS -> emptySet()
+                    IndicatorType.PERIOD_LEVELS, IndicatorType.VWAP -> setOf("anchor")
+                    // A volume profile covers either the previous N bars or the previous calendar period (D-042).
+                    IndicatorType.VOLUME_PROFILE -> if (ind.has("anchor")) setOf("anchor") else setOf("period")
                     else -> setOf("period")
                 }
+            val optional =
+                buildSet {
+                    if (type in IndicatorType.HIGHER_TIMEFRAME_CAPABLE) add("timeframe")
+                    if (type == IndicatorType.ANCHORED_VWAP) add("anchorPoint")
+                }
             (required - present).forEach { err("MISSING_PARAMETER", p, "$type requires '$it'") }
-            (present - required).forEach { err("UNSUPPORTED_PARAMETER", "$p.$it", "$type does not accept '$it'") }
+            (present - required - optional).forEach { err("UNSUPPORTED_PARAMETER", "$p.$it", "$type does not accept '$it'") }
+            if (type == IndicatorType.VOLUME_PROFILE && ind.has("anchor") && ind.has("period")) err("CONTRADICTORY_PARAMETERS", p, "VOLUME_PROFILE takes either 'period' or 'anchor', not both")
+            ind["timeframe"]?.asText()?.let { tf ->
+                val base = Timeframe.of(doc["metadata"]["timeframe"].asText())
+                val anchor = Anchor.ofCode(tf)
+                if (anchor == null) {
+                    err("UNSUPPORTED_PARAMETER", "$p.timeframe", "timeframe must be 1d, 1w or 1M")
+                } else if (anchor == Anchor.DAY && base == Timeframe.D1) {
+                    err("CONTRADICTORY_PARAMETERS", "$p.timeframe", "The strategy already uses daily bars; omit timeframe")
+                }
+            }
             if (type == IndicatorType.MACD && ind["fastPeriod"] != null && ind["slowPeriod"] != null && ind["fastPeriod"].intValue() >= ind["slowPeriod"].intValue()) {
                 err("CONTRADICTORY_PARAMETERS", p, "MACD fastPeriod must be less than slowPeriod")
             }
@@ -309,6 +348,9 @@ class StrategyValidator(
                         ind["signalPeriod"]?.intValue(),
                         ind["standardDeviations"]?.decimalValue(),
                         ind["source"]?.asText()?.let { PriceField.valueOf(it) } ?: PriceField.CLOSE,
+                        ind["timeframe"]?.asText()?.let { Anchor.ofCode(it) },
+                        ind["anchor"]?.asText()?.let { Anchor.valueOf(it) },
+                        ind["anchorPoint"]?.asText()?.let { AnchorPoint.valueOf(it) },
                     )
             }
         }
@@ -380,7 +422,9 @@ class StrategyValidator(
             }
         }
         checkGroup(doc["entryRules"], "$.entryRules", 1)
+        doc["shortEntryRules"]?.let { checkGroup(it, "$.shortEntryRules", 1) }
         doc["exitRules"]["conditions"]?.let { checkGroup(it, "$.exitRules.conditions", 1) }
+        doc["exitRules"]["shortConditions"]?.let { checkGroup(it, "$.exitRules.shortConditions", 1) }
         if (conditionCount > MAX_CONDITIONS) err("TOO_MANY_CONDITIONS", "$", "At most $MAX_CONDITIONS conditions are allowed")
         return maxOffset
     }
@@ -397,24 +441,58 @@ class StrategyValidator(
             msg: String,
         ) = addError(issues, code, path, msg)
 
-        val lookback = (specs.values.maxOfOrNull { it.lookback() } ?: 1) + maxOffset + 1
+        val base = Timeframe.of(doc["metadata"]["timeframe"].asText())
+        val assetClass = doc["metadata"]["assetClass"].asText()
+        val lookback =
+            StrategyDefinition.requiredHistory(
+                specs.values.toList(),
+                maxOffset,
+                base,
+                app.strategyforge.engine.market.AssetClass
+                    .valueOf(assetClass),
+            )
         val minBars = doc["dataRequirements"]["minimumHistoryBars"].intValue()
-        if (minBars < lookback) err("INSUFFICIENT_HISTORY_REQUIREMENT", "$.dataRequirements.minimumHistoryBars", "minimumHistoryBars must be at least $lookback for the declared indicators")
+        if (lookback > MAX_HISTORY_BARS) {
+            err(
+                "HISTORY_TOO_LONG",
+                "$.dataRequirements.indicators",
+                "The indicators need $lookback ${base.code} bars of history; at most $MAX_HISTORY_BARS can be loaded. Use a longer strategy timeframe or shorter periods.",
+            )
+        } else if (minBars < lookback) {
+            // Raised automatically (D-042): the strategy loads what its indicators need.
+            issues += ValidationIssue("HISTORY_RAISED", IssueCategory.DATA, IssueSeverity.WARNING, "$.dataRequirements.minimumHistoryBars", "minimumHistoryBars raised from $minBars to $lookback for the declared indicators")
+        }
 
         val sizing = doc["positionSizing"]
         val value = sizing["value"].decimalValue()
         when (sizing["method"].asText()) {
             "PERCENT_OF_EQUITY" -> if (value > BigDecimal(100)) err("UNSAFE_VALUE", "$.positionSizing.value", "Percent of equity cannot exceed 100")
+            "RISK_PERCENT" ->
+                if (value > BigDecimal(10)) {
+                    err("UNSAFE_VALUE", "$.positionSizing.value", "Risking more than 10% of equity per trade is not allowed")
+                } else if (value > BigDecimal(2)) {
+                    issues += ValidationIssue("HIGH_RISK_PER_TRADE", IssueCategory.RISK, IssueSeverity.WARNING, "$.positionSizing.value", "Risking more than 2% of equity per trade is aggressive")
+                }
             "FIXED_QUANTITY" -> if (value > BigDecimal(1_000_000)) err("UNSAFE_VALUE", "$.positionSizing.value", "Fixed quantity too large")
         }
         val order = doc["orderInstructions"]
         if (order["orderType"].asText() == "LIMIT" && order["limitOffsetPercent"] == null) err("MISSING_PARAMETER", "$.orderInstructions", "LIMIT orders require limitOffsetPercent")
         if (order["orderType"].asText() == "MARKET" && order["limitOffsetPercent"] != null) err("UNSUPPORTED_PARAMETER", "$.orderInstructions.limitOffsetPercent", "MARKET orders take no limit offset")
-        val assetClass = doc["metadata"]["assetClass"].asText()
         val allowShort = doc["riskLimits"]["allowShort"].booleanValue()
-        if (doc["metadata"]["direction"]?.asText() == "SHORT_ONLY" && !allowShort) err("CONTRADICTORY_SETTINGS", "$.metadata.direction", "SHORT_ONLY requires riskLimits.allowShort = true")
-        if (allowShort && assetClass == "CRYPTO") err("UNSUPPORTED_SHORT", "$.riskLimits.allowShort", "Simulated shorting is not available for crypto")
+        val direction = doc["metadata"]["direction"]?.asText() ?: "LONG_ONLY"
+        if (direction != "LONG_ONLY" && !allowShort) err("CONTRADICTORY_SETTINGS", "$.metadata.direction", "$direction requires riskLimits.allowShort = true")
+        // Two-direction strategies (D-042): separate short entry rules, and optionally short exit conditions.
+        if (direction == "BOTH" && doc["shortEntryRules"] == null) err("MISSING_PARAMETER", "$.shortEntryRules", "Direction BOTH requires shortEntryRules")
+        if (direction != "BOTH" && doc["shortEntryRules"] != null) err("UNSUPPORTED_PARAMETER", "$.shortEntryRules", "shortEntryRules is only used when metadata.direction is BOTH")
+        if (direction != "BOTH" && doc["exitRules"]["shortConditions"] != null) {
+            err("UNSUPPORTED_PARAMETER", "$.exitRules.shortConditions", "exitRules.shortConditions is only used when metadata.direction is BOTH")
+        }
         val stop = doc["exitRules"]["stopLossPercent"].decimalValue()
+        doc["exitRules"]["partialTakeProfit"]?.let { pt ->
+            if (pt["atPercent"].decimalValue() >= doc["exitRules"]["takeProfitPercent"].decimalValue()) {
+                err("CONTRADICTORY_SETTINGS", "$.exitRules.partialTakeProfit.atPercent", "The partial target must be closer than takeProfitPercent")
+            }
+        }
         val trailing = doc["exitRules"]["trailingStopPercent"]?.decimalValue()
         if (trailing != null && trailing > stop.multiply(BigDecimal(5))) {
             issues += ValidationIssue("WIDE_TRAILING_STOP", IssueCategory.RISK, IssueSeverity.WARNING, "$.exitRules.trailingStopPercent", "Trailing stop is much wider than the stop loss")
@@ -472,6 +550,9 @@ class StrategyValidator(
         const val MAX_DEPTH = 20
         const val MAX_RULE_DEPTH = 3
         const val MAX_CONDITIONS = 50
+
+        /** Most bars a strategy may need loaded per symbol (D-042). */
+        const val MAX_HISTORY_BARS = 5000
         const val VALIDATOR_VERSION = "1.0.0"
         private val UPPER = setOf(Comparison.GT, Comparison.GTE)
         private val LOWER = setOf(Comparison.LT, Comparison.LTE)

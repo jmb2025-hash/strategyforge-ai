@@ -203,7 +203,7 @@ fun MainShell(
                             defaultValue = null
                         },
                     ),
-            ) { PortfolioScreen(hiltViewModel(), fmt, onChart = { sym, pid -> nav.navigate("chart/${Uri.encode(sym)}?portfolioId=$pid") }) }
+            ) { PortfolioScreen(hiltViewModel(), fmt, onChart = { sym, pid -> nav.navigate("chart/${Uri.encode(sym)}?portfolioId=$pid") }, session = session) }
             composable(
                 "chart/{symbol}?portfolioId={portfolioId}&strategyId={strategyId}&timeframe={timeframe}",
                 arguments =

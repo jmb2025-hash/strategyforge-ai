@@ -158,7 +158,10 @@ class Engine(
     val recommendations = RecommendationService(db, orders, market, instruments, notifications, audit, wall, marketClock)
     val dispatcher = SignalDispatcher(db, activations, risk, recommendations, orders, portfolios, notifications, events)
     val signals = SignalQueries(db)
-    val evaluation = EvaluationService(db, activations, strategies, instruments, market, portfolios, dispatcher, notifications, audit, wall, marketClock, events)
+    val evaluation =
+        EvaluationService(db, activations, strategies, instruments, market, portfolios, dispatcher, notifications, audit, wall, marketClock, events) { p, s ->
+            RiskProfileService.toLimits(riskProfiles.effectiveFor(p, s))
+        }
     val strategyControl = StrategyActivationFacade(db, activations) { recommendations }
 
     /** One crypto and one stock strategy at a time (D-035). */

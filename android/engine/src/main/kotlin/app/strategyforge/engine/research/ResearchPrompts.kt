@@ -59,7 +59,14 @@ object ResearchPrompts {
         "moving averages (SMA, EMA), RSI, MACD, ATR, Bollinger Bands, the open/high/low/close prices and volume, " +
             "breakouts above the highest high or below the lowest low of recent bars, the latest swing high and swing low " +
             "(resistance and support), relative volume, the candlestick patterns bullish and bearish engulfing, hammer, " +
-            "shooting star, doji, morning star and evening star, numeric thresholds and crossovers"
+            "shooting star, doji, morning star and evening star, numeric thresholds and crossovers, " +
+            "daily/weekly/monthly levels (current and previous period open, high, low, close and midpoint/EQ), " +
+            "any indicator computed on daily, weekly or monthly bars inside a faster strategy, session VWAP (daily, weekly, monthly), " +
+            "VWAP anchored at a recent swing high or low, Fibonacci retracements (0.236, 0.382, 0.5, 0.618, 0.66, 0.786) of a recent range, " +
+            "volume profile point of control and value area high/low (of recent bars or the previous day, week or month), " +
+            "long and short trades in the same strategy (simulated shorts are available for crypto and stocks), " +
+            "partial profit taking with an optional move of the stop to the entry price, sizing by percent of equity at risk, " +
+            "and a daily cap on losing trades"
 
     /** How the compiler expresses chart structure and candlestick patterns with the schema (D-036). */
     val PATTERN_GUIDE =
@@ -74,7 +81,33 @@ object ResearchPrompts {
         - RELATIVE_VOLUME (period N) is this bar's volume divided by the average of the previous N bars: confirmation is
           {"left": "RVOL.value", "comparison": "GT", "right": 1.5}.
         - SMA or EMA with "source": "VOLUME" average the volume.
-        - Set dataRequirements.minimumHistoryBars to at least the longest lookback used (swing points need about 6 x period bars).
+        - Set dataRequirements.minimumHistoryBars to at least the longest lookback used (swing points need about 6 x period bars);
+          the app raises it automatically when calendar or higher-timeframe indicators need more.
+        Calendar levels, VWAP, Fibonacci and volume profile (all use only completed data):
+        - PERIOD_LEVELS with "anchor" DAY, WEEK or MONTH has components open, high, low (the current period so far) and
+          prevOpen, prevHigh, prevLow, prevClose, prevEq (the previous complete period; EQ is its midpoint). Weekly range
+          extremes: {"left": "LOW", "comparison": "LT", "right": "WEEK.prevLow"}.
+        - Any of SMA, EMA, RSI, ATR, MACD, BOLLINGER_BANDS, HIGHEST, LOWEST, SWING_HIGH, SWING_LOW, RELATIVE_VOLUME, FIBONACCI
+          and the candlestick patterns accepts "timeframe": "1d", "1w" or "1M" to be computed on daily, weekly or monthly bars,
+          for example a weekly swing low {"id": "WSWING", "type": "SWING_LOW", "period": 3, "timeframe": "1w"}.
+        - VWAP with "anchor" DAY, WEEK or MONTH is the session VWAP since that period began.
+          ANCHORED_VWAP with "period" N and "anchorPoint" LOWEST_LOW or HIGHEST_HIGH starts at the lowest low or highest high
+          of the previous N bars.
+        - FIBONACCI with "period" N gives f236, f382, f500, f618, f660, f786 retracements of the previous N bars' range (measured
+          from the most recent extreme), plus high, low and trend (1 up, -1 down). The 0.618-0.66 zone is
+          {"left": "CLOSE", "comparison": "LTE", "right": "FIB.f618"} with {"left": "CLOSE", "comparison": "GTE", "right": "FIB.f660"}
+          in an up move.
+        - VOLUME_PROFILE with "period" N (previous N bars) or "anchor" DAY/WEEK/MONTH (previous complete period) gives poc, vah
+          and val, estimated from candle volume.
+        Trading both directions and managing the trade:
+        - For long and short setups set metadata.direction to "BOTH", riskLimits.allowShort to true, put long entries in
+          entryRules and short entries in shortEntryRules; exitRules.conditions then exit longs and exitRules.shortConditions
+          exit shorts. Do not drop the short side of a method; express it.
+        - exitRules.partialTakeProfit {"atPercent": 2, "closePercent": 50, "moveStopToEntry": true} takes part off at a first
+          target (closer than takeProfitPercent) and can move the stop on the rest to the entry price.
+        - positionSizing {"method": "RISK_PERCENT", "value": 1} sizes each trade so the stop loss costs 1% of equity; set
+          riskLimits.maximumPositionPercent to cap the position. riskLimits.maximumDailyLosingTrades stops new entries after
+          that many losing trades in a day; maximumConsecutiveLosses suspends after a losing streak.
         """.trimIndent()
 
     val CONVERSATION_SYSTEM =
@@ -134,6 +167,7 @@ object ResearchPrompts {
 
         Rules:
         - Build the strategy the research concluded on, including the owner's later corrections in the conversation.
+          Express as much of the method as the schema allows, including both directions, rather than leaving parts out.
         - Use only the fields, indicator types, comparison operators and enum values defined by the schema.
         - Set metadata.createdBy to "AI_COMPILED", metadata.assetClass to the value in <constraints>, and give metadata.name a
           short descriptive name (for example the investor or strategy researched).
@@ -222,7 +256,9 @@ object ResearchPrompts {
 
         Reply with exactly one JSON object inside a ```json code block, and nothing else. It must conform to the JSON Schema
         at the end of these instructions. Rules:
-        - Build the strategy the research concludes on, including any later corrections in it.
+        - Build the strategy the research concludes on, including any later corrections in it. Express as much of the method
+          as the schema allows (both directions, higher-timeframe levels, VWAP, Fibonacci, volume profile, partial profits,
+          risk-per-trade sizing and daily loss limits are all supported) rather than leaving parts out.
         - Use only the fields, indicator types, comparison operators and values the schema allows. The app can express:
           $EXPRESSIBLE.
         - Set metadata.createdBy to "IMPORTED" and metadata.assetClass to "$assetClass". Give metadata.name a short descriptive name

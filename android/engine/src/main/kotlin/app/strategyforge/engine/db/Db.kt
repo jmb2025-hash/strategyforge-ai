@@ -107,6 +107,9 @@ class Db(
                 Migration(4, "Imported research: the part size used to split long pasted research") { db ->
                     db.addColumn("research_sessions", "import_chunk", "INTEGER")
                 },
+                Migration(5, "Simulated crypto shorts (perpetual-style), when the portfolio enables shorting") { db ->
+                    db.sql("update instruments set shortable = 1 where asset_class = 'CRYPTO'").update()
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1

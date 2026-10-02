@@ -455,3 +455,35 @@ When a conflict is unresolved, the safest reversible option is selected.
     - A failure (for example a quota error) pauses the import; **Try again** resumes at the failed part.
     - Budget ceilings apply to every request. Migration 4 adds `research_sessions.import_chunk`.
 - **Requirements affected:** FR-032 to FR-037.
+
+## D-042 The rest of the Chart Champions method: both directions, levels, VWAP, Fibonacci, volume profile, trade management
+
+- **Date:** 2026-10-02
+- **Context:** A strategy compiled from the owner's Chart Champions research left out most of the method: monthly/weekly/daily levels, VWAP, Fibonacci, volume profile, short setups at range highs, partial profits, 1% risk sizing and the 3-losing-trades rule. The owner asked for these to work fully, with real data, in backtests and in live paper trading.
+- **Decision:**
+  - **Both directions.**
+    - `metadata.direction` can be `BOTH`: `entryRules` enter longs, `shortEntryRules` enter shorts, and `exitRules.conditions` and `exitRules.shortConditions` exit each side.
+    - If the long and short rules both fire on the same bar, no trade is taken.
+    - The backtester tracks long or short per position.
+    - Live evaluation reads the side from the strategy's lots.
+  - **Simulated crypto shorts.** Crypto instruments are now shortable in simulation, perpetual-futures style, with the daily borrow fee standing in for funding (migration 5). They still need the portfolio's shorting switch, which is new on the Portfolio screen and needs the device lock. Activating a strategy that can short is refused, with that reason, until the switch is on. Activation refusals now list their reasons.
+  - **Calendar periods.** Crypto days are UTC days; US stock days are New York days; weeks start on Monday.
+    - `PERIOD_LEVELS` with `anchor` DAY/WEEK/MONTH gives the current period's open/high/low so far and the previous period's open/high/low/close/midpoint (EQ).
+    - Most indicators accept `timeframe` 1d/1w/1M and are then computed on completed daily/weekly/monthly bars built from the strategy's bars.
+    - A period counts as complete only when a bar closes at its end or a later period's bar arrives, so nothing uses future data. A test checks every new indicator against appended bars.
+  - **VWAP.**
+    - `VWAP` with `anchor` is the session VWAP for that period, including the current bar.
+    - `ANCHORED_VWAP` starts at the lowest low or highest high of the previous N bars.
+  - **Fibonacci.** `FIBONACCI` gives 0.236/0.382/0.5/0.618/0.66/0.786 retracements of the previous N bars' range, measured from its most recent extreme, plus the high, the low and the move's direction.
+  - **Volume profile.** `VOLUME_PROFILE` gives the point of control and 70% value area of the previous N bars or the previous complete period.
+    - It is estimated from candle volume spread evenly over each bar's range in 50 rows.
+    - It approximates tick-level tools, and the app says so.
+  - **Trade management.**
+    - `exitRules.partialTakeProfit` closes a percentage of the position at a first target, and can move the remaining stop to the entry price (exit reason BREAKEVEN_STOP).
+    - `positionSizing.method` RISK_PERCENT sizes each trade so the stop loss costs that percent of equity.
+    - The risk-sized position is reduced to fit the strictest limit (the strategy's `maximumPositionPercent` and the risk profile's per-trade percent and value) instead of being refused.
+    - `riskLimits.maximumDailyLosingTrades` stops new entries after that many losing trades in a New York day.
+  - **History.** `minimumHistoryBars` is raised automatically to what the indicators need, with a warning instead of a failure. More than 5,000 bars is refused with advice.
+  - **AI instructions.** The research, compile and copy-instructions prompts describe all of the above and ask the AI to express both directions instead of omitting them.
+  - **Not covered.** Open interest, funding, delta/CVD and Elliott Wave remain outside the strategy language. The first three need a futures data source (next step).
+- **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066, FR-091.

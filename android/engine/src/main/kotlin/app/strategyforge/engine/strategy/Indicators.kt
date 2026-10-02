@@ -332,9 +332,14 @@ object Indicators {
     fun compute(
         specs: List<IndicatorSpec>,
         bars: List<CandleData>,
+        ctx: SeriesContext = SeriesContext.infer(bars),
     ): Map<String, List<BigDecimal?>> {
         val out = linkedMapOf<String, List<BigDecimal?>>()
         specs.forEach { s ->
+            if (s.timeframe != null) {
+                out.putAll(higherTimeframe(s, bars, ctx))
+                return@forEach
+            }
             val src = source(bars, s.source)
             when (s.type) {
                 IndicatorType.SMA -> out["${s.id}.value"] = sma(src, s.period!!)
@@ -358,10 +363,251 @@ object Indicators {
                 IndicatorType.SWING_HIGH -> out["${s.id}.value"] = swingHigh(bars, s.period!!)
                 IndicatorType.SWING_LOW -> out["${s.id}.value"] = swingLow(bars, s.period!!)
                 IndicatorType.RELATIVE_VOLUME -> out["${s.id}.value"] = relativeVolume(bars, s.period!!)
+                IndicatorType.PERIOD_LEVELS -> periodLevels(bars, s.anchor!!, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
+                IndicatorType.VWAP -> out["${s.id}.value"] = vwap(bars, s.anchor!!, ctx)
+                IndicatorType.ANCHORED_VWAP -> out["${s.id}.value"] = anchoredVwap(bars, s.period!!, s.anchorPoint ?: AnchorPoint.LOWEST_LOW)
+                IndicatorType.FIBONACCI -> fibonacci(bars, s.period!!).forEach { (k, v) -> out["${s.id}.$k"] = v }
+                IndicatorType.VOLUME_PROFILE ->
+                    (if (s.anchor != null) volumeProfileByPeriod(bars, s.anchor, ctx) else volumeProfile(bars, s.period!!)).forEach { (k, v) -> out["${s.id}.$k"] = v }
                 else -> out["${s.id}.value"] = candlestick(s.type, bars)
             }
         }
         return out
+    }
+
+    // ------------------------------------------------------------------ higher timeframes and calendar levels (D-042)
+
+    /**
+     * The indicator computed on completed daily/weekly/monthly bars; strategy bar i sees the value
+     * of the latest period that was complete at i's close.
+     */
+    private fun higherTimeframe(
+        s: IndicatorSpec,
+        bars: List<CandleData>,
+        ctx: SeriesContext,
+    ): Map<String, List<BigDecimal?>> {
+        val agg = Periods.aggregate(bars, s.timeframe!!, ctx)
+        val complete = agg.completedAt.lastOrNull() ?: 0
+        val htf = agg.periods.take(complete).map { it.toCandle() }
+        val inner = compute(listOf(s.copy(timeframe = null)), htf, ctx)
+        return inner.mapValues { (_, series) -> bars.indices.map { i -> agg.completedAt[i].takeIf { it > 0 }?.let { series.getOrNull(it - 1) } } }
+    }
+
+    /** Current period open/high/low so far, and the previous period's open, high, low, close and midpoint. */
+    fun periodLevels(
+        bars: List<CandleData>,
+        anchor: Anchor,
+        ctx: SeriesContext,
+    ): Map<String, List<BigDecimal?>> {
+        val agg = Periods.aggregate(bars, anchor, ctx)
+        val out = IndicatorSpec.PERIOD_COMPONENTS.associateWith { MutableList<BigDecimal?>(bars.size) { null } }
+        var high: BigDecimal? = null
+        var low: BigDecimal? = null
+        for (i in bars.indices) {
+            val p = agg.periodOf[i]
+            if (i == 0 || agg.periodOf[i - 1] != p) {
+                high = null
+                low = null
+            }
+            high = high?.max(bars[i].high) ?: bars[i].high
+            low = low?.min(bars[i].low) ?: bars[i].low
+            out.getValue("open")[i] = agg.periods[p].open
+            out.getValue("high")[i] = high
+            out.getValue("low")[i] = low
+            // The previous period is complete: bar i already belongs to a later one.
+            val prev = agg.periods.getOrNull(p - 1) ?: continue
+            out.getValue("prevOpen")[i] = prev.open
+            out.getValue("prevHigh")[i] = prev.high
+            out.getValue("prevLow")[i] = prev.low
+            out.getValue("prevClose")[i] = prev.close
+            out.getValue("prevEq")[i] = prev.high.add(prev.low).divide(TWO, MC)
+        }
+        return out
+    }
+
+    private fun typical(b: CandleData) =
+        b.high
+            .add(b.low)
+            .add(b.close)
+            .divide(BigDecimal(3), MC)
+
+    /** Volume-weighted average price since the start of the current day, week or month, including bar i. */
+    fun vwap(
+        bars: List<CandleData>,
+        anchor: Anchor,
+        ctx: SeriesContext,
+    ): List<BigDecimal?> {
+        val agg = Periods.aggregate(bars, anchor, ctx)
+        val out = MutableList<BigDecimal?>(bars.size) { null }
+        var pv = BigDecimal.ZERO
+        var v = BigDecimal.ZERO
+        for (i in bars.indices) {
+            if (i == 0 || agg.periodOf[i - 1] != agg.periodOf[i]) {
+                pv = BigDecimal.ZERO
+                v = BigDecimal.ZERO
+            }
+            pv = pv.add(typical(bars[i]).multiply(bars[i].volume, MC))
+            v = v.add(bars[i].volume)
+            out[i] = if (v.signum() > 0) pv.divide(v, MC) else null
+        }
+        return out
+    }
+
+    /**
+     * VWAP anchored at the lowest low (or highest high) of the previous [period] bars, accumulated
+     * from that bar through bar i.
+     */
+    fun anchoredVwap(
+        bars: List<CandleData>,
+        period: Int,
+        point: AnchorPoint,
+    ): List<BigDecimal?> {
+        val out = MutableList<BigDecimal?>(bars.size) { null }
+        val pv = ArrayList<BigDecimal>(bars.size)
+        val vol = ArrayList<BigDecimal>(bars.size)
+        var a = BigDecimal.ZERO
+        var b = BigDecimal.ZERO
+        bars.forEach {
+            a = a.add(typical(it).multiply(it.volume, MC))
+            b = b.add(it.volume)
+            pv += a
+            vol += b
+        }
+        for (i in period until bars.size) {
+            var j = i - period
+            for (k in i - period until i) {
+                val better = if (point == AnchorPoint.LOWEST_LOW) bars[k].low <= bars[j].low else bars[k].high >= bars[j].high
+                if (better) j = k
+            }
+            val sumPv = pv[i].subtract(if (j > 0) pv[j - 1] else BigDecimal.ZERO)
+            val sumV = vol[i].subtract(if (j > 0) vol[j - 1] else BigDecimal.ZERO)
+            out[i] = if (sumV.signum() > 0) sumPv.divide(sumV, MC) else null
+        }
+        return out
+    }
+
+    /**
+     * Fibonacci retracements of the high-low range of the previous [period] bars. When the high came
+     * after the low (an up move) levels are measured down from the high; otherwise up from the low.
+     */
+    fun fibonacci(
+        bars: List<CandleData>,
+        period: Int,
+    ): Map<String, List<BigDecimal?>> {
+        val keys = FIB_LEVELS.keys + setOf("high", "low", "trend")
+        val out = keys.associateWith { MutableList<BigDecimal?>(bars.size) { null } }
+        for (i in period until bars.size) {
+            var hi = i - period
+            var lo = i - period
+            for (k in i - period until i) {
+                if (bars[k].high >= bars[hi].high) hi = k
+                if (bars[k].low <= bars[lo].low) lo = k
+            }
+            val h = bars[hi].high
+            val l = bars[lo].low
+            val range = h.subtract(l)
+            val up = hi > lo
+            FIB_LEVELS.forEach { (k, r) -> out.getValue(k)[i] = if (up) h.subtract(range.multiply(r, MC)) else l.add(range.multiply(r, MC)) }
+            out.getValue("high")[i] = h
+            out.getValue("low")[i] = l
+            out.getValue("trend")[i] = if (up) BigDecimal.ONE else BigDecimal.ONE.negate()
+        }
+        return out
+    }
+
+    /** Point of control and 70% value area of the previous [period] bars. */
+    fun volumeProfile(
+        bars: List<CandleData>,
+        period: Int,
+    ): Map<String, List<BigDecimal?>> {
+        val out = PROFILE_KEYS.associateWith { MutableList<BigDecimal?>(bars.size) { null } }
+        for (i in period until bars.size) {
+            val p = profile(bars, i - period, i - 1) ?: continue
+            out.getValue("poc")[i] = p[0]
+            out.getValue("vah")[i] = p[1]
+            out.getValue("val")[i] = p[2]
+        }
+        return out
+    }
+
+    /** Point of control and value area of the previous complete day, week or month. */
+    fun volumeProfileByPeriod(
+        bars: List<CandleData>,
+        anchor: Anchor,
+        ctx: SeriesContext,
+    ): Map<String, List<BigDecimal?>> {
+        val agg = Periods.aggregate(bars, anchor, ctx)
+        val out = PROFILE_KEYS.associateWith { MutableList<BigDecimal?>(bars.size) { null } }
+        val cache = mutableMapOf<Int, List<BigDecimal>?>()
+        for (i in bars.indices) {
+            val prev = agg.periodOf[i] - 1
+            if (prev < 0) continue
+            val p = cache.getOrPut(prev) { agg.periods[prev].let { profile(bars, it.firstIndex, it.lastIndex) } } ?: continue
+            out.getValue("poc")[i] = p[0]
+            out.getValue("vah")[i] = p[1]
+            out.getValue("val")[i] = p[2]
+        }
+        return out
+    }
+
+    private val PROFILE_KEYS = listOf("poc", "vah", "val")
+    private const val PROFILE_ROWS = 50
+    private const val VALUE_AREA = 0.70
+
+    /**
+     * Volume profile estimated from candles: each bar's volume is spread evenly over its high-low
+     * range in [PROFILE_ROWS] price rows. Returns [poc, vah, val]. Tick-level profiles differ slightly.
+     */
+    private fun profile(
+        bars: List<CandleData>,
+        from: Int,
+        to: Int,
+    ): List<BigDecimal>? {
+        if (from < 0 || to < from) return null
+        var lo = Double.MAX_VALUE
+        var hi = -Double.MAX_VALUE
+        for (k in from..to) {
+            lo = minOf(lo, bars[k].low.toDouble())
+            hi = maxOf(hi, bars[k].high.toDouble())
+        }
+        if (hi <= lo) return List(3) { BigDecimal.valueOf(hi) }
+        val step = (hi - lo) / PROFILE_ROWS
+        val vol = DoubleArray(PROFILE_ROWS)
+
+        fun row(x: Double) = ((x - lo) / step).toInt().coerceIn(0, PROFILE_ROWS - 1)
+        for (k in from..to) {
+            val b = bars[k]
+            val v = b.volume.toDouble()
+            if (v <= 0) continue
+            val l = b.low.toDouble()
+            val h = b.high.toDouble()
+            if (h <= l) {
+                vol[row(l)] += v
+                continue
+            }
+            for (r in row(l)..row(h)) {
+                val overlap = minOf(h, lo + (r + 1) * step) - maxOf(l, lo + r * step)
+                if (overlap > 0) vol[r] += v * overlap / (h - l)
+            }
+        }
+        val total = vol.sum()
+        if (total <= 0) return null
+        val poc = vol.indices.maxByOrNull { vol[it] }!!
+        var up = poc
+        var dn = poc
+        var included = vol[poc]
+        while (included < VALUE_AREA * total && (up < PROFILE_ROWS - 1 || dn > 0)) {
+            val above = if (up < PROFILE_ROWS - 1) vol[up + 1] else -1.0
+            val below = if (dn > 0) vol[dn - 1] else -1.0
+            if (above >= below) {
+                up++
+                included += vol[up]
+            } else {
+                dn--
+                included += vol[dn]
+            }
+        }
+        return listOf(lo + (poc + 0.5) * step, lo + (up + 1) * step, lo + dn * step).map { BigDecimal.valueOf(it) }
     }
 }
 

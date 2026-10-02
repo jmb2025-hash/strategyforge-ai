@@ -542,6 +542,14 @@ class PortfolioViewModel
             loadEquity()
         }
 
+        fun setShorting(
+            id: String,
+            enabled: Boolean,
+        ) = act(if (enabled) "Simulated short selling turned on" else "Simulated short selling turned off") {
+            repo.setShorting(id, enabled)
+            _portfolios.value = _portfolios.value.map { if (it.id == id) it.copy(shortingEnabled = enabled) else it }
+        }
+
         fun createPortfolio(
             name: String,
             balance: String,

@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,7 +46,9 @@ fun PortfolioScreen(
     vm: PortfolioViewModel,
     fmt: Formatters,
     onChart: (symbol: String, portfolioId: String) -> Unit = { _, _ -> },
+    session: SessionViewModel? = null,
 ) {
+    var confirmShorting by remember { mutableStateOf(false) }
     val state by vm.state.collectAsStateWithLifecycle()
     val equity by vm.equity.collectAsStateWithLifecycle()
     val range by vm.range.collectAsStateWithLifecycle()
@@ -67,6 +71,8 @@ fun PortfolioScreen(
             ResourceContent(state, fmt, vm::reload) { s ->
                 EquityCard(equity, range, vm::setRange, fmt, s.equity, s.portfolio.name)
                 AllocationCard(s, fmt)
+                val shorting = portfolios.firstOrNull { it.id == s.portfolio.id }?.shortingEnabled ?: s.portfolio.shortingEnabled
+                ShortingSwitch(shorting) { on -> if (on) confirmShorting = true else vm.setShorting(s.portfolio.id, false) }
                 SfCard {
                     LabelValue("Equity", fmt.money(s.equity))
                     LabelValue("Cash", fmt.money(s.cash))
@@ -138,6 +144,36 @@ fun PortfolioScreen(
         Field("Starting balance (USD)", balance, { balance = it }, number = true)
         OutlinedButton(onClick = { vm.createPortfolio(name, balance) }, enabled = name.isNotBlank()) { Text("Create") }
         ActionFeedback(action)
+    }
+    if (confirmShorting) {
+        val id = selected
+        ReauthDialog({ confirmShorting = false }) { pw, totp ->
+            confirmShorting = false
+            if (id != null) session?.reauthenticate(pw, totp) { vm.setShorting(id, true) } ?: vm.setShorting(id, true)
+        }
+    }
+}
+
+/** Simulated short selling for this portfolio (D-042): needed by strategies that can go short. */
+@Composable
+fun ShortingSwitch(
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    SfCard(Modifier.testTag("shorting")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Simulated short selling", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Lets strategies profit from falling prices in crypto and stocks, like a futures short. Losses on a short can exceed " +
+                        "the amount reserved, and a daily borrow fee is charged. Paper trading only.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(checked = enabled, onCheckedChange = onChange, modifier = Modifier.testTag("shorting-switch"))
+        }
     }
 }
 

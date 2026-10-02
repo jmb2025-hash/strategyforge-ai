@@ -467,6 +467,20 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-042 simulated short selling is turned on for a portfolio through the app's calls`() {
+        start()
+        runBlocking {
+            val p = repo.createPortfolio("Shorts", "100000")
+            assertThat(p.shortingEnabled).isFalse()
+            val refused = assertThrows<ApiError.Http> { runBlocking { repo.setShorting(p.id, true) } }
+            assertThat(refused.message).contains("Confirm it's you")
+            host.call { engine.auth.confirmed() }
+            assertThat(repo.setShorting(p.id, true).shortingEnabled).isTrue()
+            assertThat(repo.setShorting(p.id, false).shortingEnabled).isFalse()
+        }
+    }
+
+    @Test
     fun `D-035 activating a second crypto strategy asks keep or close through the app's calls`() {
         start()
         runBlocking {

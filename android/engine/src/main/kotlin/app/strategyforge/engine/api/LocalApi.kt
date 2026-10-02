@@ -310,6 +310,7 @@ class LocalApi(
         }
         get("/v1/portfolios/{id}") { _, g -> portfolio(engine.portfolios.get(uuid(g[0]))) }
         get("/v1/portfolios/{id}/summary") { _, g -> summary(engine.portfolios.summary(uuid(g[0]))) }
+        post("/v1/portfolios/{id}/shorting") { r, g -> portfolio(engine.portfolios.setShorting(uuid(g[0]), obj(r).bool("enabled") ?: false)) }
         get("/v1/orders") { r, _ ->
             val statuses = r.query["status"]?.split(',')?.mapNotNull { s -> OrderStatus.entries.firstOrNull { it.name == s.trim() } }
             page(engine.orders.list(r.query["portfolioId"]?.let { uuid(it) }, statuses, limit(r)).map { order(it) })

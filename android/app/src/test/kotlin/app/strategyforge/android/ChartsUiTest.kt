@@ -25,6 +25,7 @@ import app.strategyforge.android.ui.EquityCard
 import app.strategyforge.android.ui.Loading
 import app.strategyforge.android.ui.PriceChartCard
 import app.strategyforge.android.ui.SfTheme
+import app.strategyforge.android.ui.ShortingSwitch
 import app.strategyforge.android.ui.formatters
 import app.strategyforge.android.ui.toMarkers
 import org.junit.Assert.assertEquals
@@ -143,5 +144,15 @@ class ChartsUiTest {
         rule.onNodeWithTag("empty").assertExists()
         rule.onNodeWithText("No research yet.").assertExists()
         rule.onNodeWithContentDescription("Loading").assertExists()
+    }
+
+    @Test
+    fun `D-042 the portfolio's short selling switch explains itself and reports changes`() {
+        val changes = mutableListOf<Boolean>()
+        rule.setContent { SfTheme { ShortingSwitch(false) { changes += it } } }
+        rule.onNodeWithText("Simulated short selling").assertExists()
+        rule.onNodeWithText("profit from falling prices", substring = true).assertExists()
+        rule.onNodeWithTag("shorting-switch").performClick()
+        assertEquals(listOf(true), changes)
     }
 }

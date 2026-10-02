@@ -30,8 +30,8 @@
         "period": 50
       },
       {
-        "id": "VWAP",
-        "type": "VWAP",
+        "id": "ICHI",
+        "type": "ICHIMOKU",
         "period": 10
       }
     ]

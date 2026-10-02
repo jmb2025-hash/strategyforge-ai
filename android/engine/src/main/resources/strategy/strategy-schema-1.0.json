@@ -20,7 +20,7 @@
         "assetClass": { "enum": ["US_EQUITY", "CRYPTO"] },
         "timeframe": { "enum": ["1m", "5m", "15m", "1h", "4h", "1d"] },
         "createdBy": { "enum": ["OWNER", "AI_COMPILED", "IMPORTED"] },
-        "direction": { "enum": ["LONG_ONLY", "SHORT_ONLY"] },
+        "direction": { "enum": ["LONG_ONLY", "SHORT_ONLY", "BOTH"] },
         "tags": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 20, "pattern": "^[A-Za-z0-9 _-]+$" } }
       }
     },
@@ -49,6 +49,7 @@
       }
     },
     "entryRules": { "$ref": "#/$defs/ruleGroup" },
+    "shortEntryRules": { "$ref": "#/$defs/ruleGroup" },
     "exitRules": {
       "type": "object",
       "additionalProperties": false,
@@ -58,7 +59,18 @@
         "takeProfitPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 500 },
         "trailingStopPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 50 },
         "maximumHoldingBars": { "type": "integer", "minimum": 1, "maximum": 10000 },
-        "conditions": { "$ref": "#/$defs/ruleGroup" }
+        "conditions": { "$ref": "#/$defs/ruleGroup" },
+        "shortConditions": { "$ref": "#/$defs/ruleGroup" },
+        "partialTakeProfit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["atPercent", "closePercent"],
+          "properties": {
+            "atPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 500 },
+            "closePercent": { "type": "number", "minimum": 1, "maximum": 99 },
+            "moveStopToEntry": { "type": "boolean" }
+          }
+        }
       }
     },
     "positionSizing": {
@@ -66,7 +78,7 @@
       "additionalProperties": false,
       "required": ["method", "value"],
       "properties": {
-        "method": { "enum": ["FIXED_CASH", "PERCENT_OF_EQUITY", "FIXED_QUANTITY"] },
+        "method": { "enum": ["FIXED_CASH", "PERCENT_OF_EQUITY", "FIXED_QUANTITY", "RISK_PERCENT"] },
         "value": { "type": "number", "exclusiveMinimum": 0, "maximum": 10000000 }
       }
     },
@@ -91,7 +103,8 @@
         "maximumDrawdownPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
         "maximumPositionPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
         "maximumConsecutiveLosses": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "allowShort": { "type": "boolean" }
+        "allowShort": { "type": "boolean" },
+        "maximumDailyLosingTrades": { "type": "integer", "minimum": 1, "maximum": 100 }
       }
     },
     "schedule": {
@@ -118,19 +131,23 @@
         "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,31}$" },
         "type": {
           "enum": ["SMA", "EMA", "RSI", "MACD", "ATR", "BOLLINGER_BANDS", "HIGHEST", "LOWEST", "SWING_HIGH", "SWING_LOW", "RELATIVE_VOLUME",
-            "BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "SHOOTING_STAR", "DOJI", "MORNING_STAR", "EVENING_STAR"]
+            "BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "SHOOTING_STAR", "DOJI", "MORNING_STAR", "EVENING_STAR",
+            "PERIOD_LEVELS", "VWAP", "ANCHORED_VWAP", "FIBONACCI", "VOLUME_PROFILE"]
         },
         "period": { "type": "integer", "minimum": 2, "maximum": 500 },
         "fastPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
         "slowPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
         "signalPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
         "standardDeviations": { "type": "number", "minimum": 0.5, "maximum": 5 },
-        "source": { "enum": ["CLOSE", "OPEN", "HIGH", "LOW", "VOLUME"] }
+        "source": { "enum": ["CLOSE", "OPEN", "HIGH", "LOW", "VOLUME"] },
+        "timeframe": { "enum": ["1d", "1w", "1M"] },
+        "anchor": { "enum": ["DAY", "WEEK", "MONTH"] },
+        "anchorPoint": { "enum": ["LOWEST_LOW", "HIGHEST_HIGH"] }
       }
     },
     "operand": {
       "oneOf": [
-        { "type": "string", "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower))?$" },
+        { "type": "string", "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val))?$" },
         { "type": "number", "minimum": -1000000000, "maximum": 1000000000 }
       ]
     },

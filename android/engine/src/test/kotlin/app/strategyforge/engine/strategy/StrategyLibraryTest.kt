@@ -137,7 +137,6 @@ class StrategyLibraryTest {
                 "contradictory_bounds.json" to "CONTRADICTORY_RULES",
                 "future_data.json" to "FUTURE_DATA_REFERENCE",
                 "unknown_reference.json" to "UNKNOWN_REFERENCE",
-                "insufficient_history.json" to "INSUFFICIENT_HISTORY_REQUIREMENT",
                 "asset_mismatch.json" to "ASSET_CLASS_MISMATCH",
                 "too_many_symbols.json" to "SCHEMA_",
                 "missing_section.json" to "SCHEMA_",
@@ -149,6 +148,17 @@ class StrategyLibraryTest {
             assertThat(r.validation.issues.map { it.code }).`as`(file).anyMatch { it.startsWith(code) }
             assertThat(r.explanation).isNull()
         }
+    }
+
+    @Test
+    fun `D-042 a history requirement below what the indicators need is raised, not rejected`() {
+        val r = e.strategies.import(fixture("insufficient_history.json"), "insufficient_history.json")
+        assertThat(r.validation.issues.map { it.code }).contains("HISTORY_RAISED")
+        assertThat(
+            r.validation.issues
+                .filter { it.code == "HISTORY_RAISED" }
+                .map { it.severity },
+        ).containsOnly(IssueSeverity.WARNING)
     }
 
     @Test
