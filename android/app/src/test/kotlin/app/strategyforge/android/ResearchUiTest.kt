@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -19,8 +20,10 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.strategyforge.android.core.api.SfJson
+import app.strategyforge.android.core.model.ImportNotes
 import app.strategyforge.android.core.model.ResearchDetail
 import app.strategyforge.android.core.state.ActionState
+import app.strategyforge.android.ui.ImportNotesSection
 import app.strategyforge.android.ui.ImportResearch
 import app.strategyforge.android.ui.ImportStrategyPanel
 import app.strategyforge.android.ui.NewResearch
@@ -171,5 +174,26 @@ class ResearchUiTest {
             .assertIsEnabled()
             .performClick()
         assertEquals(1, imports)
+    }
+
+    @Test
+    fun `D-043 the AI's readback, research log and missing points are shown with the strategy`() {
+        rule.setContent {
+            SfTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    ImportNotesSection(
+                        ImportNotes(
+                            readback = listOf("Long when price sweeps the 42-bar low and closes back above it"),
+                            furtherResearch = listOf("Stop placement: vague -> under the SFP wick (source: course notes)"),
+                            stillMissing = listOf("Short entry: never described - left out"),
+                        ),
+                    )
+                }
+            }
+        }
+        rule.onNodeWithText("From your research AI").assertIsDisplayed()
+        rule.onNodeWithText("• Long when price sweeps the 42-bar low and closes back above it").assertIsDisplayed()
+        rule.onNodeWithTag("notes-research").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("notes-missing").performScrollTo().assertIsDisplayed()
     }
 }

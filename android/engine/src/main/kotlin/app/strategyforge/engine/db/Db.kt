@@ -110,6 +110,9 @@ class Db(
                 Migration(5, "Simulated crypto shorts (perpetual-style), when the portfolio enables shorting") { db ->
                     db.sql("update instruments set shortable = 1 where asset_class = 'CRYPTO'").update()
                 },
+                Migration(6, "Imported strategies: the readback and research notes the owner's AI wrote with them") { db ->
+                    db.addColumn("strategies", "import_notes", "TEXT")
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1

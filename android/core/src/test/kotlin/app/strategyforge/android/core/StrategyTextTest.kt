@@ -18,4 +18,12 @@ class StrategyTextTest {
         assertEquals("{\"a\": 1}", StrategyText.extract("  {\"a\": 1}  "))
         assertEquals("not json", StrategyText.extract(" not json "))
     }
+
+    @Test
+    fun `the text around the strategy is kept as the AI's notes`() {
+        val reply = "Intro\n```json\n{\"a\": 1}\n```\nRULE READBACK\n- Buy when RSI < 30"
+        assertEquals("Intro\n\nRULE READBACK\n- Buy when RSI < 30", StrategyText.notes(reply))
+        assertEquals("STILL MISSING: None", StrategyText.notes("{\"a\": 1}\nSTILL MISSING: None"))
+        assertEquals(null, StrategyText.notes("```json\n{\"a\": 1}\n```"))
+    }
 }

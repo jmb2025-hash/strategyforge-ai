@@ -18,6 +18,7 @@ import app.strategyforge.engine.db.str
 import app.strategyforge.engine.db.uuid
 import app.strategyforge.engine.db.uuidOrNull
 import app.strategyforge.engine.market.MarketSources
+import app.strategyforge.engine.research.ImportNotes
 import app.strategyforge.engine.risk.StrategyDefinitionLookup
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -148,7 +149,27 @@ class StrategyService(
     fun import(
         bytes: ByteArray,
         filename: String?,
-    ): StrategyResult = createFromBytes(bytes, "IMPORT", null, filename?.take(200))
+        notes: String? = null,
+    ): StrategyResult {
+        val r = createFromBytes(bytes, "IMPORT", null, filename?.take(200))
+        ImportNotes.clean(notes)?.let { n ->
+            db
+                .sql("update strategies set import_notes = :n where id = :id")
+                .param("n", n)
+                .param("id", r.strategy.id)
+                .update()
+        }
+        return r
+    }
+
+    /** The readback and research notes the owner's AI wrote around an imported strategy (D-043), if any. */
+    fun importNotes(id: UUID): ImportNotes? =
+        ImportNotes.parse(
+            db
+                .sql("select import_notes from strategies where id = :id")
+                .param("id", id)
+                .firstOrNull { it.string("import_notes") },
+        )
 
     /** Controlled AI compilation output (FR-035): the same byte-level validation as any import, linked to its compilation (FR-036). */
     fun compileImport(

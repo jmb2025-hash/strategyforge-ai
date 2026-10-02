@@ -427,7 +427,9 @@ class LocalApi(
         get("/v1/strategies") { r, _ -> engine.strategies.list(r.query["includeArchived"] == "true").map { strategy(it) } }
         post("/v1/strategies", 201) { r, _ ->
             val content = obj(r)["content"] ?: throw Problems.badRequest("missing-field", "content is required")
-            strategyResult(engine.strategies.import(content.toString().toByteArray(Charsets.UTF_8), "app-import.json"))
+            val notes = obj(r).str("notes")
+            val result = engine.strategies.import(content.toString().toByteArray(Charsets.UTF_8), "app-import.json", notes)
+            strategyResult(result) + ("importNotes" to engine.strategies.importNotes(result.strategy.id)?.let { importNotes(it) })
         }
         get("/v1/strategies/{id}") { _, g ->
             val s = engine.strategies.get(uuid(g[0]))
@@ -445,6 +447,7 @@ class LocalApi(
                 "currentVersion" to v?.let { version(it) },
                 "validation" to validation?.let { validation(it) },
                 "explanation" to explanation,
+                "importNotes" to engine.strategies.importNotes(s.id)?.let { importNotes(it) },
                 "activation" to engine.activations.active(s.id)?.let { activation(it) },
                 "history" to engine.strategies.statusHistoryOf(s.id),
             )
@@ -612,6 +615,8 @@ class LocalApi(
             "validationStatus" to v.validationStatus,
             "createdAt" to v.createdAt,
         )
+
+    private fun importNotes(n: app.strategyforge.engine.research.ImportNotes) = mapOf("readback" to n.readback, "furtherResearch" to n.furtherResearch, "stillMissing" to n.stillMissing, "other" to n.other)
 
     private fun validation(v: ValidationView) =
         mapOf(

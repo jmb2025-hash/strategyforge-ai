@@ -117,7 +117,12 @@ class ResearchImportTest {
             .contains("BTC-USD")
             .contains("\"schemaVersion\"")
             .contains("BULLISH_ENGULFING")
-            .endsWith("My research follows:\n\n")
+            .contains("research that specific point")
+            .contains("RULE READBACK")
+            .contains("FURTHER RESEARCH")
+            .contains("STILL MISSING")
+            .contains("do not ask me")
+            .endsWith("My research (if it is not already above):\n\n")
         assertThat(e.research.authoringPrompt("US_EQUITY")).contains("AAPL").contains("\"US_EQUITY\"")
     }
 }

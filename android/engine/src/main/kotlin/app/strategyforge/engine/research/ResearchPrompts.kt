@@ -243,8 +243,11 @@ object ResearchPrompts {
     const val IMPORT_VERSION = "import-2026-10-v1"
 
     /**
-     * Instructions the owner copies into an AI chat of their own (for example Claude.ai) together with
-     * their research. The reply is pasted into Create / import, where the regular validator decides.
+     * Instructions the owner copies into an AI chat of their own (for example Claude.ai), usually the chat
+     * where the research was done. The AI completes the strategy itself: it checks every rule the app
+     * needs, researches the ones the research left vague, and replies with the JSON plus a readback, a
+     * log of what it looked up and anything it still could not find (D-043). The reply is pasted into
+     * Create / import; the regular validator decides, and the notes are kept with the strategy.
      */
     fun authoringPrompt(
         schema: String,
@@ -252,29 +255,62 @@ object ResearchPrompts {
         tradable: List<String>,
     ): String =
         """
-        Please turn the trading research below into a strategy file for my paper-trading app, StrategyForge AI.
+        Please turn the trading research in this conversation into a complete, testable strategy file for my paper-trading
+        app, StrategyForge AI. The research is above in this conversation, or follows these instructions.
 
-        Reply with exactly one JSON object inside a ```json code block, and nothing else. It must conform to the JSON Schema
-        at the end of these instructions. Rules:
-        - Build the strategy the research concludes on, including any later corrections in it. Express as much of the method
-          as the schema allows (both directions, higher-timeframe levels, VWAP, Fibonacci, volume profile, partial profits,
-          risk-per-trade sizing and daily loss limits are all supported) rather than leaving parts out.
-        - Use only the fields, indicator types, comparison operators and values the schema allows. The app can express:
-          $EXPRESSIBLE.
+        STEP 1 - Express the strategy. Build the strategy the research concludes on, including any later corrections in it.
+        Express as much of the method as the schema allows (both directions, higher-timeframe levels, VWAP, Fibonacci,
+        volume profile, partial profits, risk-per-trade sizing and daily loss limits are all supported) rather than leaving
+        parts out. The app can express: $EXPRESSIBLE.
+
+        STEP 2 - Find every gap and research it yourself. Go through this checklist. A point is pinned down only when the
+        research gives an exact condition or number the schema can hold:
+          a. markets and timeframe
+          b. long entry: the setup, the trigger and every confirmation
+          c. short entry, if the method trades shorts
+          d. conditions or times when the method does not trade
+          e. stop loss placement
+          f. take profit targets, partial profits and moving the stop to entry
+          g. maximum time in a trade and any other exit
+          h. position sizing (for example the percentage of equity risked per trade)
+          i. risk limits: daily loss, drawdown, open positions, trades per day, losing trades per day
+        For every point that is vague, missing or contradictory, use your web search now to research that specific point:
+        prefer the method author's or educator's own material, then reputable write-ups of it. Then complete the strategy
+        with what you find. Do not guess, and do not ask me: do the research yourself and carry on.
+        Only if you still cannot find a point after researching it, report it under STILL MISSING (step 4).
+
+        STEP 3 - Write the strategy as exactly one JSON object inside a ```json code block. It must conform to the JSON Schema
+        at the end of these instructions.
+        - Use only the fields, indicator types, comparison operators and values the schema allows.
         - Set metadata.createdBy to "IMPORTED" and metadata.assetClass to "$assetClass". Give metadata.name a short descriptive name
           and choose metadata.timeframe from 1m, 5m, 15m, 1h, 4h, 1d to match the research.
         - Use only these symbols: ${tradable.joinToString(", ")}.
-        - Choose conservative risk limits (stop loss, take profit, position size, daily loss, open positions).
+        - Use the method's own risk and sizing rules. Where, even after researching, the method states none, use a
+          conservative value and list it under STILL MISSING with the value you used.
+        - If the entry rules themselves cannot be established even after researching, do not write the JSON at all; reply
+          with step 4 only.
         - In metadata.description (at most 900 characters) summarise the strategy in plain English and list any parts of the
-          research that the schema cannot express and were left out.
-        - Do not include code, formulas in a programming language, URLs or account details.
+          method that the schema cannot express and were left out.
+        - Do not put code, formulas in a programming language, URLs or account details in the JSON.
+
+        STEP 4 - After the JSON block, add these three sections with exactly these headings:
+        RULE READBACK
+        - One plain-English line per rule in the JSON: each entry rule (long and short), each exit, the stop, the targets and
+          partials, the sizing and each risk limit, with its numbers. It must match the JSON exactly.
+        FURTHER RESEARCH
+        - One line per point from step 2 that needed more research: "<point>: <what the research lacked> -> <what you found>
+          (source: <site or publication name>)". Write "None" if every point was already pinned down.
+        STILL MISSING
+        - One line per point you could not find after researching: "<point>: <exactly what is missing> - <why it could not be
+          found> - <the value used in the JSON, if any>". Write "None" if nothing is missing. If you have no web search in this
+          chat, say so here first.
 
         $PATTERN_GUIDE
 
         JSON Schema:
         $schema
 
-        My research follows:
+        My research (if it is not already above):
         """.trimIndent() + "\n\n"
 
     /** Pulls the trading rules out of one part of a long imported text, so the parts can then be compiled together. */

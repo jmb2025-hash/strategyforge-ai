@@ -286,7 +286,18 @@ class Repository(
 
     suspend fun importStrategy(json: String): StrategyResult {
         val content = SfJson.parseToJsonElement(StrategyText.extract(json))
-        return api.decode(api.post("/v1/strategies", buildJsonObject { put("content", content) }).body, StrategyResult.serializer())
+        val notes = StrategyText.notes(json)
+        return api.decode(
+            api
+                .post(
+                    "/v1/strategies",
+                    buildJsonObject {
+                        put("content", content)
+                        notes?.let { put("notes", it) }
+                    },
+                ).body,
+            StrategyResult.serializer(),
+        )
     }
 
     suspend fun revalidate(id: String): StrategyResult = api.decode(api.post("/v1/strategies/${seg(id)}/validate").body, StrategyResult.serializer())
@@ -815,5 +826,25 @@ object StrategyText {
         val start = text.indexOf('{')
         val end = text.lastIndexOf('}')
         return if (start >= 0 && end > start) text.substring(start, end + 1) else text.trim()
+    }
+
+    /**
+     * Everything in the reply except the strategy itself (D-043): the AI's rule readback, the points it
+     * researched further and anything it could not find. Null when there is nothing else.
+     */
+    fun notes(text: String): String? {
+        val block =
+            fence
+                .findAll(text)
+                .firstOrNull { it.groupValues[1].trim().startsWith("{") }
+        val rest =
+            if (block != null) {
+                text.removeRange(block.range)
+            } else {
+                val start = text.indexOf('{')
+                val end = text.lastIndexOf('}')
+                if (start >= 0 && end > start) text.removeRange(start, end + 1) else ""
+            }
+        return rest.trim().takeIf { it.isNotBlank() }
     }
 }

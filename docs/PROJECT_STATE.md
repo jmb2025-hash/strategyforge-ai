@@ -60,6 +60,10 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         * SECURITY FIX: Jackson -> 2.21.7 (CVE-2026-89407/89425/91776/91777) in
           android/gradle/libs.versions.toml AND backend/build.gradle.kts.
         * Verified: Chart Champions demo backtest 103 trades (55L/48S) w/ partials + breakeven stops.
+- 1.6.0 (D-043) "Copy instructions" prompt makes the research AI self-complete: checklist of rule points,
+        web-research any gap itself (no guessing, no asking), reply = JSON + RULE READBACK + FURTHER RESEARCH
+        + STILL MISSING. Phone sends text outside the JSON as notes; migration 6 strategies.import_notes;
+        ImportNotes parser; strategy page "From your research AI" section + missing-points warning banner.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -80,13 +84,13 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
       OI history              /api/charts/v1/analytics/PF_XBTUSD/open-interest
       delta (aggressor diff)  /api/charts/v1/analytics/PF_XBTUSD/aggressor-differential  -> CVD = cumsum
     Map spot symbols -> PF_* perps (BTC-USD->PF_XBTUSD, ETH-USD->PF_ETHUSD). Add replay fixtures.
- 3. Db migration 6: derivatives series cache (symbol, ts, oi, funding, delta) aligned to bar openTime.
+ 3. Db migration 7: derivatives series cache (symbol, ts, oi, funding, delta) aligned to bar openTime.
  4. Indicators: OPEN_INTEREST, FUNDING_RATE, DELTA/CVD types (crypto only), causal, aligned to bars;
     validator rejects for stocks; lookback/requiredHistory; explainer text.
  5. Wire into BacktestEngine + EvaluationService (missing derivatives data -> MISSING_HISTORY/inactivity).
  6. Schema JSON + ResearchPrompts (EXPRESSIBLE/PATTERN_GUIDE) teach new fields.
  7. Tests: hand-checked values, no-look-ahead test, fixture-based client parse tests, API test.
- 8. D-043 in docs/DECISION_LOG.md; bump version 1.6.0 / versionCode 9; spotless; gitleaks; commit; push;
+ 8. D-044 in docs/DECISION_LOG.md; bump version 1.7.0 / versionCode 10; spotless; gitleaks; commit; push;
     wait CI (scratchpad/waitci.sh <sha>); confirm phone-latest republished; report to user.
 
 5. CRITICAL CAVEATS & CONSTRAINTS
@@ -99,7 +103,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-043). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-044). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Indicators must be causal; HTF values only from completed periods (period complete when a bar closes
   at/after period end or a later period's bar arrives). Keep the "no past value changes" test passing.

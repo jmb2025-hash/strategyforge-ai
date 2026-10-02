@@ -179,12 +179,22 @@ data class Validation(
     val issues: List<ValidationIssue> = emptyList(),
 )
 
+/** What the owner's own AI wrote around an imported strategy (D-043). */
+@Serializable
+data class ImportNotes(
+    val readback: List<String> = emptyList(),
+    val furtherResearch: List<String> = emptyList(),
+    val stillMissing: List<String> = emptyList(),
+    val other: String? = null,
+)
+
 @Serializable
 data class StrategyDetail(
     val strategy: Strategy,
     val currentVersion: StrategyVersion? = null,
     val validation: Validation? = null,
     val explanation: String? = null,
+    val importNotes: ImportNotes? = null,
 )
 
 @Serializable
@@ -192,6 +202,7 @@ data class StrategyResult(
     val strategy: Strategy,
     val version: StrategyVersion? = null,
     val validation: Validation? = null,
+    val importNotes: ImportNotes? = null,
 )
 
 @Serializable

@@ -236,6 +236,13 @@ fun StrategyDetailScreen(
                 SectionTitle("About this strategy")
                 Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("description"))
             }
+            d.importNotes?.stillMissing?.takeIf { it.isNotEmpty() }?.let { m ->
+                Banner(
+                    "Your AI could not find ${m.size} point(s) of this method even after researching. See \"Still missing\" below before trusting the results.",
+                    BannerKind.WARNING,
+                    modifier = Modifier.testTag("import-missing-banner"),
+                )
+            }
             if (s.status == "MANUAL_REVIEW_REQUIRED") Banner("Manual Review Required: the file contains content the validator does not recognise. It cannot be backtested or activated.", BannerKind.WARNING)
             d.validation?.let { v ->
                 SectionTitle("Validation: ${v.status.lowercase().replace('_', ' ')}")
@@ -246,6 +253,7 @@ fun StrategyDetailScreen(
                 SectionTitle("How it works")
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
+            d.importNotes?.let { ImportNotesSection(it) }
             val syms = symbols(d)
             if (syms.isNotEmpty()) {
                 LaunchedEffect(d.strategy.id) { vm.initPrice(syms.first(), timeframe(d) ?: "1h") }
@@ -342,6 +350,44 @@ fun StrategyDetailScreen(
     conflict?.let { SlotConflictDialog(it, vm::resolveSlot) }
 }
 
+/**
+ * The readback and research log the owner's own AI wrote with an imported strategy (D-043). Compare the
+ * readback with "How it works" above: that is the app's own reading of the rules it will actually run.
+ */
+@Composable
+fun ImportNotesSection(n: app.strategyforge.android.core.model.ImportNotes) {
+    if (n.readback.isEmpty() && n.furtherResearch.isEmpty() && n.stillMissing.isEmpty() && n.other == null) return
+    SectionTitle("From your research AI")
+    Text(
+        "Written by the AI that built this strategy. Check its readback against \"How it works\" above, which is what the app will actually run.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    NotesList("Rule readback", n.readback, "notes-readback")
+    if (n.furtherResearch.isEmpty() && (n.readback.isNotEmpty() || n.stillMissing.isNotEmpty())) {
+        Text("Further research: none needed, according to the AI.", style = MaterialTheme.typography.bodySmall)
+    }
+    NotesList("Further research", n.furtherResearch, "notes-research")
+    if (n.stillMissing.isNotEmpty()) {
+        Banner("Still missing after research:\n" + n.stillMissing.joinToString("\n") { "• $it" }, BannerKind.WARNING, modifier = Modifier.testTag("notes-missing"))
+    }
+    if (n.readback.isEmpty() && n.furtherResearch.isEmpty() && n.stillMissing.isEmpty()) {
+        n.other?.let { SfCard(modifier = Modifier.testTag("notes-other")) { Text(it.take(4000), style = MaterialTheme.typography.bodySmall) } }
+    }
+}
+
+@Composable
+private fun NotesList(
+    title: String,
+    items: List<String>,
+    tag: String,
+) {
+    if (items.isEmpty()) return
+    SfCard(modifier = Modifier.testTag(tag)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        items.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
 /** The plain-English summary the compiler writes into metadata.description, if any. */
 private fun description(d: app.strategyforge.android.core.model.StrategyDetail): String? =
     ((d.currentVersion?.content as? kotlinx.serialization.json.JsonObject)?.get("metadata") as? kotlinx.serialization.json.JsonObject)
@@ -378,7 +424,8 @@ fun ImportStrategyPanel(
             Text(
                 "1. Copy the instructions below (they describe the app's strategy format and tradable symbols).\n" +
                     "2. Paste them into your AI chat, for example Claude.ai, followed by your research or the whole conversation.\n" +
-                    "3. Copy the AI's reply and paste it in the box below. Extra text around the strategy is ignored.",
+                    "3. The AI checks every rule, researches anything the research left vague, and replies with the strategy plus a rule readback and a list of what it looked up.\n" +
+                    "4. Paste the whole reply below. The strategy is validated; the readback and research notes are kept and shown on the strategy's page.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             ChoiceRow(listOf("CRYPTO" to "Crypto", "US_EQUITY" to "Stocks"), asset, { asset = it }, "author-asset")

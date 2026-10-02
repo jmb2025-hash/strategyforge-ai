@@ -405,6 +405,25 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-043 a pasted AI reply keeps its readback and research notes with the strategy`() {
+        start()
+        runBlocking {
+            val json = JacksonCanonical.mapper.writeValueAsString(Strategies.alwaysLong("Noted", "1m"))
+            val reply =
+                "Here is the strategy.\n```json\n$json\n```\nRULE READBACK\n- Buy every bar.\nFURTHER RESEARCH\n- Stop: vague -> 20% (source: notes)\nSTILL MISSING\n- Short side: not described"
+            val r = repo.importStrategy(reply)
+            assertThat(r.importNotes!!.readback).containsExactly("Buy every bar.")
+            val detail = repo.strategy(r.strategy.id).value()
+            assertThat(detail.importNotes!!.furtherResearch).containsExactly("Stop: vague -> 20% (source: notes)")
+            assertThat(detail.importNotes!!.stillMissing).containsExactly("Short side: not described")
+            assertThat(detail.importNotes!!.other).isEqualTo("Here is the strategy.")
+            val plain = repo.importStrategy(json)
+            assertThat(plain.importNotes).isNull()
+            assertThat(repo.strategy(plain.strategy.id).value().importNotes).isNull()
+        }
+    }
+
+    @Test
     fun `D-037 scorecards and a better strategy built from them through the app's calls`() {
         start()
         runBlocking {

@@ -487,3 +487,22 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **AI instructions.** The research, compile and copy-instructions prompts describe all of the above and ask the AI to express both directions instead of omitting them.
   - **Not covered.** Open interest, funding, delta/CVD and Elliott Wave remain outside the strategy language. The first three need a futures data source (next step).
 - **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066, FR-091.
+
+## D-043 The owner's research AI completes the strategy itself and reports what it looked up
+
+- **Date:** 2026-10-02
+- **Context:** The owner runs research in an AI with web search, then pastes "Copy instructions" into the same chat. The research often lacked the detail to pin down every rule, so the AI guessed or left parts out, and the imported strategy was not faithful to the method.
+- **Decision:**
+  - **The prompt makes the AI self-complete.** It now works in four steps:
+    1. Express the researched strategy in the schema.
+    2. Go through a checklist (markets and timeframe, long entry, short entry, no-trade conditions, stop, targets and partials, holding time, sizing, risk limits). Any point without an exact condition or number is researched with the AI's own web search, preferring the method author's material. The AI must not guess or ask the owner.
+    3. Write the JSON. It uses the method's own risk and sizing rules; a conservative value is allowed only when nothing is found, and it must be declared. If the entry rules cannot be established, no JSON is written.
+    4. After the JSON, add three fixed sections: RULE READBACK (every rule with its numbers), FURTHER RESEARCH (point, what was lacking, what was found, source) and STILL MISSING (point, what is missing, why, the value used). The AI must say if it has no web search.
+  - **The notes are kept and shown.**
+    - The phone sends everything in the pasted reply outside the JSON as `notes` (`POST /v1/strategies`).
+    - The engine stores the notes on the strategy (migration 6 `strategies.import_notes`), cleaned of control characters and capped at 30,000 characters.
+    - The notes are split into the three sections, whatever heading style the AI used, and returned as `importNotes` with the strategy.
+    - The strategy page shows a "From your research AI" section next to the app's own "How it works", so the readback can be checked against what will actually run.
+    - Points still missing raise a warning banner at the top of the page.
+  - **Not trusted.** The notes are display-only text. They are never run, validated as rules or sent to another AI. The JSON alone decides the strategy, through the same validator.
+- **Requirements affected:** FR-030 to FR-036.
