@@ -120,6 +120,7 @@ class BacktestService(
     private val audit: AuditService,
     private val events: EngineEvents,
     private val profiles: RiskProfileService,
+    private val derivatives: app.strategyforge.engine.market.DerivativesService? = null,
 ) {
     private val log = EngineLog.of(javaClass)
     private val mapper = JacksonCanonical.mapper
@@ -253,7 +254,13 @@ class BacktestService(
                 } else {
                     emptyList()
                 }
-            series += SymbolSeries(sym, i.assetClass, cs.bars, i.priceIncrement, i.quantityIncrement, i.minQuantity, actions)
+            val futures =
+                if (def.usesDerivatives && cs.bars.isNotEmpty()) {
+                    derivativesFor(def, sym, cs.bars, inWindow, asOf, issues)
+                } else {
+                    null
+                }
+            series += SymbolSeries(sym, i.assetClass, cs.bars, i.priceIncrement, i.quantityIncrement, i.minQuantity, actions, futures)
             datasetSymbols +=
                 mapOf(
                     "symbol" to sym,
@@ -266,6 +273,7 @@ class BacktestService(
                     "lastBar" to inWindow.lastOrNull()?.openTime,
                     "gaps" to gapsInWindow.size,
                     "corporateActions" to actions.size,
+                    "futuresData" to futures?.source,
                     "status" to cs.status,
                 )
         }
@@ -487,6 +495,47 @@ class BacktestService(
             rs.instantOrNull("started_at"),
             rs.instantOrNull("completed_at"),
         )
+    }
+
+    /**
+     * Futures context for a crypto backtest (D-044). Missing data fails the backtest; partial coverage
+     * of the test window is a warning naming how much is covered.
+     */
+    private fun derivativesFor(
+        def: app.strategyforge.engine.strategy.StrategyDefinition,
+        sym: String,
+        bars: List<app.strategyforge.engine.market.CandleData>,
+        inWindow: List<app.strategyforge.engine.market.CandleData>,
+        asOf: Instant,
+        issues: MutableList<IntegrityIssue>,
+    ): app.strategyforge.engine.market.DerivativesData? {
+        val svc = derivatives ?: return null.also { issues += IntegrityIssue("CRITICAL", sym, "FUTURES_DATA_UNAVAILABLE", "No futures data source is available") }
+        return when (val r = svc.forBars(sym, def.timeframe, bars, asOf)) {
+            is app.strategyforge.engine.market.ProviderResult.Ok -> {
+                val (data, aligned) = r.value
+                val first = bars.size - inWindow.size
+                val needed = def.indicators.map { it.type }.toSet()
+                listOfNotNull(
+                    aligned.openInterest.takeIf { app.strategyforge.engine.strategy.IndicatorType.OPEN_INTEREST in needed }?.let { "open interest" to it },
+                    aligned.fundingRate.takeIf { app.strategyforge.engine.strategy.IndicatorType.FUNDING_RATE in needed }?.let { "funding" to it },
+                    aligned.delta.takeIf { app.strategyforge.engine.strategy.IndicatorType.CVD in needed }?.let { "delta" to it },
+                ).forEach { (label, values) ->
+                    val window = values.drop(first)
+                    val covered = window.count { it != null }
+                    when {
+                        window.isEmpty() -> Unit
+                        covered == 0 -> issues += IntegrityIssue("CRITICAL", sym, "FUTURES_DATA_MISSING", "${data.source} has no $label data for $sym in the test window")
+                        covered < window.size -> {
+                            val firstCovered = inWindow.getOrNull(window.indexOfFirst { it != null })?.openTime
+                            issues += IntegrityIssue("WARNING", sym, "FUTURES_DATA_PARTIAL", "${data.source} $label covers $covered of ${window.size} bars (from $firstCovered); rules using it cannot trigger on the rest")
+                        }
+                    }
+                }
+                data
+            }
+            is app.strategyforge.engine.market.ProviderResult.Failed -> null.also { issues += IntegrityIssue("CRITICAL", sym, "FUTURES_DATA_UNAVAILABLE", "Futures data for $sym: ${r.detail}") }
+            is app.strategyforge.engine.market.ProviderResult.Unsupported -> null.also { issues += IntegrityIssue("CRITICAL", sym, "FUTURES_DATA_UNAVAILABLE", r.detail) }
+        }
     }
 
     companion object {

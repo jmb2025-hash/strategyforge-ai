@@ -61,7 +61,7 @@ class ResearchImportTest {
     fun `long research is digested part by part, resumes after a quota error, then compiles the digests`() {
         gemini()
         val b = e.aiBudget.get()
-        e.aiBudget.update(AiBudgetUpdate(b.monthlyCostLimitUsd, b.dailyRequestLimit, b.maxOutputTokens, 15_000), b.version)
+        e.aiBudget.update(AiBudgetUpdate(b.monthlyCostLimitUsd, b.dailyRequestLimit, b.maxOutputTokens, 20_000), b.version)
         val paragraph = "Entry: buy ETH when RSI(14) crosses above 30 on the 1h chart and volume is 1.5x its average. "
         val text = (1..400).joinToString("\n\n") { "Section $it. $paragraph" }
         assertThat(text.length).isGreaterThan(30_000)

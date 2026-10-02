@@ -66,7 +66,8 @@ object ResearchPrompts {
             "volume profile point of control and value area high/low (of recent bars or the previous day, week or month), " +
             "long and short trades in the same strategy (simulated shorts are available for crypto and stocks), " +
             "partial profit taking with an optional move of the stop to the entry price, sizing by percent of equity at risk, " +
-            "and a daily cap on losing trades"
+            "a daily cap on losing trades, " +
+            "and for crypto only: perpetual-futures open interest and its change, the funding rate, and taker delta / cumulative volume delta (CVD)"
 
     /** How the compiler expresses chart structure and candlestick patterns with the schema (D-036). */
     val PATTERN_GUIDE =
@@ -108,6 +109,14 @@ object ResearchPrompts {
         - positionSizing {"method": "RISK_PERCENT", "value": 1} sizes each trade so the stop loss costs 1% of equity; set
           riskLimits.maximumPositionPercent to cap the position. riskLimits.maximumDailyLosingTrades stops new entries after
           that many losing trades in a day; maximumConsecutiveLosses suspends after a losing streak.
+        Perpetual-futures context (crypto strategies only; read from the BTC/ETH/... perpetual futures market):
+        - OPEN_INTEREST with "period" N gives value (contracts open) and change (% change over the last N bars). Rising open
+          interest into a move: {"left": "OI.change", "comparison": "GT", "right": 2}.
+        - FUNDING_RATE (no parameters) gives value (% per hour) and annualized (%). Crowded longs:
+          {"left": "FUND.annualized", "comparison": "GT", "right": 30}.
+        - CVD with "period" N gives value (taker buy minus sell volume summed over the last N bars) and delta (this bar only).
+          Absorption at a low (price makes a lower low while sellers are absorbed) can be expressed as a sweep condition plus
+          {"left": "CVD.value", "comparison": "GT", "right": 0}.
         """.trimIndent()
 
     val CONVERSATION_SYSTEM =

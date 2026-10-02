@@ -369,10 +369,76 @@ object Indicators {
                 IndicatorType.FIBONACCI -> fibonacci(bars, s.period!!).forEach { (k, v) -> out["${s.id}.$k"] = v }
                 IndicatorType.VOLUME_PROFILE ->
                     (if (s.anchor != null) volumeProfileByPeriod(bars, s.anchor, ctx) else volumeProfile(bars, s.period!!)).forEach { (k, v) -> out["${s.id}.$k"] = v }
+                IndicatorType.OPEN_INTEREST -> openInterest(bars.size, s.period!!, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
+                IndicatorType.FUNDING_RATE -> fundingRate(bars.size, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
+                IndicatorType.CVD -> cvd(bars.size, s.period!!, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
                 else -> out["${s.id}.value"] = candlestick(s.type, bars)
             }
         }
         return out
+    }
+
+    // ------------------------------------------------------------------ futures context (D-044)
+
+    private fun dec(v: Double?): BigDecimal? = v?.takeIf { it.isFinite() }?.let { BigDecimal(it, java.math.MathContext(12)) }
+
+    private fun aligned(
+        n: Int,
+        pick: (app.strategyforge.engine.market.AlignedDerivatives) -> List<Double?>,
+        ctx: SeriesContext,
+    ): List<Double?> = ctx.derivatives?.let(pick)?.takeIf { it.size == n } ?: List(n) { null }
+
+    /** Open interest, and its percent change over the last [period] bars. */
+    fun openInterest(
+        n: Int,
+        period: Int,
+        ctx: SeriesContext,
+    ): Map<String, List<BigDecimal?>> {
+        val oi = aligned(n, { it.openInterest }, ctx)
+        val change =
+            oi.indices.map { i ->
+                val now = oi[i]
+                val then = oi.getOrNull(i - period)
+                if (i >= period && now != null && then != null && then > 0) (now - then) / then * 100 else null
+            }
+        return mapOf("value" to oi.map(::dec), "change" to change.map(::dec))
+    }
+
+    /** Funding in percent per hour, and the same rate annualised (x 24 x 365). */
+    fun fundingRate(
+        n: Int,
+        ctx: SeriesContext,
+    ): Map<String, List<BigDecimal?>> {
+        val f = aligned(n, { it.fundingRate }, ctx)
+        return mapOf("value" to f.map(::dec), "annualized" to f.map { v -> dec(v?.times(24 * 365)) })
+    }
+
+    /** This bar's taker delta, and the cumulative delta of the last [period] bars (null if any bar lacks data). */
+    fun cvd(
+        n: Int,
+        period: Int,
+        ctx: SeriesContext,
+    ): Map<String, List<BigDecimal?>> {
+        val d = aligned(n, { it.delta }, ctx)
+        val sum =
+            d.indices.map { i ->
+                if (i + 1 < period) {
+                    null
+                } else {
+                    var s = 0.0
+                    var ok = true
+                    for (k in i - period + 1..i) {
+                        val v = d[k]
+                        if (v == null) {
+                            ok = false
+                            break
+                        }
+                        s += v
+                    }
+                    if (ok) s else null
+                }
+            }
+        return mapOf("value" to sum.map(::dec), "delta" to d.map(::dec))
     }
 
     // ------------------------------------------------------------------ higher timeframes and calendar levels (D-042)

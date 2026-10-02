@@ -100,6 +100,8 @@ class Engine(
     /** Tests only: lets AI providers point at a local recorded-response server over http. */
     allowLocalProviderHttp: Boolean = false,
     backupDir: () -> java.io.File? = { null },
+    /** Live perpetual-futures context for crypto strategies (Kraken Futures in the app, D-044). */
+    derivativesProvider: () -> app.strategyforge.engine.market.DerivativesProvider? = { null },
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -124,6 +126,14 @@ class Engine(
     val instruments = InstrumentService(db, sources, audit)
     val market = MarketDataService(db, sources, marketClock, wall, audit)
     val corporateActions = CorporateActionService(db, sources, audit, wall)
+    val derivatives =
+        app.strategyforge.engine.market
+            .DerivativesService(
+                sources,
+                app.strategyforge.engine.market
+                    .ReplayDerivatives(replayProvider),
+                derivativesProvider,
+            )
     val watchlists = WatchlistService(db, instruments, audit, wall)
     val alerts = PriceAlertService(db, instruments, notifications, audit, wall)
 
@@ -138,7 +148,7 @@ class Engine(
     // ------------------------------------------------------------------ strategies and backtests
     val validator = StrategyValidator({ instruments.findBySymbol(it) }, { sources.active() })
     val strategies = StrategyService(db, validator, audit, wall, sources, events)
-    val backtests = BacktestService(db, strategies, instruments, market, corporateActions, sources, settings, marketClock, wall, audit, events, riskProfiles)
+    val backtests = BacktestService(db, strategies, instruments, market, corporateActions, sources, settings, marketClock, wall, audit, events, riskProfiles, derivatives)
 
     val risk =
         RiskEngine(
@@ -159,7 +169,7 @@ class Engine(
     val dispatcher = SignalDispatcher(db, activations, risk, recommendations, orders, portfolios, notifications, events)
     val signals = SignalQueries(db)
     val evaluation =
-        EvaluationService(db, activations, strategies, instruments, market, portfolios, dispatcher, notifications, audit, wall, marketClock, events) { p, s ->
+        EvaluationService(db, activations, strategies, instruments, market, portfolios, dispatcher, notifications, audit, wall, marketClock, events, derivatives) { p, s ->
             RiskProfileService.toLimits(riskProfiles.effectiveFor(p, s))
         }
     val strategyControl = StrategyActivationFacade(db, activations) { recommendations }

@@ -38,6 +38,8 @@ data class SymbolSeries(
     val quantityIncrement: BigDecimal,
     val minQuantity: BigDecimal,
     val corporateActions: List<SimpleCorporateAction> = emptyList(),
+    /** Futures context for strategies that use it (D-044). */
+    val derivatives: app.strategyforge.engine.market.DerivativesData? = null,
 )
 
 data class BacktestParams(
@@ -153,7 +155,11 @@ private class Simulation(
 
     private val ctx = SeriesContext.of(def.timeframe, def.assetClass)
     private val index = data.associate { s -> s.symbol to s.bars.withIndex().associate { it.value.openTime to it.index } }
-    private val evaluators = data.associate { s -> s.symbol to RuleEvaluator(s.bars, Indicators.compute(def.indicators, s.bars, ctx)) }
+    private val evaluators =
+        data.associate { s ->
+            val c = s.derivatives?.let { ctx.copy(derivatives = it.align(s.bars, def.timeframe.duration)) } ?: ctx
+            s.symbol to RuleEvaluator(s.bars, Indicators.compute(def.indicators, s.bars, c))
+        }
     private val timeline =
         data
             .flatMap { s -> s.bars.map { it.openTime } }

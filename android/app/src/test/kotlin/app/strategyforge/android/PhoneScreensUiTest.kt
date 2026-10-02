@@ -140,4 +140,31 @@ class PhoneScreensUiTest {
         rule.onNodeWithTag("save-stock-key").performScrollTo().performClick()
         assertEquals(listOf<String?>("td-key-1234"), keys)
     }
+
+    @Test
+    fun `D-044 the futures data source can be tested and its result is shown`() {
+        var tests = 0
+        show {
+            EngineContent(
+                EngineUiState(
+                    runtime = RuntimeState("LIVE"),
+                    futures =
+                        app.strategyforge.android.core.model
+                            .FuturesTest("KRAKEN_FUTURES", "OK", "BTC perpetual: open interest 1950.6 BTC, funding 0.00100% per hour"),
+                    batteryUnrestricted = true,
+                ),
+                fmt,
+                onMode = {},
+                onDemoSpeed = {},
+                onRunInBackground = {},
+                onKeepAwake = {},
+                onBattery = {},
+                onTestFutures = { tests++ },
+            )
+        }
+        rule.onNodeWithText("Crypto futures data (Kraken Futures)").performScrollTo().assertExists()
+        rule.onNodeWithTag("futures-test-detail").performScrollTo().assertExists()
+        rule.onNodeWithTag("test-futures").performScrollTo().performClick()
+        assertEquals(1, tests)
+    }
 }

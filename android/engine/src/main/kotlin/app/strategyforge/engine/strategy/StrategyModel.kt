@@ -35,6 +35,11 @@ enum class IndicatorType {
     ANCHORED_VWAP,
     FIBONACCI,
     VOLUME_PROFILE,
+
+    // Perpetual-futures context for crypto (D-044): from a futures exchange, lined up with the bars.
+    OPEN_INTEREST,
+    FUNDING_RATE,
+    CVD,
     ;
 
     /** Pattern detectors take no period. */
@@ -42,6 +47,9 @@ enum class IndicatorType {
 
     companion object {
         val PATTERNS = setOf(BULLISH_ENGULFING, BEARISH_ENGULFING, HAMMER, SHOOTING_STAR, DOJI, MORNING_STAR, EVENING_STAR)
+
+        /** Types that need futures data and are only available to crypto strategies (D-044). */
+        val DERIVATIVES = setOf(OPEN_INTEREST, FUNDING_RATE, CVD)
 
         /** Types that can be computed on daily, weekly or monthly bars inside a faster strategy. */
         val HIGHER_TIMEFRAME_CAPABLE =
@@ -137,6 +145,9 @@ data class IndicatorSpec(
             IndicatorType.ANCHORED_VWAP, IndicatorType.FIBONACCI -> period!! + 1
             IndicatorType.VOLUME_PROFILE -> (period ?: 0) + 1
             IndicatorType.PERIOD_LEVELS, IndicatorType.VWAP -> 1
+            IndicatorType.OPEN_INTEREST -> period!! + 1
+            IndicatorType.CVD -> period!!
+            IndicatorType.FUNDING_RATE -> 1
         }
 
     fun components(): Set<String> =
@@ -146,6 +157,9 @@ data class IndicatorSpec(
             IndicatorType.PERIOD_LEVELS -> PERIOD_COMPONENTS
             IndicatorType.FIBONACCI -> FIB_LEVELS.keys + setOf("high", "low", "trend")
             IndicatorType.VOLUME_PROFILE -> setOf("poc", "vah", "val")
+            IndicatorType.OPEN_INTEREST -> setOf("value", "change")
+            IndicatorType.FUNDING_RATE -> setOf("value", "annualized")
+            IndicatorType.CVD -> setOf("value", "delta")
             else -> setOf("value")
         }
 
@@ -252,6 +266,9 @@ data class StrategyDefinition(
     /** Short entries for strategies that trade both directions (D-042). */
     val shortEntry: RuleGroup? = null,
 ) {
+    /** Whether any rule reads perpetual-futures data (D-044). */
+    val usesDerivatives: Boolean get() = indicators.any { it.type in IndicatorType.DERIVATIVES }
+
     /** Entry rules for one side; null when the strategy does not trade that side. */
     fun entryFor(short: Boolean): RuleGroup? =
         when (direction) {

@@ -16,6 +16,8 @@ import java.time.temporal.TemporalAdjusters
 data class SeriesContext(
     val barDuration: Duration,
     val zone: ZoneId,
+    /** Futures context lined up with the bars (D-044); null when the strategy does not use it. */
+    val derivatives: app.strategyforge.engine.market.AlignedDerivatives? = null,
 ) {
     companion object {
         fun of(

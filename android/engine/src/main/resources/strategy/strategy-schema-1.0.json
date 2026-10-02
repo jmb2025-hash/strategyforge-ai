@@ -132,7 +132,7 @@
         "type": {
           "enum": ["SMA", "EMA", "RSI", "MACD", "ATR", "BOLLINGER_BANDS", "HIGHEST", "LOWEST", "SWING_HIGH", "SWING_LOW", "RELATIVE_VOLUME",
             "BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "SHOOTING_STAR", "DOJI", "MORNING_STAR", "EVENING_STAR",
-            "PERIOD_LEVELS", "VWAP", "ANCHORED_VWAP", "FIBONACCI", "VOLUME_PROFILE"]
+            "PERIOD_LEVELS", "VWAP", "ANCHORED_VWAP", "FIBONACCI", "VOLUME_PROFILE", "OPEN_INTEREST", "FUNDING_RATE", "CVD"]
         },
         "period": { "type": "integer", "minimum": 2, "maximum": 500 },
         "fastPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
@@ -147,7 +147,7 @@
     },
     "operand": {
       "oneOf": [
-        { "type": "string", "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val))?$" },
+        { "type": "string", "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|change|annualized|delta))?$" },
         { "type": "number", "minimum": -1000000000, "maximum": 1000000000 }
       ]
     },

@@ -109,6 +109,12 @@ object StrategyExplainer {
                             "the VWAP anchored at the ${if (spec.anchorPoint == AnchorPoint.HIGHEST_HIGH) "highest high" else "lowest low"} of the previous ${spec.period} bars"
                         IndicatorType.FIBONACCI -> return fib(spec, o.component)
                         IndicatorType.VOLUME_PROFILE -> return profile(spec, o.component)
+                        IndicatorType.OPEN_INTEREST ->
+                            return if (o.component == "change") "the % change in futures open interest over ${spec.period} bars" else "futures open interest (contracts)"
+                        IndicatorType.FUNDING_RATE ->
+                            return if (o.component == "annualized") "the annualised futures funding rate (%)" else "the futures funding rate (% per hour)"
+                        IndicatorType.CVD ->
+                            return if (o.component == "delta") "this bar's futures taker delta (buy minus sell volume)" else "the cumulative futures taker delta (CVD) of the last ${spec.period} bars"
                         null -> o.id
                     }
                 val htf = spec?.timeframe?.let { "${anchorWord(it)} " } ?: ""

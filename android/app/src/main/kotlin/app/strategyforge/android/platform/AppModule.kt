@@ -10,6 +10,7 @@ import app.strategyforge.engine.Engine
 import app.strategyforge.engine.api.EngineRuntime
 import app.strategyforge.engine.api.LocalApiInterceptor
 import app.strategyforge.engine.market.CoinbaseProvider
+import app.strategyforge.engine.market.KrakenFuturesProvider
 import app.strategyforge.engine.market.TwelveDataProvider
 import app.strategyforge.engine.research.AiClients
 import dagger.Module
@@ -49,6 +50,7 @@ object AppModule {
         val backend = AndroidSqlBackend(context)
         val secrets = KeystoreSecretStore(context)
         val coinbase by lazy { CoinbaseProvider(Clock.systemUTC()) }
+        val kraken by lazy { KrakenFuturesProvider(Clock.systemUTC()) }
         val aiClients by lazy { AiClients.default() }
         return EngineRuntime(
             create = { host ->
@@ -56,6 +58,7 @@ object AppModule {
                     backend,
                     fixtureReader = { rel -> context.assets.open("replay/$rel").use { String(it.readBytes(), Charsets.UTF_8) } },
                     cryptoProvider = { coinbase },
+                    derivativesProvider = { kraken },
                     equityProvider = { key -> TwelveDataProvider(key, Clock.systemUTC()) },
                     secrets = secrets,
                     aiClients = aiClients,

@@ -405,6 +405,17 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-044 the futures data test reports when no live source is available`() {
+        start()
+        runBlocking {
+            val t = repo.testFuturesData()
+            assertThat(t.source).isEqualTo("NONE")
+            assertThat(t.status).isEqualTo("FAILED")
+            assertThat(t.detail).contains("No live futures data source")
+        }
+    }
+
+    @Test
     fun `D-043 a pasted AI reply keeps its readback and research notes with the strategy`() {
         start()
         runBlocking {

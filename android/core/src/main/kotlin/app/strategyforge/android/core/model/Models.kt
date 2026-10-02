@@ -525,6 +525,14 @@ data class StockData(
     val lastTestDetail: String? = null,
 )
 
+/** Result of testing the crypto futures data source (D-044). */
+@Serializable
+data class FuturesTest(
+    val source: String,
+    val status: String,
+    val detail: String,
+)
+
 @Serializable
 data class RestoreResult(
     val restoredFrom: String,

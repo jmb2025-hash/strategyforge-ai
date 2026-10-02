@@ -1,10 +1,10 @@
 # StrategyForge AI — Project State Manifesto
 
-Save point: **2026-10-02T05:24Z** · HEAD `9a44046` · version **1.5.0** (versionCode 8) · branch `claude/strategyforge-v1-delivery-vgf1ah`
+Save point: **2026-10-02T05:52Z** · version **1.7.0** (versionCode 10) · branch `claude/strategyforge-v1-delivery-vgf1ah`
 
 ```text
 === STRATEGYFORGE AI — PROJECT STATE MANIFESTO ===
-SAVE POINT: 2026-10-02 05:24 UTC | HEAD 9a44046 | v1.5.0 (versionCode 8) | CI run 36948398701 GREEN
+SAVE POINT: 2026-10-02T05:52Z | v1.7.0 (versionCode 10) | engine 193/193, core 27/27
 BRANCH: claude/strategyforge-v1-delivery-vgf1ah (push: git push -u origin <branch>; NO PR unless asked)
 APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest (StrategyForge.apk, CI-published)
 
@@ -64,34 +64,29 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         web-research any gap itself (no guessing, no asking), reply = JSON + RULE READBACK + FURTHER RESEARCH
         + STILL MISSING. Phone sends text outside the JSON as notes; migration 6 strategies.import_notes;
         ImportNotes parser; strategy page "From your research AI" section + missing-points warning banner.
+- 1.7.0 (D-044) Crypto futures context from Kraken Futures public API (no key): indicators OPEN_INTEREST(period:
+        value,change%), FUNDING_RATE(value %/h, annualized), CVD(period: value=sum delta, delta). Causal alignment
+        (OI/funding latest at-or-before bar open, delta summed within bar). Backtest integrity FUTURES_DATA_*; live
+        blocks PROVIDER_UNAVAILABLE / MISSING_HISTORY. Demo = ReplayDerivatives synthetic. More > Engine > "Test futures data".
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
 - Tests: engine 174/174, core 26/26 (incl. LevelIndicatorsTest 9, BacktestFeaturesTest 4,
   ChartChampionsStrategyTest 2, LiveStrategyFeaturesTest 3, LocalApiAppTest D-042, ChartsUiTest ShortingSwitch).
-- BLOCKER: futures.kraken.com is DENIED by this cloud env network policy (connect_rejected) -> cannot
-  verify live futures responses here. User can allow it: env Network access settings (cloud env -> Edit).
+- futures.kraken.com and docs.kraken.com are DENIED by this cloud env network policy -> Kraken formats were
+  taken from ccxt (raw.githubusercontent.com works) and doc summaries; live verification is on the phone.
 - Open decisions awaiting user:
-  a) Approve Kraken Futures public API (no key, available in Canada) for OI / funding / delta-CVD.
+  a) (done in 1.7.0) Kraken Futures for OI / funding / delta-CVD.
   b) Live streaming upgrade (Coinbase websocket + Alpaca IEX) - offered, unanswered.
 - Known approximations: volume profile and CVD derived from candles (not tick data).
 
 4. NEXT IMMEDIATE STEPS (ranked)
- 1. Get user approval on Kraken Futures (and ideally host allow-listed for verification).
- 2. Engine: market/KrakenFuturesClient (public, no key):
-      tickers (OI, funding)   futures.kraken.com/derivatives/api/v3/tickers
-      funding history         /derivatives/api/v4/historicalfundingrates?symbol=PF_XBTUSD
-      OI history              /api/charts/v1/analytics/PF_XBTUSD/open-interest
-      delta (aggressor diff)  /api/charts/v1/analytics/PF_XBTUSD/aggressor-differential  -> CVD = cumsum
-    Map spot symbols -> PF_* perps (BTC-USD->PF_XBTUSD, ETH-USD->PF_ETHUSD). Add replay fixtures.
- 3. Db migration 7: derivatives series cache (symbol, ts, oi, funding, delta) aligned to bar openTime.
- 4. Indicators: OPEN_INTEREST, FUNDING_RATE, DELTA/CVD types (crypto only), causal, aligned to bars;
-    validator rejects for stocks; lookback/requiredHistory; explainer text.
- 5. Wire into BacktestEngine + EvaluationService (missing derivatives data -> MISSING_HISTORY/inactivity).
- 6. Schema JSON + ResearchPrompts (EXPRESSIBLE/PATTERN_GUIDE) teach new fields.
- 7. Tests: hand-checked values, no-look-ahead test, fixture-based client parse tests, API test.
- 8. D-044 in docs/DECISION_LOG.md; bump version 1.7.0 / versionCode 10; spotless; gitleaks; commit; push;
-    wait CI (scratchpad/waitci.sh <sha>); confirm phone-latest republished; report to user.
+ 1. Owner verifies live Kraken Futures on the phone (More > Engine > Test futures data, then a backtest of a
+    strategy using OPEN_INTEREST/FUNDING_RATE/CVD in Live mode). If a format differs, the error names the fields:
+    adjust KrakenFuturesProvider.parseAnalytics. futures.kraken.com is blocked in this cloud env.
+ 2. Open offer: live streaming upgrade (Coinbase websocket + Alpaca IEX) - unanswered.
+ 3. Optional: persist futures history (DB table) if Kraken analytics history proves too short for long backtests.
+ 4. Per release: D-045 entry, bump version, tests, spotless, gitleaks, push, wait CI, confirm phone-latest.
 
 5. CRITICAL CAVEATS & CONSTRAINTS
 - Paper trading only. Never real orders. Shorts are simulated.
@@ -103,7 +98,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-044). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-045). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Indicators must be causal; HTF values only from completed periods (period complete when a bar closes
   at/after period end or a later period's bar arrives). Keep the "no past value changes" test passing.

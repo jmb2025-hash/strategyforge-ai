@@ -506,3 +506,32 @@ When a conflict is unresolved, the safest reversible option is selected.
     - Points still missing raise a warning banner at the top of the page.
   - **Not trusted.** The notes are display-only text. They are never run, validated as rules or sent to another AI. The JSON alone decides the strategy, through the same validator.
 - **Requirements affected:** FR-030 to FR-036.
+
+## D-044 Perpetual-futures context for crypto strategies: open interest, funding and CVD from Kraken Futures
+
+- **Date:** 2026-10-02
+- **Context:** The Chart Champions method reads open interest, funding and delta/CVD, which spot candles cannot provide (D-042 left them out). The owner approved Kraken Futures' public data, which needs no account or key and serves Canada.
+- **Decision:**
+  - **Source.** `KrakenFuturesProvider` reads three public endpoints:
+    - open interest from `/api/charts/v1/analytics/{contract}/open-interest`;
+    - taker buy-minus-sell volume (delta) from `/api/charts/v1/analytics/{contract}/aggressor-differential`, paged with `since`, `to` and `interval` set to the strategy's bar length;
+    - hourly funding from `/derivatives/api/v4/historicalfundingrates`, as `relativeFundingRate`, shown in percent per hour.
+
+    Spot symbols map to perpetuals: BTC-USD becomes PF_XBTUSD, other XXX-USD pairs become PF_XXXUSD. Analytics values are read tolerantly (plain numbers, OHLC objects with close, buy/sell columns). Anything unrecognised is reported with its field names, never guessed.
+  - **Not verified against live responses.** This build environment's network policy blocked `futures.kraken.com`. The formats come from Kraken's documentation summaries and the ccxt library's recorded responses. The owner checks the real feed with **More → Engine → Test futures data**.
+  - **Lined up with the bars without look-ahead.**
+    - Open interest uses the latest value stamped at or before the bar's open. It is treated as missing after three bars (at least an hour) without data.
+    - Funding uses the latest rate stamped at or before the bar's open. It is treated as missing after 25 hours.
+    - Delta sums every interval that starts inside the bar.
+    - A test checks that adding later data never changes earlier values.
+  - **Indicators (crypto only).** Using them in a stock strategy is refused with DERIVATIVES_CRYPTO_ONLY.
+    - `OPEN_INTEREST` (period N): `value` and `change` (% over N bars).
+    - `FUNDING_RATE`: `value` (% per hour) and `annualized`.
+    - `CVD` (period N): `value` (delta summed over N bars) and `delta` (this bar).
+
+    They are not available on higher timeframes.
+  - **Backtests.** A strategy using these indicators loads futures data for its symbols. Unavailable or entirely missing data is a critical integrity issue (FUTURES_DATA_UNAVAILABLE / FUTURES_DATA_MISSING). Partial coverage is a warning naming how many bars are covered. The dataset records the source.
+  - **Live paper trading.** Each evaluation loads the data, cached for 50 seconds. If the source fails, evaluation is blocked as PROVIDER_UNAVAILABLE; if a series has nothing for the last three bars, it is blocked as MISSING_HISTORY. Both notify the owner like other data failures.
+  - **Demo mode.** `ReplayDerivatives` derives synthetic values from the replay candles: delta from each candle's body, open interest as slow waves that build with one-sided bars, and funding from the premium over the one-day average. Demo strategies can exercise the rules; the values say nothing about real markets.
+  - **AI instructions.** The research, compile and copy-instructions prompts describe the three indicators with examples.
+- **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066.

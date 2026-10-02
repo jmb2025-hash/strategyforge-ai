@@ -25,6 +25,7 @@ import app.strategyforge.android.core.model.Disclosure
 import app.strategyforge.android.core.model.EmergencyResult
 import app.strategyforge.android.core.model.EmergencyState
 import app.strategyforge.android.core.model.EquityChart
+import app.strategyforge.android.core.model.FuturesTest
 import app.strategyforge.android.core.model.FxRate
 import app.strategyforge.android.core.model.Me
 import app.strategyforge.android.core.model.Notification
@@ -578,6 +579,8 @@ class Repository(
         )
 
     suspend fun testStockData(): StockData = api.decode(api.post("/v1/market-data/stocks/test").body, StockData.serializer())
+
+    suspend fun testFuturesData(): FuturesTest = api.decode(api.post("/v1/market-data/futures/test").body, FuturesTest.serializer())
 
     suspend fun setDemoSpeed(minutesPerTick: Int): RuntimeState = api.decode(api.put("/v1/runtime", buildJsonObject { put("demoStepMinutes", minutesPerTick) }).body, RuntimeState.serializer())
 

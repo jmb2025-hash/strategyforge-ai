@@ -250,6 +250,10 @@ class LocalApi(
             val t = engine.equitySource()?.diagnose(engine.wall.instant()) ?: throw Problems.unavailable("stocks-unavailable", "Stock data is not available in this build")
             stocks() + mapOf("lastTestStatus" to t.status, "lastTestDetail" to t.detail)
         }
+        post("/v1/market-data/futures/test") { _, _ ->
+            val (source, t) = engine.derivatives.diagnoseLive(engine.wall.instant())
+            mapOf("source" to source, "status" to t.status, "detail" to t.detail)
+        }
         put("/v1/runtime") { r, _ ->
             val b = obj(r)
             b.str("marketMode")?.let { engine.setMarketMode(enumOf<MarketMode>(it, "marketMode")) }

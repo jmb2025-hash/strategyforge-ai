@@ -313,6 +313,7 @@ class StrategyValidator(
                     // Candlestick patterns are fixed shapes (D-036).
                     in IndicatorType.PATTERNS -> emptySet()
                     IndicatorType.PERIOD_LEVELS, IndicatorType.VWAP -> setOf("anchor")
+                    IndicatorType.FUNDING_RATE -> emptySet()
                     // A volume profile covers either the previous N bars or the previous calendar period (D-042).
                     IndicatorType.VOLUME_PROFILE -> if (ind.has("anchor")) setOf("anchor") else setOf("period")
                     else -> setOf("period")
@@ -324,6 +325,9 @@ class StrategyValidator(
                 }
             (required - present).forEach { err("MISSING_PARAMETER", p, "$type requires '$it'") }
             (present - required - optional).forEach { err("UNSUPPORTED_PARAMETER", "$p.$it", "$type does not accept '$it'") }
+            if (type in IndicatorType.DERIVATIVES && doc["metadata"]["assetClass"]?.asText() != "CRYPTO") {
+                err("DERIVATIVES_CRYPTO_ONLY", "$p.type", "$type uses perpetual-futures data, which exists for crypto strategies only")
+            }
             if (type == IndicatorType.VOLUME_PROFILE && ind.has("anchor") && ind.has("period")) err("CONTRADICTORY_PARAMETERS", p, "VOLUME_PROFILE takes either 'period' or 'anchor', not both")
             ind["timeframe"]?.asText()?.let { tf ->
                 val base = Timeframe.of(doc["metadata"]["timeframe"].asText())

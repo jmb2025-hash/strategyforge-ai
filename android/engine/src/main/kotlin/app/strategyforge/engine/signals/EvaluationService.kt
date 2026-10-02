@@ -112,6 +112,8 @@ class EvaluationService(
     private val clock: Clock,
     private val marketClock: MarketClock,
     private val events: EngineEvents,
+    /** Futures context for strategies that use it (D-044). */
+    private val derivatives: app.strategyforge.engine.market.DerivativesService? = null,
     /** Effective risk limits for a portfolio and strategy, used to fit risk-based position sizes (D-042). */
     private val riskLimits: (UUID, UUID) -> app.strategyforge.engine.risk.RiskLimits? = { _, _ -> null },
 ) {
@@ -169,7 +171,30 @@ class EvaluationService(
                     details += "$sym bars ${series.status}: ${series.detail}"
                     return@forEach
                 }
-                draft(a, def, i, series.bars, quote.quote!!.last)?.let { drafts += it }
+                var aligned: app.strategyforge.engine.market.AlignedDerivatives? = null
+                if (def.usesDerivatives) {
+                    val r = derivatives?.forBars(sym, def.timeframe, series.bars, now)
+                    when (r) {
+                        is app.strategyforge.engine.market.ProviderResult.Ok -> aligned = r.value.second
+                        is app.strategyforge.engine.market.ProviderResult.Failed -> {
+                            blocks += "PROVIDER_UNAVAILABLE"
+                            details += "$sym futures data: ${r.detail}"
+                            return@forEach
+                        }
+                        else -> {
+                            blocks += "PROVIDER_UNAVAILABLE"
+                            details += "$sym futures data: ${(r as? app.strategyforge.engine.market.ProviderResult.Unsupported)?.detail ?: "no futures data source"}"
+                            return@forEach
+                        }
+                    }
+                    val missing = derivativesMissingOnLastBar(def, aligned)
+                    if (missing.isNotEmpty()) {
+                        blocks += "MISSING_HISTORY"
+                        details += "$sym futures data has no recent ${missing.joinToString()}"
+                        return@forEach
+                    }
+                }
+                draft(a, def, i, series.bars, quote.quote!!.last, aligned)?.let { drafts += it }
             }
         }
         if (blocks.isNotEmpty()) {
@@ -250,6 +275,22 @@ class EvaluationService(
         events.publish(EvaluationFailed(a.strategyId, streak, e.javaClass.simpleName))
     }
 
+    /**
+     * The futures series a strategy reads that have no value for any of the last three closed bars
+     * (D-044): the feed has stopped. A single late interval only leaves that bar's value empty.
+     */
+    private fun derivativesMissingOnLastBar(
+        def: StrategyDefinition,
+        d: app.strategyforge.engine.market.AlignedDerivatives,
+    ): List<String> {
+        val types = def.indicators.map { it.type }.toSet()
+        return listOfNotNull(
+            "open interest".takeIf { app.strategyforge.engine.strategy.IndicatorType.OPEN_INTEREST in types && d.openInterest.takeLast(3).all { it == null } },
+            "funding rate".takeIf { app.strategyforge.engine.strategy.IndicatorType.FUNDING_RATE in types && d.fundingRate.takeLast(3).all { it == null } },
+            "delta".takeIf { app.strategyforge.engine.strategy.IndicatorType.CVD in types && d.delta.takeLast(3).all { it == null } },
+        )
+    }
+
     /** Builds an entry or exit signal for one symbol from verified closed bars (point in time). */
     private fun draft(
         a: Activation,
@@ -257,8 +298,9 @@ class EvaluationService(
         i: Instrument,
         bars: List<CandleData>,
         last: BigDecimal,
+        derivatives: app.strategyforge.engine.market.AlignedDerivatives? = null,
     ): SignalDraft? {
-        val ev = RuleEvaluator(bars, Indicators.compute(def.indicators, bars, SeriesContext.of(def.timeframe, def.assetClass)))
+        val ev = RuleEvaluator(bars, Indicators.compute(def.indicators, bars, SeriesContext.of(def.timeframe, def.assetClass).copy(derivatives = derivatives)))
         val idx = bars.lastIndex
         val held = strategyHolding(a, i.id)
         val openOrder =

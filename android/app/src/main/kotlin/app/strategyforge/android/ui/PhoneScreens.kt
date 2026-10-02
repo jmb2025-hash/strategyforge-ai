@@ -261,6 +261,7 @@ fun ReauthHostFor(
 data class EngineUiState(
     val runtime: RuntimeState? = null,
     val stocks: StockData? = null,
+    val futures: app.strategyforge.android.core.model.FuturesTest? = null,
     val runInBackground: Boolean = true,
     val keepAwake: Boolean = true,
     val batteryUnrestricted: Boolean = false,
@@ -305,6 +306,12 @@ class EngineViewModel
                 _state.update { it.copy(stocks = t) }
             }
 
+        fun testFutures() =
+            act("Futures data test finished") {
+                val t = repo.testFuturesData()
+                _state.update { it.copy(futures = t) }
+            }
+
         fun setRunInBackground(on: Boolean) {
             config.runInBackground = on
             if (on) EngineService.start(app) else EngineService.stop(app)
@@ -339,6 +346,7 @@ fun EngineScreen(
             onBattery = { requestUnrestrictedBattery(context) },
             onStockKey = vm::setStockKey,
             onTestStocks = vm::testStocks,
+            onTestFutures = vm::testFutures,
             onOpenUrl = { url ->
                 try {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -374,6 +382,7 @@ fun EngineContent(
     onBattery: () -> Unit,
     onStockKey: (String?) -> Unit = {},
     onTestStocks: () -> Unit = {},
+    onTestFutures: () -> Unit = {},
     onOpenUrl: (String) -> Unit = {},
 ) {
     SectionTitle("Market data")
@@ -425,6 +434,17 @@ fun EngineContent(
         }
     }
     (stocks?.keyUrl ?: "https://twelvedata.com/account/api-keys").let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text("Get a free key: $url") } }
+    SectionTitle("Crypto futures data (Kraken Futures)")
+    Text(
+        "Strategies that use open interest, funding or delta (CVD) read them from Kraken Futures' public data (no account or key). " +
+            "Demo mode uses synthetic values derived from the replay prices.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    state.futures?.let { f ->
+        LabelValue("Last test", f.status)
+        Text(f.detail, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("futures-test-detail"))
+    }
+    OutlinedButton(onClick = onTestFutures, modifier = Modifier.testTag("test-futures")) { Text("Test futures data") }
     SectionTitle("Background running")
     Row(verticalAlignment = Alignment.CenterVertically) {
         Switch(checked = state.runInBackground, onCheckedChange = onRunInBackground, modifier = Modifier.testTag("run-in-background"))
