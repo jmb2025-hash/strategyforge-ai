@@ -21,7 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** D-035 one crypto and one stock strategy; replacing asks each time, with keep preselected. */
+/** D-035/D-051 numbered slots per asset class; replacing asks each time, with keep preselected. */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34], application = Application::class)
 class StrategySlotsUiTest {
@@ -32,22 +32,25 @@ class StrategySlotsUiTest {
         SfJson.decodeFromString(
             ListSerializer(Slot.serializer()),
             """
-            [{"assetClass":"CRYPTO","strategy":{"id":"st1","name":"Chart Champions BTC","assetClass":"CRYPTO","status":"ACTIVE_AUTONOMOUS"},
+            [{"assetClass":"CRYPTO","number":1,"strategy":{"id":"st1","name":"Chart Champions BTC","assetClass":"CRYPTO","status":"ACTIVE_AUTONOMOUS"},
               "activation":{"id":"a1","strategyId":"st1","portfolioId":"p1","mode":"AUTONOMOUS","allocationPercent":"40","status":"ACTIVE","createdAt":"2026-10-01T12:00:00Z"},
               "holdings":[{"symbol":"BTC-USD","side":"LONG","quantity":"0.1"}]},
-             {"assetClass":"US_EQUITY"}]
+             {"assetClass":"CRYPTO","number":2},
+             {"assetClass":"US_EQUITY","number":1},
+             {"assetClass":"US_EQUITY","number":2}]
             """.trimIndent(),
         )
 
     @Test
-    fun `D-035 the slots show the running crypto strategy, an empty stock slot, and stop asks first`() {
+    fun `D-051 the slots show the running crypto strategy with its slot number, no stock strategy, and stop asks first`() {
         val stopped = mutableListOf<String>()
         rule.setContent { SfTheme { SlotsSection(slots, onOpen = {}, onStop = { stopped += it }) } }
-        rule.onNodeWithText("Chart Champions BTC").assertExists()
+        rule.onNodeWithText("Slot 1 · Chart Champions BTC").assertExists()
+        rule.onNodeWithText("Crypto · 1 of 2 slots in use").assertExists()
         rule.onNodeWithText("Autonomous: trades are placed automatically", substring = true).assertExists()
         rule.onNodeWithText("Open: 0.1 BTC-USD").assertExists()
-        rule.onNodeWithText("No Stocks strategy running", substring = true).assertExists()
-        rule.onNodeWithTag("stop-CRYPTO").performClick()
+        rule.onNodeWithText("No stocks strategy running", substring = true).assertExists()
+        rule.onNodeWithTag("stop-CRYPTO-1").performClick()
         rule.onNodeWithText("Stop this strategy?").assertExists()
         rule.onAllNodesWithText("Stop").onLast().performClick()
         assertEquals(listOf("st1"), stopped)

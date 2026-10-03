@@ -215,4 +215,70 @@ class RealDataResearchTest {
             }
         }
     }
+
+    /** Daily stock bars from SF_STOCK_DIR/<SYMBOL>.csv (timestamp,open,high,low,close,volume; epoch seconds). */
+    private fun stockBars(
+        dir: File,
+        symbol: String,
+    ): List<CandleData> =
+        File(dir, "$symbol.csv").readLines().drop(1).map { line ->
+            val f = line.split(',')
+            CandleData(Instant.ofEpochSecond(f[0].toLong()), BigDecimal(f[1]), BigDecimal(f[2]), BigDecimal(f[3]), BigDecimal(f[4]), BigDecimal(f[5]))
+        }
+
+    /**
+     * Stock research sweep: every plan JSON in SF_SWEEP_DIR runs on the daily bars of its universe
+     * from SF_STOCK_DIR, with the app's default stock costs, over the selection years (1998-2012),
+     * the unseen years (2013 on) and every calendar year. Starting capital SF_START (default 10,000).
+     */
+    @Test
+    fun `sweep stock plans over daily history`() {
+        val dir = System.getenv("SF_SWEEP_DIR")?.let(::File)
+        val stocks = System.getenv("SF_STOCK_DIR")?.let(::File)
+        assumeTrue(dir != null && stocks != null, "SF_SWEEP_DIR or SF_STOCK_DIR not set")
+        val start = BigDecimal(System.getenv("SF_START") ?: "10000")
+        val first = (System.getenv("SF_FIRST_YEAR") ?: "1998").toInt()
+        val last = (System.getenv("SF_LAST_YEAR") ?: "2021").toInt()
+        val split = (System.getenv("SF_SPLIT_YEAR") ?: "2013").toInt()
+        val periods =
+            listOf(
+                "selection" to ("$first-01-01T00:00:00Z" to "$split-01-01T00:00:00Z"),
+                "unseen" to ("$split-01-01T00:00:00Z" to "${last + 1}-01-01T00:00:00Z"),
+                "ALL" to ("$first-01-01T00:00:00Z" to "${last + 1}-01-01T00:00:00Z"),
+            ) + (first..last).map { y -> "$y" to ("$y-01-01T00:00:00Z" to "${y + 1}-01-01T00:00:00Z") }
+        val validator =
+            app.strategyforge.engine.support.TestEngine
+                .create()
+                .validator
+        val cache = mutableMapOf<String, List<CandleData>>()
+        dir!!.listFiles { f -> f.name.endsWith(".json") }!!.sortedBy { it.name }.forEach { f ->
+            val doc = JacksonCanonical.mapper.readTree(f) as com.fasterxml.jackson.databind.node.ObjectNode
+            // The test engine only has replay data for a few symbols: validate the rules with SPY, run on the real universe.
+            val probe = doc.deepCopy().also { (it.path("universe") as com.fasterxml.jackson.databind.node.ObjectNode).putArray("symbols").add("SPY") }
+            val v = validator.validateDocument(probe)
+            if (v.document == null || v.errors.isNotEmpty()) {
+                println("SWEEP ${f.nameWithoutExtension} INVALID ${v.errors.map { it.code + ": " + it.message }}")
+                return@forEach
+            }
+            val def = StrategyDefinition.from(v.document!!.deepCopy().also { it.set<com.fasterxml.jackson.databind.JsonNode>("universe", doc.path("universe")) })
+            val series = def.symbols.map { sym -> SymbolSeries(sym, AssetClass.US_EQUITY, cache.getOrPut(sym) { stockBars(stocks!!, sym) }, BigDecimal("0.01"), BigDecimal.ONE, BigDecimal.ONE) }
+            periods.forEach { (name, w) ->
+                val params = BacktestParams(Instant.parse(w.first), Instant.parse(w.second), start, CostModel())
+                val out = BacktestEngine(def, params).run(series)
+                val m = BacktestMetrics.compute(out, params.startingCapital, params.from, params.to, null)
+                val positions =
+                    out.trades
+                        .groupBy { Triple(it.symbol, it.side, it.entryTime) }
+                        .values
+                        .map { ts -> ts.sumOf { it.netPnl } }
+                val wins = positions.count { it.signum() > 0 }
+                if (System.getenv("SF_DEBUG") != null) println("DEBUG ${f.nameWithoutExtension} $name bars=${series.map { it.bars.size }} metrics=$m")
+                println(
+                    "SWEEP ${f.nameWithoutExtension} $name ret=${String.format("%.1f", (m["netReturnPercent"] as BigDecimal).toDouble())}% " +
+                        "dd=${String.format("%.1f", (m["maxDrawdownPercent"] as BigDecimal).toDouble())}% positions=${positions.size} " +
+                        "win=${if (positions.isEmpty()) "-" else String.format("%.0f", 100.0 * wins / positions.size)}% exposure=${m["exposurePercent"]}",
+                )
+            }
+        }
+    }
 }
