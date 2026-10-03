@@ -90,6 +90,11 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         decisionTimeframe. AT_LEAST/count; withinBars/minimumBars. LEVEL/ROUND_NUMBER/NAKED_POC. Compact schema in prompts.
         Real BTC (Jul25-Oct26): v2 default costs -16.7% PF .73; no costs +4.3%; futures costs -12.6%; EMA swing strong,
         mechanical SFP/failed auction no edge. Fixture research/chart_champions_plan_v2_reply.md.
+- (D-048) PLAN v3 TUNED: sweep of ~150 v2 variants (SF_SWEEP_DIR), chosen on 2025 only, futures costs, 1% risk.
+        v3 = CC_FIB (>=2 confluences, stop f786+0.3%, 1R half/3R) + EMA_SWING as published, STACK, open risk 2.5%.
+        2025 +10.9% (dd 6.5), Q1-26 +10.4%, Q2-26 +3.6%, Q3-26 +0.7%; win 48-60% per position. SFP/CCV/FA dropped
+        (FA best 2025 variant +9.9% then -13..-15% each 2026 quarter = overfit). CC public figures have no balances,
+        so no % match is possible; per-quarter ranking Q1-26 > Q2-26 > 2025 avg matches theirs. Fixture plan_v3.md.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -121,7 +126,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-048). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-049). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

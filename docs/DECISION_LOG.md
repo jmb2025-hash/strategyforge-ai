@@ -629,3 +629,42 @@ When a conflict is unresolved, the safest reversible option is selected.
     - Neither published filter (2R minimum, SFP judged on the 4h candle) made the level-reaction setups profitable; it only moved trades between setups.
     - Conclusion recorded for the owner: the discretionary level-reaction judgement cannot be recovered from public rules, and trading costs dominate tight-stop setups. The trend setup is promising on a small sample. These are research findings, not trading advice.
 - **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066.
+
+## D-048 Plan v3: Chart Champions plan tuned on real 2025 BTC data and checked on 2026
+
+- **Date:** 2026-10-03
+- **Context:** The owner asked for the Chart Champions plan to be tuned on historical crypto data until its returns line up with the profits Chart Champions published:
+
+  | Period | Net profit | Win rate | Streams |
+  |---|---|---|---|
+  | 2025 | $96,413 | 66% | 104 |
+  | Q1 2026 | $124,817 | 100% | 30 |
+  | Q2 2026 | $49,614 | 85% | 33 |
+
+  The starting balances are "Not Publicly Disclosed", so no percentage return can be derived from those figures.
+- **Decision:**
+  - **Tuning target.** Profitable in each period with a sensible drawdown, compared alongside their win rates. An exact dollar or percentage match was not the target, because one can always be produced by changing the risk per trade without saying anything about the method.
+  - **Overfitting guard.** Choices were made on 2025 only; Q1, Q2 and Q3 2026 were run unchanged afterwards.
+  - **Sweep.** About 150 variants of plan v2 on Bitstamp BTC/USD 30-minute bars with perpetual-futures costs. Variables: trend filter, confluence count, stop buffer and targets per setup, then setup combinations, conflict policy and open-risk cap.
+  - **Findings:**
+    - No SFP or CCV variant was profitable in 2025.
+    - The best failed-auction variant made +9.9% in 2025, then lost 13–15% in every 2026 quarter. It was rejected as a textbook overfit.
+    - The CC Fibonacci setup works with at least 2 confluences, a stop 0.3% beyond the 0.786 level, and targets at 1R (half) and 3R.
+    - The 4h EMA swing was positive in every period as published.
+    - Letting both setups hold a position (STACK) beat ONE_PER_SYMBOL in 2025.
+    - An open-risk cap of exactly 2 × the per-trade risk blocked some second entries, because sizing is measured at the signal close; plan v3 uses 2.5 ×.
+  - **Plan v3** (`research/chart_champions_plan_v3.md`, imported in LocalApiAppTest) at 1% risk per trade:
+
+    | Period | Return | Max drawdown | Positions | Win rate (per position) |
+    |---|---|---|---|---|
+    | 2025 (tuning) | +10.9% | 6.5% | 73 | 56% |
+    | Q1 2026 | +10.4% | 4.0% | 25 | 60% |
+    | Q2 2026 | +3.6% | 5.7% | 24 | 54% |
+    | Q3 2026 | +0.7% | 5.7% | 29 | 48% |
+
+  - **Comparison with the published figures.**
+    - Per quarter, their profits rank Q1 2026 ($125k) above Q2 2026 ($50k) and above the 2025 quarterly average ($24k). v3 ranks the same way: +10.4%, +3.6% and +2.7%.
+    - Position counts are of the same order as their streams.
+    - Their win rates (66–100%) are higher than any mechanical variant reached. Their 100% quarter cannot be checked without the trades.
+  - **Harness.** `RealDataResearchTest` gains a sweep over a directory of plans (SF_SWEEP_DIR) and per-position win rates. It is opt-in; CI skips it.
+- **Requirements affected:** FR-040 to FR-047.

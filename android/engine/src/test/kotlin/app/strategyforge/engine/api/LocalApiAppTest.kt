@@ -452,6 +452,23 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-048 the tuned plan v3 imports with both setups able to hold a position`() {
+        start()
+        runBlocking {
+            val reply = javaClass.getResource("/research/chart_champions_plan_v3.md")!!.readText()
+            val r = repo.importStrategy(reply)
+            assertThat(r.strategy.status).`as`(r.validation?.issues.toString()).isEqualTo("VALIDATED")
+            val detail = repo.strategy(r.strategy.id).value()
+            assertThat(detail.plan!!.setups.map { it.id }).containsExactly("CC_FIB", "EMA_SWING")
+            assertThat(detail.plan!!.conflictPolicy).isEqualTo("STACK")
+            assertThat(detail.explanation).contains("at least 2 of:").contains("decides on 4-hour closes")
+            val b = repo.runBacktest(r.strategy.id, "2026-02-01T00:00:00Z", "2026-06-22T00:00:00Z", "100000")
+            val done = repo.backtests(r.strategy.id).first { it.id == b.id }
+            assertThat(done.status).`as`(done.error ?: "").isEqualTo("COMPLETED")
+        }
+    }
+
+    @Test
     fun `D-044 the futures data test reports when no live source is available`() {
         start()
         runBlocking {

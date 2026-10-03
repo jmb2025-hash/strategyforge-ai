@@ -144,4 +144,58 @@ class RealDataResearchTest {
         val perp = CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
         report("CC plan v2, Jun 15 - Oct 1 2026, futures costs", plan("/research/chart_champions_plan_v2_reply.md"), 30, "2026-06-15T00:00:00Z", "2026-10-01T00:00:00Z", perp)
     }
+
+    /**
+     * Parameter sweep: every plan JSON in SF_SWEEP_DIR is validated and run over each reporting
+     * period with futures costs. One line per plan and period, with the win rate counted per
+     * position (a partial target followed by a breakeven exit is one position), the way a trader
+     * reports it.
+     */
+    @Test
+    fun `sweep plan variants over the reporting periods`() {
+        val dir = System.getenv("SF_SWEEP_DIR")?.let(::File)
+        assumeTrue(csv != null && dir != null, "SF_REAL_BTC_CSV or SF_SWEEP_DIR not set")
+        val perp = CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
+        val periods =
+            listOf(
+                "2025" to ("2025-01-07T00:00:00Z" to "2026-01-01T00:00:00Z"),
+                "Q1-2026" to ("2026-01-01T00:00:00Z" to "2026-04-01T00:00:00Z"),
+                "Q2-2026" to ("2026-04-01T00:00:00Z" to "2026-07-01T00:00:00Z"),
+                "Q3-2026" to ("2026-07-01T00:00:00Z" to "2026-10-01T00:00:00Z"),
+            )
+        val validator =
+            app.strategyforge.engine.support.TestEngine
+                .create()
+                .validator
+        val b = barCache.getOrPut(30) { bars(30) }
+        dir!!.listFiles { f -> f.name.endsWith(".json") }!!.sortedBy { it.name }.forEach { f ->
+            val doc = JacksonCanonical.mapper.readTree(f) as com.fasterxml.jackson.databind.node.ObjectNode
+            val v = validator.validateDocument(doc)
+            if (v.document == null || v.errors.isNotEmpty()) {
+                println("SWEEP ${f.nameWithoutExtension} INVALID ${v.errors.map { it.code + ": " + it.message }}")
+                return@forEach
+            }
+            val def = StrategyDefinition.from(v.document!!)
+            periods.forEach { (name, w) ->
+                val params = BacktestParams(Instant.parse(w.first), Instant.parse(w.second), BigDecimal(100000), perp)
+                val out = BacktestEngine(def, params).run(listOf(SymbolSeries("BTC-USD", AssetClass.CRYPTO, b, BigDecimal("0.01"), BigDecimal("0.00000001"), BigDecimal("0.00000001"))))
+                val m = BacktestMetrics.compute(out, params.startingCapital, params.from, params.to, null)
+                val positions =
+                    out.trades
+                        .groupBy { Triple(it.setup, it.side, it.entryTime) }
+                        .values
+                        .map { ts -> ts.sumOf { it.netPnl } }
+                val wins = positions.count { it.signum() > 0 }
+                val gain = positions.filter { it.signum() > 0 }.sumOf { it }
+                val loss = positions.filter { it.signum() < 0 }.sumOf { it }.abs()
+                val pf = if (loss.signum() == 0) "inf" else String.format("%.2f", gain.toDouble() / loss.toDouble())
+                val bySetup = positions.size.let { out.trades.groupBy { it.setup }.mapValues { (_, ts) -> ts.map { it.entryTime }.distinct().size } }
+                println(
+                    "SWEEP ${f.nameWithoutExtension} $name ret=${String.format("%.1f", (m["netReturnPercent"] as BigDecimal).toDouble())}% " +
+                        "dd=${String.format("%.1f", (m["maxDrawdownPercent"] as BigDecimal).toDouble())}% positions=${positions.size} " +
+                        "win=${if (positions.isEmpty()) "-" else String.format("%.0f", 100.0 * wins / positions.size)}% pf=$pf setups=$bySetup",
+                )
+            }
+        }
+    }
 }
