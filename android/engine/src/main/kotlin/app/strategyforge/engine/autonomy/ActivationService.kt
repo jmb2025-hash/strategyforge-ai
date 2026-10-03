@@ -31,6 +31,8 @@ data class ActivationRequest(
     val allocationPercent: BigDecimal,
     val disclosureAccepted: Boolean = false,
     val disclosureVersion: String? = null,
+    /** The slot of its asset class, 1 to 10 (D-051); set by StrategySlots. */
+    val slot: Int? = null,
 )
 
 data class Activation(
@@ -49,6 +51,7 @@ data class Activation(
     val createdAt: Instant,
     val endedAt: Instant?,
     val endReason: String?,
+    val slot: Int? = null,
 )
 
 /** The disclosure the owner must accept before autonomous paper trading (FR-071). */
@@ -135,8 +138,8 @@ class ActivationService(
             .sql(
                 """
                 insert into strategy_activations(id, strategy_id, version_id, content_hash, portfolio_id, mode, allocation_percent, backtest_id, disclosure_version,
-                  authorized_at, fingerprint, status, created_at)
-                values (:id, :s, :v, :h, :p, :m, :a, :b, :dv, :aa, :fp, 'ACTIVE', :now)
+                  authorized_at, fingerprint, status, created_at, slot)
+                values (:id, :s, :v, :h, :p, :m, :a, :b, :dv, :aa, :fp, 'ACTIVE', :now, :slot)
                 """.trimIndent(),
             ).param("id", id)
             .param("s", strategyId)
@@ -150,6 +153,7 @@ class ActivationService(
             .param("aa", (if (req.mode == ActivationMode.AUTONOMOUS) now else null))
             .param("fp", fingerprint)
             .param("now", (now))
+            .param("slot", req.slot)
             .update()
         val target = if (req.mode == ActivationMode.AUTONOMOUS) StrategyStatus.ACTIVE_AUTONOMOUS else StrategyStatus.ACTIVE_RECOMMENDATION
         if (status != target) strategies.transition(strategyId, status, target, "Activated in ${req.mode} mode on portfolio ${req.portfolioId}")
@@ -251,5 +255,6 @@ class ActivationService(
             rs.instant("created_at"),
             rs.instantOrNull("ended_at"),
             rs.string("end_reason"),
+            rs.string("slot")?.toIntOrNull(),
         )
 }

@@ -349,6 +349,27 @@ class StrategyDetailViewModel
         val disclosure: StateFlow<Disclosure?> = _disclosure.asStateFlow()
         private val _portfolios = MutableStateFlow<List<Portfolio>>(emptyList())
         val portfolios: StateFlow<List<Portfolio>> = _portfolios.asStateFlow()
+        private val _slots = MutableStateFlow<List<Slot>>(emptyList())
+
+        /** Every crypto and stock slot (D-051), to choose where this strategy runs. */
+        val slots: StateFlow<List<Slot>> = _slots.asStateFlow()
+        private val _newPortfolioId = MutableStateFlow<String?>(null)
+
+        /** A portfolio just created for a slot; the screen selects it. */
+        val newPortfolioId: StateFlow<String?> = _newPortfolioId.asStateFlow()
+
+        /** Creates a paper portfolio for one slot, with simulated shorting when the strategy can short. */
+        fun createSlotPortfolio(
+            name: String,
+            balance: String,
+            shorting: Boolean,
+        ) = act("Portfolio $name created for this slot") {
+            val created = repo.createPortfolio(name, balance)
+            val p = if (shorting) repo.setShorting(created.id, true) else created
+            _portfolios.value = _portfolios.value + p
+            _newPortfolioId.value = p.id
+        }
+
         private val _price = MutableStateFlow<CandleChart?>(null)
 
         /** The strategy's price chart with its own trades marked (D-038). */
@@ -399,6 +420,7 @@ class StrategyDetailViewModel
                 runCatching { _backtests.value = repo.backtests(id) }
                 runCatching { _scorecard.value = repo.scorecard(id) }
                 runCatching { _disclosure.value = repo.disclosure() }
+                runCatching { _slots.value = repo.slots() }
                 repo.portfolios().collect { r -> if (r is Resource.Data) _portfolios.value = r.value.filter { it.status == "ACTIVE" } }
             }
         }
@@ -435,14 +457,16 @@ class StrategyDetailViewModel
             autonomous: Boolean,
             disclosureAccepted: Boolean,
             positions: String? = null,
+            slot: Int? = null,
         ): Unit =
             act(if (autonomous) "Autonomous paper trading enabled" else "Notifications mode enabled") {
                 try {
-                    val a = repo.activate(id, portfolioId, allocation, autonomous, if (autonomous && disclosureAccepted) _disclosure.value?.version else null, positions)
+                    val a = repo.activate(id, portfolioId, allocation, autonomous, if (autonomous && disclosureAccepted) _disclosure.value?.version else null, positions, slot)
                     _replaced.value = a.replacedStrategyName?.let { ReplaceOutcome(it, a) }
+                    runCatching { _slots.value = repo.slots() }
                 } catch (e: ApiError.Http) {
                     if (e.code != "slot-occupied") throw e
-                    _slotConflict.value = SlotConflict.from(e) { keep -> activate(portfolioId, allocation, autonomous, disclosureAccepted, if (keep) "KEEP" else "CLOSE") }
+                    _slotConflict.value = SlotConflict.from(e) { keep -> activate(portfolioId, allocation, autonomous, disclosureAccepted, if (keep) "KEEP" else "CLOSE", slot) }
                 }
             }
 

@@ -474,7 +474,8 @@ class PortfolioService(
         )
 
     companion object {
-        const val MAX_ACTIVE = 10
+        // Room for a portfolio per slot: ten crypto and ten stock slots plus manual ones (D-051).
+        const val MAX_ACTIVE = 25
 
         /** Snapshot source for chart-only periodic snapshots (D-038). */
         const val PERIODIC = "PERIODIC"

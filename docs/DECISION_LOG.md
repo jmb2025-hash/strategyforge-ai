@@ -732,3 +732,23 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Harness.** SF_PERIODS=years adds each calendar year and the 2018–2022, 2023–2026 and whole spans.
 - **Version.** 1.10.1 (versionCode 15).
 - **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.
+
+## D-051 Ten slots per asset class, each able to use its own paper portfolio
+
+- **Date:** 2026-10-03
+- **Context:** The owner wants several plans running side by side, for example Chart Champions v3 and the daily dip and rip on BTC, and asked for up to 10 crypto and 10 stock slots.
+- **Decision:**
+  - **Slots.** Each asset class has slots 1–10.
+    - Migration 9 adds `strategy_activations.slot` and numbers any active activation per asset class.
+    - Activation takes an optional slot. Without one, a strategy keeps its current slot or takes the first free one.
+    - When all ten are in use the owner must choose a slot (`slots-full`). Choosing an occupied slot replaces its strategy, with the D-035 keep-or-close question (`slot-occupied`, now including the slot number).
+    - On KEEP, only positions in the portfolio the new strategy trades are handed to it; the rest stay open and are reported.
+  - **One owner per position.** Two running strategies may not trade the same symbol in the same portfolio (`symbol-shared`), so lots never mix between strategies. Strategies that share a symbol each use their own portfolio.
+  - **Portfolio cap.** Active paper portfolios rise from 10 to 25 (a portfolio per slot plus manual ones).
+  - **API.** `/v1/slots` returns all 20 slots with `number`. Activations carry `slot`, and `POST /v1/strategies/{id}/activate` accepts `slot`.
+  - **App.**
+    - "Running now" lists occupied slots per asset class ("Crypto · 2 of 10 slots in use").
+    - The activation panel has a slot picker (• marks slots in use) and a "New portfolio" button. It creates "Crypto slot N" with the chosen starting cash (default $10,000) and turns on simulated shorting when the strategy can short, then selects it with allocation 100%.
+- **Tests:** StrategySlotsTest (next free slot, shared-symbol refusal, slots full, invalid slot, explicit replacement); LocalApiAppTest D-051 through the app's calls; the portfolio cap test uses the new limit.
+- **Version:** 1.11.0 (versionCode 16).
+- **Requirements affected:** FR-070 to FR-075.

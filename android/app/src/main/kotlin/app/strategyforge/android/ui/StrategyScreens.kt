@@ -139,7 +139,7 @@ fun LibrarySection(
 
 private fun signed(v: String) = if (v.startsWith("-")) v else "+$v"
 
-/** The two slots (D-035): the crypto strategy and the stock strategy running now. */
+/** The slots (D-035, D-051): up to ten crypto and ten stock strategies running now. */
 @Composable
 fun SlotsSection(
     slots: List<Slot>,
@@ -168,17 +168,21 @@ private fun SlotCards(
     onStop: (String) -> Unit,
 ) {
     SectionTitle("Running now")
-    Text("One crypto strategy and one stock strategy can run at a time. Activating another one replaces it.", style = MaterialTheme.typography.bodySmall)
+    Text("Up to 10 crypto and 10 stock strategies can run at once, each in its own slot. Give each slot its own portfolio to compare them side by side.", style = MaterialTheme.typography.bodySmall)
     listOf("CRYPTO" to "Crypto", "US_EQUITY" to "Stocks").forEach { (ac, label) ->
-        val slot = slots.firstOrNull { it.assetClass == ac }
-        val s = slot?.strategy
-        SfCard(Modifier.testTag("slot-$ac")) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            if (s == null) {
-                Text("No $label strategy running. Open a ${label.lowercase()} strategy below and activate it.", style = MaterialTheme.typography.bodySmall)
-            } else {
+        val mine = slots.filter { it.assetClass == ac }
+        val used = mine.filter { it.strategy != null }
+        Text("$label · ${used.size} of ${mine.size.takeIf { it > 0 } ?: 10} slots in use", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+        if (used.isEmpty()) {
+            SfCard(Modifier.testTag("slot-$ac")) {
+                Text("No ${label.lowercase()} strategy running. Open a ${if (ac == "CRYPTO") "crypto" else "stock"} strategy below and activate it in a slot.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        used.forEach { slot ->
+            val s = slot.strategy!!
+            SfCard(Modifier.testTag("slot-$ac-${slot.number}")) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(s.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    Text("Slot ${slot.number} · ${s.name}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                     StatusChip(s.status)
                 }
                 Text(
@@ -189,12 +193,51 @@ private fun SlotCards(
                 Text(if (open.isEmpty()) "No open positions" else "Open: " + open.joinToString { "${it.quantity} ${it.symbol}" }, style = MaterialTheme.typography.bodySmall)
                 Row {
                     TextButton(onClick = { onOpen(s.id) }) { Text("Open") }
-                    TextButton(onClick = { onStop(s.id) }, modifier = Modifier.testTag("stop-$ac")) { Text("Stop") }
+                    TextButton(onClick = { onStop(s.id) }, modifier = Modifier.testTag("stop-$ac-${slot.number}")) { Text("Stop") }
                 }
             }
         }
     }
 }
+
+/** Slots 1 to 10 of the strategy's asset class (D-051); choosing an occupied one replaces its strategy. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun SlotPicker(
+    slots: List<Slot>,
+    chosen: Int?,
+    strategyId: String,
+    onChoose: (Int) -> Unit,
+) {
+    Text("Slot", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+    androidx.compose.foundation.layout.FlowRow {
+        slots.forEach { sl ->
+            FilterChip(
+                selected = sl.number == chosen,
+                onClick = { onChoose(sl.number) },
+                label = { Text(if (sl.strategy == null || sl.strategy?.id == strategyId) "${sl.number}" else "${sl.number} •") },
+                modifier = Modifier.padding(end = 4.dp).testTag("slot-chip-${sl.number}"),
+            )
+        }
+    }
+    val current = slots.firstOrNull { it.number == chosen }
+    Text(
+        when {
+            current == null -> "Choose a slot."
+            current.strategy == null -> "Slot ${current.number} is free."
+            current.strategy?.id == strategyId -> "This strategy runs in slot ${current.number}."
+            else -> "Slot ${current.number} runs ${current.strategy?.name}; activating here replaces it (• marks slots in use)."
+        },
+        style = MaterialTheme.typography.bodySmall,
+    )
+}
+
+/** True when the strategy can open short positions, so its new portfolio gets simulated shorting. */
+private fun canShort(d: app.strategyforge.android.core.model.StrategyDetail): Boolean =
+    d.currentVersion
+        ?.content
+        ?.toString()
+        ?.contains("\"shortEntryRules\"") == true
 
 /** Asked every time a strategy replaces another (D-035); keeping the positions is preselected. */
 @Composable
@@ -262,6 +305,10 @@ fun StrategyDetailScreen(
     val disclosure by vm.disclosure.collectAsStateWithLifecycle()
     val portfolios by vm.portfolios.collectAsStateWithLifecycle()
     val conflict by vm.slotConflict.collectAsStateWithLifecycle()
+    val slots by vm.slots.collectAsStateWithLifecycle()
+    val newPortfolioId by vm.newPortfolioId.collectAsStateWithLifecycle()
+    var slot by rememberSaveable { mutableStateOf<Int?>(null) }
+    var newBalance by rememberSaveable { mutableStateOf("10000") }
     val replaced by vm.replaced.collectAsStateWithLifecycle()
     val scorecard by vm.scorecard.collectAsStateWithLifecycle()
     var from by rememberSaveable { mutableStateOf("2026-01-02T00:00:00Z") }
@@ -272,6 +319,12 @@ fun StrategyDetailScreen(
     var accepted by rememberSaveable { mutableStateOf(false) }
     var portfolioId by rememberSaveable { mutableStateOf<String?>(null) }
     var showReauth by remember { mutableStateOf(false) }
+    LaunchedEffect(newPortfolioId) {
+        newPortfolioId?.let {
+            portfolioId = it
+            allocation = "100"
+        }
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         ResourceContent(state, fmt, vm::refresh) { d ->
             val s = d.strategy
@@ -357,7 +410,26 @@ fun StrategyDetailScreen(
                 Text("To change mode or allocation, choose them below and activate again.", style = MaterialTheme.typography.bodySmall)
             }
             run {
-                Text("Notifications mode is the default: every trade waits for your approval. Activating replaces the ${if (s.assetClass == "CRYPTO") "crypto" else "stock"} strategy that is running now.")
+                Text("Notifications mode is the default: every trade waits for your approval.")
+                val mine = slots.filter { it.assetClass == s.assetClass }
+                val chosen = slot ?: mine.firstOrNull { it.strategy?.id == s.id }?.number ?: mine.firstOrNull { it.strategy == null }?.number
+                SlotPicker(mine, chosen, s.id) { slot = it }
+                chosen?.let { n ->
+                    val label = if (s.assetClass == "CRYPTO") "Crypto" else "Stock"
+                    Text("Portfolio for slot $n", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Field("Starting cash", newBalance, { newBalance = it }, number = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val base = "$label slot $n"
+                                val name = generateSequence(1) { it + 1 }.map { if (it == 1) base else "$base ($it)" }.first { c -> portfolios.none { p -> p.name.equals(c, ignoreCase = true) } }
+                                vm.createSlotPortfolio(name, newBalance, canShort(d))
+                            },
+                            modifier = Modifier.testTag("new-slot-portfolio"),
+                        ) { Text("New portfolio") }
+                    }
+                }
                 portfolios.forEach { p ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         FilterChip(selected = portfolioId == p.id, onClick = { portfolioId = p.id }, label = { Text(p.name) })
@@ -379,7 +451,13 @@ fun StrategyDetailScreen(
                     }
                 }
                 Button(
-                    onClick = { portfolioId?.let { vm.activate(it, allocation, autonomous, accepted) } },
+                    onClick = {
+                        portfolioId?.let {
+                            val mine = slots.filter { x -> x.assetClass == s.assetClass }
+                            val chosen = slot ?: mine.firstOrNull { x -> x.strategy?.id == s.id }?.number ?: mine.firstOrNull { x -> x.strategy == null }?.number
+                            vm.activate(it, allocation, autonomous, accepted, slot = chosen)
+                        }
+                    },
                     enabled = portfolioId != null && (!autonomous || accepted),
                     modifier = Modifier.testTag("activate"),
                 ) { Text(if (autonomous) "Activate in autonomous mode" else "Activate with notifications") }

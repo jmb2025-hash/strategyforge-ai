@@ -53,11 +53,11 @@ class PortfolioLedgerTest {
         assertThat(e.ledger.journals(p.id, null, 50)).hasSize(1)
         assertThat(e.portfolios.summary(reset.id).cash).isEqualByComparingTo("100000")
 
-        // Archive and the cap of 10 active portfolios.
+        // Archive and the cap of 25 active portfolios (one per slot, D-051).
         assertThat(e.portfolios.archive(clone.id).status).isEqualTo("ARCHIVED")
         val active = e.portfolios.list(false).size
-        repeat(10 - active) { e.portfolio("Extra $it") }
-        assertThat(code { e.portfolio("Eleventh") }).isEqualTo("portfolio-limit")
+        repeat(PortfolioService.MAX_ACTIVE - active) { e.portfolio("Extra $it") }
+        assertThat(code { e.portfolio("One too many") }).isEqualTo("portfolio-limit")
         assertThat(e.portfolios.list(true).count { it.status == "ARCHIVED" }).isEqualTo(2)
         val audits = e.db.sql("select count(*) from audit_events where action in ('PORTFOLIO_CREATED','PORTFOLIO_CLONED','PORTFOLIO_RESET','PORTFOLIO_ARCHIVED','PORTFOLIO_ARCHIVED_FOR_RESET')").long()
         assertThat(audits).isGreaterThanOrEqualTo(14)

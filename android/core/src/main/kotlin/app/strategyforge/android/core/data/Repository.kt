@@ -367,10 +367,13 @@ class Repository(
         autonomous: Boolean,
         disclosureVersion: String?,
         positions: String? = null,
+        slot: Int? = null,
     ): Activation {
         val body =
             buildJsonObject {
                 put("portfolioId", portfolioId)
+                // The slot of its asset class (D-051); without one, the strategy keeps its slot or takes the first free one.
+                slot?.let { put("slot", it.toString()) }
                 put("allocationPercent", allocationPercent)
                 put("mode", if (autonomous) "AUTONOMOUS" else "RECOMMENDATION")
                 // Replacing the active strategy of the same asset class: KEEP or CLOSE its positions (D-035).

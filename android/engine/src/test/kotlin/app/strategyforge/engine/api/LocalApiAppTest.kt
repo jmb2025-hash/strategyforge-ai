@@ -599,7 +599,7 @@ class LocalApiAppTest {
     }
 
     @Test
-    fun `D-035 activating a second crypto strategy asks keep or close through the app's calls`() {
+    fun `D-051 strategies run in numbered slots, one owner per symbol and portfolio, and replacing a slot asks keep or close`() {
         start()
         runBlocking {
             val p = repo.createPortfolio("Slots", "100000")
@@ -611,30 +611,29 @@ class LocalApiAppTest {
             }
             val a = eligible("First crypto")
             val b = eligible("Second crypto")
-            repo.activate(a, p.id, "40", false, null)
-            assertThat(
-                repo
-                    .slots()
-                    .single { it.assetClass == "CRYPTO" }
-                    .strategy!!
-                    .name,
-            ).isEqualTo("First crypto")
-            assertThat(repo.slots().single { it.assetClass == "US_EQUITY" }.strategy).isNull()
+            assertThat(repo.activate(a, p.id, "40", false, null).slot).isEqualTo(1)
+            val slots = repo.slots()
+            assertThat(slots.count { it.assetClass == "CRYPTO" }).isEqualTo(10)
+            assertThat(slots.count { it.assetClass == "US_EQUITY" }).isEqualTo(10)
+            assertThat(slots.single { it.assetClass == "CRYPTO" && it.number == 1 }.strategy!!.name).isEqualTo("First crypto")
+            assertThat(slots.filter { it.assetClass == "US_EQUITY" }.all { it.strategy == null }).isTrue()
 
-            val asked = assertThrows<ApiError.Http> { runBlocking { repo.activate(b, p.id, "40", false, null) } }
+            // Both trade BTC-USD: not in the same portfolio, but in a portfolio of its own it takes slot 2.
+            val shared = assertThrows<ApiError.Http> { runBlocking { repo.activate(b, p.id, "40", false, null) } }
+            assertThat(shared.code).isEqualTo("symbol-shared")
+            val own = repo.createPortfolio("Crypto slot 2", "10000")
+            assertThat(repo.activate(b, own.id, "100", false, null).slot).isEqualTo(2)
+            assertThat(repo.slots().filter { it.assetClass == "CRYPTO" && it.strategy != null }.map { it.number }).containsExactly(1, 2)
+
+            // Choosing an occupied slot replaces its strategy after asking.
+            val c = eligible("Third crypto")
+            val asked = assertThrows<ApiError.Http> { runBlocking { repo.activate(c, p.id, "40", false, null, slot = 1) } }
             assertThat(asked.code).isEqualTo("slot-occupied")
             assertThat(asked.properties!!["currentStrategyName"]!!.jsonPrimitive.content).isEqualTo("First crypto")
-
-            val switched = repo.activate(b, p.id, "40", false, null, "KEEP")
+            val switched = repo.activate(c, p.id, "40", false, null, "KEEP", slot = 1)
             assertThat(switched.replacedStrategyName).isEqualTo("First crypto")
             assertThat(switched.positions).isEqualTo("KEEP")
-            assertThat(
-                repo
-                    .slots()
-                    .single { it.assetClass == "CRYPTO" }
-                    .strategy!!
-                    .id,
-            ).isEqualTo(b)
+            assertThat(repo.slots().single { it.assetClass == "CRYPTO" && it.number == 1 }.strategy!!.id).isEqualTo(c)
         }
     }
 

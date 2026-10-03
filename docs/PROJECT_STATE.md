@@ -1,10 +1,10 @@
 # StrategyForge AI — Project State Manifesto
 
-Save point: **2026-10-03T11:30Z** · version **1.10.1** (versionCode 15) · branch `claude/strategyforge-v1-delivery-vgf1ah`
+Save point: **2026-10-03T11:30Z** · version **1.11.0** (versionCode 16) · branch `claude/strategyforge-v1-delivery-vgf1ah`
 
 ```text
 === STRATEGYFORGE AI — PROJECT STATE MANIFESTO ===
-SAVE POINT: 2026-10-03T11:30Z | v1.10.1 (versionCode 15) | engine 225 (6 opt-in real-data skipped), core 27/27
+SAVE POINT: 2026-10-03T11:30Z | v1.11.0 (versionCode 16) | engine 225 (6 opt-in real-data skipped), core 27/27
 BRANCH: claude/strategyforge-v1-delivery-vgf1ah (push: git push -u origin <branch>; NO PR unless asked)
 APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest (StrategyForge.apk, CI-published)
 
@@ -108,6 +108,9 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         exit close x SMA10, 8% stop, 30 bars; 95% equity; $10k app costs: +270% 2018-Oct26, dd 21.6, 73% win,
         7/9 years up; chosen on 2018-22, 2023-26 +26%) + chart-champions-v3 (4/9 years up). History write-up:
         docs/research/BTC_HISTORY_2018_2026.md. Harness SF_PERIODS=years.
+- 1.11.0 (D-051) SLOTS: 10 crypto + 10 stock numbered slots (migration 9 strategy_activations.slot); activate(slot?)
+        -> keep slot / first free / slots-full; occupied -> slot-occupied keep/close; symbol-shared gate (one running
+        strategy per symbol per portfolio); portfolio cap 25; app slot picker + "New portfolio" per slot.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -139,7 +142,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-051). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-052). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

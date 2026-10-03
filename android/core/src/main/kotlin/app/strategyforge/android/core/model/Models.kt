@@ -269,6 +269,8 @@ data class Activation(
     val handedOver: List<SlotHolding> = emptyList(),
     val leftOpen: List<SlotHolding> = emptyList(),
     val closingOrders: List<String> = emptyList(),
+    /** The slot of its asset class it runs in, 1 to 10 (D-051). */
+    val slot: Int? = null,
 )
 
 /** An open position a strategy manages. */
@@ -280,10 +282,11 @@ data class SlotHolding(
     val quantity: String,
 )
 
-/** The crypto or stock strategy running now (D-035); [strategy] is null when the slot is empty. */
+/** One of the ten crypto or ten stock slots (D-051); [strategy] is null when the slot is empty. */
 @Serializable
 data class Slot(
     val assetClass: String,
+    val number: Int = 1,
     val strategy: Strategy? = null,
     val activation: Activation? = null,
     val holdings: List<SlotHolding> = emptyList(),

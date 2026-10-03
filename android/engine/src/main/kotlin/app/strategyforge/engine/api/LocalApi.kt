@@ -512,13 +512,15 @@ class LocalApi(
         post("/v1/strategies/{id}/activate", 201) { r, g ->
             val b = obj(r)
             val mode = b.str("mode")?.let { enumOf<ActivationMode>(it, "mode") } ?: ActivationMode.RECOMMENDATION
-            // One strategy per asset class (D-035): replacing another asks what to do with its positions.
+            // Ten numbered slots per asset class (D-051): replacing a slot's strategy asks what to do with its positions.
             val positions = b.str("positions")?.let { enumOf<app.strategyforge.engine.autonomy.PositionHandling>(it, "positions") }
+            val slot = b.str("slot")?.let { it.toIntOrNull() ?: throw Problems.badRequest("invalid-slot", "slot must be a number") }
             val result =
                 engine.slots.activate(
                     uuid(g[0]),
                     ActivationRequest(mode, uuid(b.req("portfolioId")), b.dec("allocationPercent") ?: throw Problems.badRequest("missing-field", "allocationPercent is required"), b.bool("disclosureAccepted") ?: false, b.str("disclosureVersion")),
                     positions,
+                    slot,
                 )
             activation(result.slot.activation!!) +
                 mapOf(
@@ -579,6 +581,7 @@ class LocalApi(
             engine.slots.slots().map { s ->
                 mapOf(
                     "assetClass" to s.assetClass,
+                    "number" to s.number,
                     "strategy" to s.strategy?.let { strategy(it) },
                     "activation" to s.activation?.let { activation(it) },
                     "holdings" to s.holdings.map { holding(it) },
@@ -733,6 +736,7 @@ class LocalApi(
             "disclosureVersion" to a.disclosureVersion,
             "createdAt" to a.createdAt,
             "endReason" to a.endReason,
+            "slot" to a.slot,
         )
 
     // ------------------------------------------------------------------ recommendations

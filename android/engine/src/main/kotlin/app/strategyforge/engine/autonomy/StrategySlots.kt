@@ -33,9 +33,10 @@ data class SlotHolding(
     val quantity: BigDecimal,
 )
 
-/** One of the two strategy slots: the crypto strategy and the stock strategy running now. */
+/** One numbered slot of an asset class (D-051) and the strategy running in it, if any. */
 data class SlotView(
     val assetClass: AssetClass,
+    val number: Int,
     val strategy: StrategyView?,
     val activation: Activation?,
     val holdings: List<SlotHolding>,
@@ -54,11 +55,13 @@ data class SwitchResult(
 )
 
 /**
- * One crypto strategy and one stock strategy run at a time (D-035). Activating a strategy while
- * another of the same asset class is active replaces it in one transaction: the old strategy is
- * paused, its open positions are either handed to the new strategy (which then manages their exits)
- * or closed with market orders, and the new strategy is activated through the usual gates. If any
- * step fails, nothing changes.
+ * Up to ten crypto and ten stock strategies run at a time, each in a numbered slot (D-035, D-051).
+ * Activating a strategy into an occupied slot replaces its occupant in one transaction: the old
+ * strategy is paused, its open positions are either handed to the new strategy (which then manages
+ * their exits) or closed with market orders, and the new strategy is activated through the usual
+ * gates. Two running strategies may not trade the same symbol in the same portfolio, so each
+ * position always has one owner; give each slot its own portfolio for that. If any step fails,
+ * nothing changes.
  */
 class StrategySlots(
     private val db: Db,
@@ -68,45 +71,68 @@ class StrategySlots(
     private val orders: OrderService,
     private val audit: AuditService,
 ) {
-    fun slots(): List<SlotView> = listOf(AssetClass.CRYPTO, AssetClass.US_EQUITY).map { slot(it) }
+    /** Every slot of both asset classes, empty ones included. */
+    fun slots(): List<SlotView> = ASSET_CLASSES.flatMap { slots(it) }
 
-    fun slot(assetClass: AssetClass): SlotView {
-        val s = occupant(assetClass, except = null)
-        return SlotView(assetClass, s, s?.let { activations.active(it.id) }, s?.let { holdings(it.id) }.orEmpty())
+    fun slots(assetClass: AssetClass): List<SlotView> {
+        val taken = occupied(assetClass)
+        return (1..SLOTS).map { n ->
+            val s = taken[n]?.let { strategies.get(it) }
+            SlotView(assetClass, n, s, s?.let { activations.active(it.id) }, s?.let { holdings(it.id) }.orEmpty())
+        }
     }
 
-    /** The active strategy in a slot, other than [except]. */
-    fun occupant(
-        assetClass: AssetClass,
-        except: UUID?,
-    ): StrategyView? =
+    /** Slot number to the strategy running in it. */
+    private fun occupied(assetClass: AssetClass): Map<Int, UUID> =
         db
             .sql(
                 """
-                select s.id from strategies s join strategy_activations a on a.strategy_id = s.id and a.status = 'ACTIVE'
-                where s.asset_class = :ac and (:x is null or s.id <> :x) order by a.created_at desc limit 1
+                select s.id, a.slot from strategies s join strategy_activations a on a.strategy_id = s.id and a.status = 'ACTIVE'
+                where s.asset_class = :ac order by a.created_at
                 """.trimIndent(),
             ).param("ac", assetClass.name)
-            .param("x", except)
-            .firstOrNull { it.uuid("id") }
-            ?.let { strategies.get(it) }
+            .list { (it.string("slot")?.toIntOrNull() ?: 1) to it.uuid("id") }
+            .toMap()
 
-    /** Activates [strategyId] in its asset class's slot, replacing the current occupant as the owner chose. */
+    /** The active strategy in slot [number] of an asset class, other than [except]. */
+    fun occupant(
+        assetClass: AssetClass,
+        number: Int,
+        except: UUID?,
+    ): StrategyView? = occupied(assetClass)[number]?.takeIf { it != except }?.let { strategies.get(it) }
+
+    /**
+     * Activates [strategyId] in [slot] of its asset class, or in the slot it already runs in, or the
+     * first free one. An occupied slot is replaced as the owner chose with [positions].
+     */
     fun activate(
         strategyId: UUID,
         req: ActivationRequest,
         positions: PositionHandling?,
+        slot: Int? = null,
     ): SwitchResult =
         db.tx {
             val target = strategies.get(strategyId)
             val assetClass = AssetClass.valueOf(target.assetClass)
-            val old = occupant(assetClass, except = strategyId)
+            if (slot != null && slot !in 1..SLOTS) throw Problems.badRequest("invalid-slot", "Slot must be between 1 and $SLOTS")
+            val taken = occupied(assetClass)
+            val number =
+                slot ?: activations.active(strategyId)?.slot ?: (1..SLOTS).firstOrNull { it !in taken.keys }
+                    ?: throw Problems.conflict("slots-full", "All $SLOTS ${label(assetClass)} slots are in use. Choose a slot to replace.", mapOf("assetClass" to assetClass))
+            val old = occupant(assetClass, number, except = strategyId)
             if (old != null && positions == null) {
                 val open = holdings(old.id)
                 throw Problems.conflict(
                     "slot-occupied",
-                    "${old.name} is the active ${label(assetClass)} strategy. Choose whether to keep or close its ${open.size} open position(s) before replacing it.",
-                    mapOf("currentStrategyId" to old.id, "currentStrategyName" to old.name, "openPositions" to open.map { mapOf("symbol" to it.symbol, "side" to it.side, "quantity" to it.quantity) }),
+                    "${old.name} is running in ${label(assetClass)} slot $number. Choose whether to keep or close its ${open.size} open position(s) before replacing it.",
+                    mapOf("slot" to number, "currentStrategyId" to old.id, "currentStrategyName" to old.name, "openPositions" to open.map { mapOf("symbol" to it.symbol, "side" to it.side, "quantity" to it.quantity) }),
+                )
+            }
+            sharedSymbols(target, req.portfolioId, setOfNotNull(strategyId, old?.id))?.let { (other, symbols) ->
+                throw Problems.conflict(
+                    "symbol-shared",
+                    "${other.name} already trades ${symbols.joinToString()} in this portfolio. Two running strategies cannot trade the same symbol in one portfolio: choose another portfolio for this slot (you can create one for it).",
+                    mapOf("otherStrategyId" to other.id, "otherStrategyName" to other.name, "symbols" to symbols),
                 )
             }
             var handedOver = emptyList<SlotHolding>()
@@ -117,15 +143,16 @@ class StrategySlots(
                 val open = holdings(old.id)
                 when (positions!!) {
                     PositionHandling.KEEP -> {
+                        // Only positions in the portfolio the new strategy trades can be handed to it.
                         val traded = targetSymbols(target)
-                        handedOver = open.filter { it.symbol in traded }
-                        leftOpen = open.filterNot { it.symbol in traded }
+                        handedOver = open.filter { it.symbol in traded && it.portfolioId == req.portfolioId }
+                        leftOpen = open - handedOver.toSet()
                         handedOver.forEach { h -> handOver(old.id, strategyId, h) }
                     }
                     PositionHandling.CLOSE -> open.forEach { h -> closing += close(old, h) }
                 }
             }
-            val activation = control.activate(strategyId, req)
+            val activation = control.activate(strategyId, req.copy(slot = number))
             if (old != null) {
                 audit.record(
                     AuditCategory.AUTONOMY,
@@ -135,6 +162,7 @@ class StrategySlots(
                     details =
                         mapOf(
                             "assetClass" to assetClass,
+                            "slot" to number,
                             "replaced" to old.id,
                             "positions" to positions,
                             "handedOver" to handedOver.map { it.symbol },
@@ -144,8 +172,24 @@ class StrategySlots(
                         ),
                 )
             }
-            SwitchResult(slot(assetClass), old, if (old != null) positions else null, handedOver, closing, leftOpen)
+            SwitchResult(slots(assetClass).first { it.number == number }, old, if (old != null) positions else null, handedOver, closing, leftOpen)
         }
+
+    /** Another running strategy (not in [except]) trading any of [target]'s symbols in [portfolioId]. */
+    private fun sharedSymbols(
+        target: StrategyView,
+        portfolioId: UUID,
+        except: Set<UUID>,
+    ): Pair<StrategyView, List<String>>? {
+        val mine = targetSymbols(target)
+        return activations
+            .activeAll()
+            .filter { it.portfolioId == portfolioId && it.strategyId !in except }
+            .firstNotNullOfOrNull { a ->
+                val shared = runCatching { strategies.definition(a.versionId).symbols }.getOrDefault(emptyList()).filter { it in mine }
+                if (shared.isEmpty()) null else strategies.get(a.strategyId) to shared
+            }
+    }
 
     /** Open lots the strategy manages: opened by its orders, or handed to it (D-035). */
     fun holdings(strategyId: UUID): List<SlotHolding> =
@@ -205,4 +249,10 @@ class StrategySlots(
     }
 
     private fun label(assetClass: AssetClass) = if (assetClass == AssetClass.CRYPTO) "crypto" else "stock"
+
+    companion object {
+        /** Slots per asset class (D-051). */
+        const val SLOTS = 10
+        val ASSET_CLASSES = listOf(AssetClass.CRYPTO, AssetClass.US_EQUITY)
+    }
 }

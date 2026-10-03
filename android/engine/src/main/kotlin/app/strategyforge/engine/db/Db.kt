@@ -130,6 +130,23 @@ class Db(
                 Migration(8, "Chart-level exits: the stop and targets fixed when an entry signal fires") { db ->
                     db.addColumn("signals", "exit_plan", "TEXT")
                 },
+                Migration(9, "Ten slots per asset class: the slot an activation runs in") { db ->
+                    db.addColumn("strategy_activations", "slot", "INTEGER")
+                    // Before this, one strategy per asset class ran; number any active ones per asset class in activation order.
+                    val active =
+                        db
+                            .sql("select a.id, s.asset_class from strategy_activations a join strategies s on s.id = a.strategy_id where a.status = 'ACTIVE' order by a.created_at")
+                            .list { it.str("id") to it.str("asset_class") }
+                    active.groupBy { it.second }.values.forEach { rows ->
+                        rows.forEachIndexed { i, (id, _) ->
+                            db
+                                .sql("update strategy_activations set slot = :n where id = :id")
+                                .param("n", minOf(i + 1, 10))
+                                .param("id", id)
+                                .update()
+                        }
+                    }
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1
