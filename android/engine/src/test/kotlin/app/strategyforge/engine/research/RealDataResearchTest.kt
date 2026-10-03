@@ -96,6 +96,11 @@ class RealDataResearchTest {
         out.trades
             .groupBy { it.setup to it.exitReason }
             .forEach { (k, ts) -> println("   exits ${k.first} ${k.second}: ${ts.size}") }
+        if (System.getenv("SF_LIST_TRADES") != null) {
+            out.trades.forEach { t ->
+                println("   trade ${t.setup} ${t.side} ${t.entryTime} @ ${t.entryPrice.setScale(0, java.math.RoundingMode.HALF_EVEN)} -> ${t.exitReason} ${t.exitTime} @ ${t.exitPrice?.setScale(0, java.math.RoundingMode.HALF_EVEN)} net ${t.netPnl.setScale(0, java.math.RoundingMode.HALF_EVEN)}")
+            }
+        }
         val held = out.trades.filter { it.exitTime != null }.map { Duration.between(it.entryTime, it.exitTime).toHours() }
         if (held.isNotEmpty()) println("   median hold ${held.sorted()[held.size / 2]} h")
     }
@@ -127,5 +132,16 @@ class RealDataResearchTest {
         val perp = CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
         report("CC plan v1, futures costs", plan("/research/chart_champions_plan_v1_reply.md"), 60, "2025-07-01T00:00:00Z", "2026-10-01T00:00:00Z", perp)
         report("CC plan v2, futures costs", plan("/research/chart_champions_plan_v2_reply.md"), 30, "2025-07-01T00:00:00Z", "2026-10-01T00:00:00Z", perp)
+    }
+
+    /**
+     * The weeks of the Chart Champions trade plans published in the owner's research (June 30 to
+     * September 22, 2026), with futures costs, so the plan's trades can be compared with those ideas.
+     */
+    @Test
+    fun `Chart Champions plan v2 over the published trade-plan weeks`() {
+        assumeTrue(csv != null, "SF_REAL_BTC_CSV not set")
+        val perp = CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
+        report("CC plan v2, Jun 15 - Oct 1 2026, futures costs", plan("/research/chart_champions_plan_v2_reply.md"), 30, "2026-06-15T00:00:00Z", "2026-10-01T00:00:00Z", perp)
     }
 }
