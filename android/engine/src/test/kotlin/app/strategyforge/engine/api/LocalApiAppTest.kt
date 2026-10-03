@@ -633,7 +633,13 @@ class LocalApiAppTest {
             val switched = repo.activate(c, p.id, "40", false, null, "KEEP", slot = 1)
             assertThat(switched.replacedStrategyName).isEqualTo("First crypto")
             assertThat(switched.positions).isEqualTo("KEEP")
-            assertThat(repo.slots().single { it.assetClass == "CRYPTO" && it.number == 1 }.strategy!!.id).isEqualTo(c)
+            assertThat(
+                repo
+                    .slots()
+                    .single { it.assetClass == "CRYPTO" && it.number == 1 }
+                    .strategy!!
+                    .id,
+            ).isEqualTo(c)
         }
     }
 
