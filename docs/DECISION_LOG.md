@@ -564,3 +564,29 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **AI.** Copy instructions, the research compile and the memo compile all ask for a trading plan, using the plan schema and a plan-writing guide. The readback is per setup.
   - **Starting fresh.** Migration 7 ends every active strategy and archives every existing strategy with the reason "Retired: replaced by trading plans (1.8.0)". Strategy versions are immutable and orders reference them, so they are retired, not deleted. Portfolios, orders, trades and open positions are kept; positions those strategies opened stay in the portfolio as ordinary holdings.
 - **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066, FR-091.
+
+## D-046 Copy instructions for evidence-graded research; the owner's Chart Champions research as a test case
+
+- **Date:** 2026-10-03
+- **Context:** The owner's detailed Chart Champions research labels each rule Published, Legacy, Observed, Proposed or Unknown. It finds that many setups have unpublished triggers, that statistics such as "80%" are not rules, and that the opening range breakout is a stock-session setup. Under the 1.8.0 prompt, an unknown trigger in any one setup meant "no JSON at all", and the AI could silently swap in a different timeframe, level or percentage stop.
+- **Decision:**
+  - **Copy instructions now ask the AI to:**
+    - include a setup only when the method defines its trigger, and list the rest under STILL MISSING with the missing field;
+    - write no JSON only when no setup qualifies;
+    - never turn statistics into thresholds;
+    - list setups for another market as not applicable;
+    - never substitute silently: an approximation is marked and says what it replaces;
+    - start every readback line with [Published], [Legacy], [Observed], [Proposed] or [Approximation].
+
+    The plan guide shows how to write "at least two of A, B, C" (ANY of the ALL pairs). The in-app compile prompt gets the same rules, with approximations named in the description. The strategy page counts the [Approximation] lines and shows a warning.
+  - **Test case.** The owner's research, turned into a plan reply as an AI following these instructions would write it (`research/chart_champions_plan_v1_reply.md`), now runs through the app's own paste path. It covers the readback labels, validation, explanation, plan setups and a demo backtest per setup.
+  - **Real-data research harness.** `RealDataResearchTest` replays a plan on real BTC/USD 1-minute history when SF_REAL_BTC_CSV is set; CI skips it. Results are printed for design decisions, never asserted. On Bitstamp data from July 2025 to October 2026, plan v1 (1h bars, percentage stops):
+    - lost 14.6%, and the 15% drawdown limit then stopped it;
+    - made 57 trades with a 42% win rate and a profit factor of 0.47;
+    - SFP had 50 trades, half of them stopped out at the 1.2% stop.
+
+    Real 1-hour SFP wicks at the prior-day level are a median 0.4% from the close (90% within 1.2%). These numbers guide the fidelity work: stops at the wick, targets at levels, and 30-minute confirmation.
+  - **Two validator bugs found by this research and fixed.**
+    - Conditions on different bars ("close above now, below two bars ago") were reported as contradictory. The contradiction check now accounts for offsetBars.
+    - A setup that needed more history than can be loaded (HISTORY_TOO_LONG) passed validation inside a plan, and its entries were then silently blocked. The issue is now reported for that setup.
+- **Requirements affected:** FR-030 to FR-036, FR-041 to FR-043.

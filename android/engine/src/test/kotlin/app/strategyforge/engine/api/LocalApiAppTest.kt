@@ -405,6 +405,29 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-045 the owner's Chart Champions research arrives as a labelled plan and backtests per setup`() {
+        start()
+        runBlocking {
+            val reply = javaClass.getResource("/research/chart_champions_plan_v1_reply.md")!!.readText()
+            val r = repo.importStrategy(reply)
+            assertThat(r.strategy.status).`as`(r.validation?.issues.toString()).isEqualTo("VALIDATED")
+            val notes = r.importNotes!!
+            assertThat(notes.readback).hasSizeGreaterThan(15)
+            assertThat(notes.readback).allMatch { Regex("""^\[(Published|Legacy|Observed|Proposed|Approximation)]""").containsMatchIn(it) }
+            assertThat(notes.stillMissing).anyMatch { it.startsWith("Opening range breakout") && it.contains("not applicable") }
+            val detail = repo.strategy(r.strategy.id).value()
+            assertThat(detail.plan!!.setups.map { it.id }).containsExactly("SFP", "CCV", "CC_FIB", "EMA_SWING")
+            assertThat(detail.explanation).contains("Trading plan with 4 setup(s)").contains("Setup 2: CCV value-area rotation")
+            val b = repo.runBacktest(r.strategy.id, "2026-02-01T00:00:00Z", "2026-06-22T00:00:00Z", "100000")
+            val done = repo.backtests(r.strategy.id).first { it.id == b.id }
+            assertThat(done.status).`as`(done.error ?: "").isEqualTo("COMPLETED")
+            val setups = done.metrics!!["setups"] as JsonArray
+            assertThat(setups.map { it.jsonObject["id"]!!.jsonPrimitive.content }).containsExactly("SFP", "CCV", "CC_FIB", "EMA_SWING")
+            println("CC plan v1 on demo data: " + setups.joinToString { it.jsonObject.let { s -> "${s["id"]} trades=${s["trades"]} win=${s["winRatePercent"]} net=${s["netPnl"]}" } })
+        }
+    }
+
+    @Test
     fun `D-044 the futures data test reports when no live source is available`() {
         start()
         runBlocking {

@@ -184,7 +184,7 @@ class ResearchUiTest {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     ImportNotesSection(
                         ImportNotes(
-                            readback = listOf("Long when price sweeps the 42-bar low and closes back above it"),
+                            readback = listOf("Long when price sweeps the 42-bar low and closes back above it", "[Approximation] Stop 1.2% replacing beyond the wick"),
                             furtherResearch = listOf("Stop placement: vague -> under the SFP wick (source: course notes)"),
                             stillMissing = listOf("Short entry: never described - left out"),
                         ),
@@ -194,6 +194,7 @@ class ResearchUiTest {
         }
         rule.onNodeWithText("From your research AI").assertIsDisplayed()
         rule.onNodeWithText("• Long when price sweeps the 42-bar low and closes back above it").assertIsDisplayed()
+        rule.onNodeWithTag("notes-approximations").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("notes-research").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("notes-missing").performScrollTo().assertIsDisplayed()
     }

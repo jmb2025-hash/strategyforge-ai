@@ -363,11 +363,14 @@ class StrategyValidator(
             moves: Map<String, String>,
         ) {
             sub.forEach { v ->
-                if (v.path.startsWith("$.dataRequirements.indicators") || v.code == "HISTORY_RAISED") return@forEach
+                // Indicator definitions are checked once for the plan; history limits are checked per setup.
+                if ((v.path.startsWith("$.dataRequirements.indicators") && v.code != "HISTORY_TOO_LONG") || v.code == "HISTORY_RAISED") return@forEach
                 val move = moves.entries.firstOrNull { v.path == it.key || v.path.startsWith(it.key + ".") || v.path.startsWith(it.key + "[") }
                 out +=
                     if (move != null) {
                         v.copy(path = prefix + move.value + v.path.removePrefix(move.key), message = "$label: ${v.message}")
+                    } else if (v.code == "HISTORY_TOO_LONG") {
+                        v.copy(path = prefix, message = "$label: ${v.message}")
                     } else {
                         v
                     }
@@ -522,7 +525,9 @@ class StrategyValidator(
                 }
                 if (sides.all { it.isNumber }) err("CONSTANT_COMPARISON", cp, "Comparing two constants is meaningless")
                 if ((cmp == Comparison.CROSSES_ABOVE || cmp == Comparison.CROSSES_BELOW) && sides.first().isNumber) err("INVALID_CROSS", cp, "The left side of a cross must be a series")
-                pairs += Triple(c["left"].toString(), c["right"].toString(), cmp)
+                // Conditions on different bars (offsetBars) never contradict each other.
+                val at = if (offset != 0) "@$offset" else ""
+                pairs += Triple(c["left"].toString() + at, c["right"].toString() + at, cmp)
             }
             if (g["operator"].asText() == "ALL") {
                 pairs.forEach { (l, r, cmp) ->

@@ -436,6 +436,14 @@ fun ImportNotesSection(n: app.strategyforge.android.core.model.ImportNotes) {
         "Written by the AI that built this strategy. Check its readback against \"How it works\" above, which is what the app will actually run.",
         style = MaterialTheme.typography.bodySmall,
     )
+    val approximations = n.readback.count { it.startsWith("[Approximation]") }
+    if (approximations > 0) {
+        Banner(
+            "$approximations rule(s) are approximations: the app could not express the method's rule exactly (marked [Approximation] below).",
+            BannerKind.WARNING,
+            modifier = Modifier.testTag("notes-approximations"),
+        )
+    }
     NotesList("Rule readback", n.readback, "notes-readback")
     if (n.furtherResearch.isEmpty() && (n.readback.isNotEmpty() || n.stillMissing.isNotEmpty())) {
         Text("Further research: none needed, according to the AI.", style = MaterialTheme.typography.bodySmall)

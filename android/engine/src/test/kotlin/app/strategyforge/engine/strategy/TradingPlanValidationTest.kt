@@ -68,6 +68,8 @@ class TradingPlanValidationTest {
         assertThat(over.errors.map { it.message }).anyMatch { it.contains("add up to 120%") }
         val shortWithoutPermission = validate(Plans.rangePlan().replace("\"allowShort\": true", "\"allowShort\": false"))
         assertThat(shortWithoutPermission.errors.map { it.path }).contains("$.setups[1].direction")
+        val tooLong = validate(Plans.rangePlan(timeframe = "1h").replace("{\"id\": \"EMA_50\", \"type\": \"EMA\", \"period\": 50}", "{\"id\": \"EMA_50\", \"type\": \"EMA\", \"period\": 200, \"timeframe\": \"1d\"}"))
+        assertThat(tooLong.errors.map { it.code }).`as`("a setup's history limit is not lost inside a plan").contains("HISTORY_TOO_LONG")
         val unknown = validate(Plans.rangePlan().replace("\"priority\": 3,", "\"priority\": 3, \"leverage\": 5,"))
         assertThat(unknown.outcome).isNotEqualTo(ValidationOutcome.VALIDATED)
     }
