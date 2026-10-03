@@ -182,6 +182,23 @@ class StrategiesViewModel
             viewModelScope.launch { runCatching { _slots.value = repo.slots() } }
         }
 
+        private val _library = MutableStateFlow<List<app.strategyforge.android.core.model.LibraryPlan>>(emptyList())
+
+        /** The built-in trading plans (D-049). */
+        val library: StateFlow<List<app.strategyforge.android.core.model.LibraryPlan>> = _library.asStateFlow()
+
+        fun loadLibrary() {
+            viewModelScope.launch { runCatching { _library.value = repo.library() } }
+        }
+
+        /** Adds a built-in plan and opens it, where it can be backtested and put in a slot. */
+        fun addFromLibrary(id: String) =
+            act("Plan added. Backtest it or put it in a slot from its page.") {
+                val r = repo.addLibraryPlan(id)
+                _library.value = repo.library()
+                _imported.value = r.strategy.id
+            }
+
         fun stop(strategyId: String) =
             act("Strategy stopped") {
                 repo.deactivate(strategyId)

@@ -33,6 +33,7 @@ import app.strategyforge.engine.research.AiBudget
 import app.strategyforge.engine.research.AiBudgetUpdate
 import app.strategyforge.engine.research.AiProviderType
 import app.strategyforge.engine.research.AiProviderView
+import app.strategyforge.engine.research.PlanLibrary
 import app.strategyforge.engine.research.ResearchCreate
 import app.strategyforge.engine.research.ResearchDetail
 import app.strategyforge.engine.research.ResearchSession
@@ -434,6 +435,26 @@ class LocalApi(
             val notes = obj(r).str("notes")
             val result = engine.strategies.import(content.toString().toByteArray(Charsets.UTF_8), "app-import.json", notes)
             strategyResult(result) + ("importNotes" to engine.strategies.importNotes(result.strategy.id)?.let { importNotes(it) })
+        }
+        // Built-in plans (D-049): list them, marking those already added, and add one as a new strategy.
+        get("/v1/library") { _, _ ->
+            val mine = engine.strategies.list(false)
+            PlanLibrary.all.map { p ->
+                mapOf(
+                    "id" to p.id,
+                    "name" to p.name,
+                    "summary" to p.summary,
+                    "assetClass" to p.assetClass,
+                    "timeframe" to p.timeframe,
+                    "backtest" to p.backtest,
+                    "results" to p.results.map { r -> mapOf("period" to r.period, "returnPercent" to r.returnPercent, "maxDrawdownPercent" to r.maxDrawdownPercent, "trades" to r.trades, "winRatePercent" to r.winRatePercent) },
+                    "strategyId" to mine.firstOrNull { it.name == p.name }?.id,
+                )
+            }
+        }
+        post("/v1/library/{id}/add", 201) { _, g ->
+            val p = PlanLibrary.get(g[0])
+            strategyResult(engine.strategies.import(JacksonCanonical.mapper.writeValueAsBytes(p.plan), "library-${p.id}.json"))
         }
         get("/v1/strategies/{id}") { _, g ->
             val s = engine.strategies.get(uuid(g[0]))

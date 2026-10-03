@@ -222,6 +222,29 @@ data class StrategyDetail(
     val plan: PlanInfo? = null,
 )
 
+/** A built-in trading plan (D-049) with its backtest results on real market history. */
+@Serializable
+data class LibraryPlan(
+    val id: String,
+    val name: String,
+    val summary: String,
+    val assetClass: String,
+    val timeframe: String,
+    val backtest: String,
+    val results: List<LibraryResult> = emptyList(),
+    /** The strategy already added from this plan, if any. */
+    val strategyId: String? = null,
+)
+
+@Serializable
+data class LibraryResult(
+    val period: String,
+    val returnPercent: String,
+    val maxDrawdownPercent: String,
+    val trades: Int,
+    val winRatePercent: String,
+)
+
 @Serializable
 data class StrategyResult(
     val strategy: Strategy,

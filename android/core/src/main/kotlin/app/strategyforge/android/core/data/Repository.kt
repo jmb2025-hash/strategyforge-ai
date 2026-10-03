@@ -301,6 +301,19 @@ class Repository(
         )
     }
 
+    /** The built-in trading plans (D-049). */
+    suspend fun library(): List<app.strategyforge.android.core.model.LibraryPlan> =
+        api.get(
+            "/v1/library",
+            ListSerializer(
+                app.strategyforge.android.core.model.LibraryPlan
+                    .serializer(),
+            ),
+        )
+
+    /** Adds a built-in plan as a new strategy, ready to backtest or put in a slot. */
+    suspend fun addLibraryPlan(id: String): StrategyResult = api.decode(api.post("/v1/library/${seg(id)}/add").body, StrategyResult.serializer())
+
     /** Changes a trading plan's conflict and capital policies and open-risk cap; this creates a new version (D-045). */
     suspend fun setPlanRules(
         id: String,

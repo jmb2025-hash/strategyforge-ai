@@ -155,19 +155,22 @@ class RealDataResearchTest {
     fun `sweep plan variants over the reporting periods`() {
         val dir = System.getenv("SF_SWEEP_DIR")?.let(::File)
         assumeTrue(csv != null && dir != null, "SF_REAL_BTC_CSV or SF_SWEEP_DIR not set")
-        val perp = CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
+        // SF_COSTS=app uses the app's default costs (0.2% spread); otherwise perpetual-futures costs.
+        val costs = if (System.getenv("SF_COSTS") == "app") CostModel() else CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
+        val start = BigDecimal(System.getenv("SF_START") ?: "100000")
         val periods =
             listOf(
                 "2025" to ("2025-01-07T00:00:00Z" to "2026-01-01T00:00:00Z"),
                 "Q1-2026" to ("2026-01-01T00:00:00Z" to "2026-04-01T00:00:00Z"),
                 "Q2-2026" to ("2026-04-01T00:00:00Z" to "2026-07-01T00:00:00Z"),
                 "Q3-2026" to ("2026-07-01T00:00:00Z" to "2026-10-01T00:00:00Z"),
+                "2026-YTD" to ("2026-01-01T00:00:00Z" to "2026-10-03T00:00:00Z"),
+                "ALL" to ("2025-01-07T00:00:00Z" to "2026-10-03T00:00:00Z"),
             )
         val validator =
             app.strategyforge.engine.support.TestEngine
                 .create()
                 .validator
-        val b = barCache.getOrPut(30) { bars(30) }
         dir!!.listFiles { f -> f.name.endsWith(".json") }!!.sortedBy { it.name }.forEach { f ->
             val doc = JacksonCanonical.mapper.readTree(f) as com.fasterxml.jackson.databind.node.ObjectNode
             val v = validator.validateDocument(doc)
@@ -175,9 +178,12 @@ class RealDataResearchTest {
                 println("SWEEP ${f.nameWithoutExtension} INVALID ${v.errors.map { it.code + ": " + it.message }}")
                 return@forEach
             }
+            v.warnings.forEach { println("SWEEP ${f.nameWithoutExtension} WARNING ${it.code}: ${it.message}") }
             val def = StrategyDefinition.from(v.document!!)
+            val minutes = mapOf("30m" to 30L, "1h" to 60L, "4h" to 240L, "1d" to 1440L).getValue(doc.path("metadata").path("timeframe").asText())
+            val b = barCache.getOrPut(minutes) { bars(minutes) }
             periods.forEach { (name, w) ->
-                val params = BacktestParams(Instant.parse(w.first), Instant.parse(w.second), BigDecimal(100000), perp)
+                val params = BacktestParams(Instant.parse(w.first), Instant.parse(w.second), start, costs)
                 val out = BacktestEngine(def, params).run(listOf(SymbolSeries("BTC-USD", AssetClass.CRYPTO, b, BigDecimal("0.01"), BigDecimal("0.00000001"), BigDecimal("0.00000001"))))
                 val m = BacktestMetrics.compute(out, params.startingCapital, params.from, params.to, null)
                 val positions =

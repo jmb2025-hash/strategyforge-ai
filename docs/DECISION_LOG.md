@@ -668,3 +668,40 @@ When a conflict is unresolved, the safest reversible option is selected.
     - Their win rates (66–100%) are higher than any mechanical variant reached. Their 100% quarter cannot be checked without the trades.
   - **Harness.** `RealDataResearchTest` gains a sweep over a directory of plans (SF_SWEEP_DIR) and per-position win rates. It is opt-in; CI skips it.
 - **Requirements affected:** FR-040 to FR-047.
+
+## D-049 Built-in plans: BTC trend pullback found in real history, Chart Champions v3 and a combined plan
+
+- **Date:** 2026-10-03
+- **Context:** The owner asked for:
+  - Plan v3 to be saved so it can be loaded into a slot.
+  - Patterns in real crypto history from 2025 to now that could become consistently profitable strategies, and when each should be applied.
+  - A high-win-rate strategy for a second slot.
+  - Results from a $10,000 start.
+- **Pattern research (Bitstamp BTC/USD, Jan 2025 – Oct 3 2026).**
+  - **Method.** Families were scanned in Python on daily, 4h and 1h bars with the app's default costs: trend following (SMA/EMA, Donchian), RSI(2) mean reversion with and without trend filters, Bollinger reversion, and overbought shorts. Rules were chosen on 2025 and checked unchanged on 2026. The winner was then rebuilt in the strategy language and confirmed with the app's own backtester.
+  - **The market.** BTC rose to $126k (Oct 2025), fell 54% to $57.7k (Jul 2026) and recovered to $84.7k.
+  - **Findings:**
+    - Unfiltered mean reversion works in one year and fails in the other.
+    - Daily trend following is positive in both years but wins only about 35% of the time.
+    - Dips bought, and spikes sold, only in the direction of the daily trend win often in both years.
+  - **Chosen rule (BTC trend pullback, 4h bars).** If yesterday's daily close is above the 50-day SMA, buy when RSI(4) < 10; if it is below, short when RSI(4) > 90. Exit when RSI(4) crosses 50, at a 5% stop, or after 60 bars. Size: 95% of equity.
+  - **Robustness.** Every neighbour tested was positive in 2026: 40–50-day SMA, RSI threshold 10–12, and an 8% stop.
+  - **When to apply.** The daily-trend switch is the regime rule: the plan buys dips in up-trends and sells rallies in down-trends by itself. On Oct 3 2026 BTC ($84.7k) has been above its 50-day SMA ($78.6k) since Aug 16, so the plan is in buy-the-dip mode.
+- **Results at $10,000 with the app's default costs:**
+
+  | Plan | 2025 | 2026 to Oct 3 | Jan 2025 – Oct 2026 |
+  |---|---|---|---|
+  | BTC trend pullback | +17.2%, 21 trades, 86% won | +6.6%, 14 trades, 79% won | +25.0%, max drawdown 5.2%, 83% won |
+  | Chart Champions v3 | +6.1% | +9.8% | +13.1%, max drawdown 12.4% |
+  | Combined (v3 50%, pullback 50%) | +7.2% | +3.3% | +9.9%, max drawdown 3.6% |
+
+  - BTC itself fell 13% over the same span.
+  - At $10,000 v3 had fewer volume-limited partial fills than at $100,000, which changes its quarterly figures slightly.
+- **Decision:**
+  - **Library.** Three built-in plans are bundled under `/library`; `PlanLibrary` loads them.
+  - **API.** `GET /v1/library` lists them with their backtests and the strategy already added from each. `POST /v1/library/{id}/add` imports one through the normal validator, so it is versioned and slot-able like any other strategy.
+  - **App.** The Plans screen has a "Built-in plans" section with "Add to my plans".
+- **Slots.** There is one crypto slot (D-035), so v3 and the trend pullback cannot run side by side as separate strategies. The combined plan runs both as setups with ALLOCATED capital, and the slot reports each setup's results separately. A second crypto slot would need separate portfolios for each slot and was left for the owner to decide.
+- **Harness.** The sweep takes SF_START (starting capital) and SF_COSTS=app (the app's default costs), picks the bar size from the plan's timeframe, prints validator warnings, and adds 2026-YTD and whole-span periods.
+- **Version.** 1.10.0 (versionCode 14).
+- **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.

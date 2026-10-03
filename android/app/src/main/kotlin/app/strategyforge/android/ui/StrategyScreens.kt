@@ -46,6 +46,7 @@ fun StrategiesScreen(
     val imported by vm.imported.collectAsStateWithLifecycle()
     val slots by vm.slots.collectAsStateWithLifecycle()
     val instructions by vm.instructions.collectAsStateWithLifecycle()
+    val library by vm.library.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(instructions) {
         instructions?.let {
@@ -58,7 +59,10 @@ fun StrategiesScreen(
     var showImport by rememberSaveable { mutableStateOf(false) }
     var json by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(imported) { imported?.let { nav.navigate("strategy/$it") } }
-    LaunchedEffect(Unit) { vm.loadSlots() }
+    LaunchedEffect(Unit) {
+        vm.loadSlots()
+        vm.loadLibrary()
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         SlotsSection(slots, onOpen = { nav.navigate("strategy/$it") }, onStop = vm::stop)
         SectionTitle("Trading plans")
@@ -68,6 +72,7 @@ fun StrategiesScreen(
             OutlinedButton(onClick = { nav.navigate("research") }) { Text("AI research") }
         }
         OutlinedButton(onClick = { nav.navigate("scorecards") }, modifier = Modifier.testTag("compare")) { Text("Compare results / build a better plan") }
+        LibrarySection(library, onAdd = vm::addFromLibrary, onOpen = { nav.navigate("strategy/$it") })
         if (showImport) {
             ImportStrategyPanel(
                 json,
@@ -89,6 +94,50 @@ fun StrategiesScreen(
         }
     }
 }
+
+/**
+ * Built-in plans (D-049): ready-made plans researched on real market history, each with its backtest
+ * results. Adding one creates a normal strategy that can be backtested and put in a slot.
+ */
+@Composable
+fun LibrarySection(
+    plans: List<app.strategyforge.android.core.model.LibraryPlan>,
+    onAdd: (String) -> Unit,
+    onOpen: (String) -> Unit,
+) {
+    if (plans.isEmpty()) return
+    var open by rememberSaveable { mutableStateOf(false) }
+    OutlinedButton(onClick = { open = !open }, modifier = Modifier.testTag("library")) {
+        Text(if (open) "Hide built-in plans" else "Built-in plans (${plans.size})")
+    }
+    if (!open) return
+    plans.forEach { p ->
+        SfCard(Modifier.testTag("library-${p.id}")) {
+            Text(p.name, style = MaterialTheme.typography.titleMedium)
+            Text("${if (p.assetClass == "CRYPTO") "Crypto" else "Stocks"} · ${p.timeframe} bars", style = MaterialTheme.typography.bodySmall)
+            Text(p.summary, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 4.dp))
+            p.results.forEach { r ->
+                Text(
+                    "${r.period}: ${signed(r.returnPercent)}% · worst drop ${r.maxDrawdownPercent}% · ${r.trades} trades · ${r.winRatePercent}% won",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Text(p.backtest + " Past results do not guarantee future results.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+            Row(Modifier.padding(top = 6.dp)) {
+                val added = p.strategyId
+                if (added != null) {
+                    OutlinedButton(onClick = { onOpen(added) }) { Text("Open (added)") }
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = { onAdd(p.id) }) { Text("Add another copy") }
+                } else {
+                    Button(onClick = { onAdd(p.id) }, modifier = Modifier.testTag("add-${p.id}")) { Text("Add to my plans") }
+                }
+            }
+        }
+    }
+}
+
+private fun signed(v: String) = if (v.startsWith("-")) v else "+$v"
 
 /** The two slots (D-035): the crypto strategy and the stock strategy running now. */
 @Composable

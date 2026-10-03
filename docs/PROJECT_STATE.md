@@ -1,10 +1,10 @@
 # StrategyForge AI — Project State Manifesto
 
-Save point: **2026-10-03T08:08Z** · version **1.9.0** (versionCode 13) · branch `claude/strategyforge-v1-delivery-vgf1ah`
+Save point: **2026-10-03T10:30Z** · version **1.10.0** (versionCode 14) · branch `claude/strategyforge-v1-delivery-vgf1ah`
 
 ```text
 === STRATEGYFORGE AI — PROJECT STATE MANIFESTO ===
-SAVE POINT: 2026-10-03T08:08Z | v1.9.0 (versionCode 13) | engine 221/221 (+4 opt-in real-data), core 27/27
+SAVE POINT: 2026-10-03T10:30Z | v1.10.0 (versionCode 14) | engine 225 (6 opt-in real-data skipped), core 27/27
 BRANCH: claude/strategyforge-v1-delivery-vgf1ah (push: git push -u origin <branch>; NO PR unless asked)
 APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest (StrategyForge.apk, CI-published)
 
@@ -95,6 +95,13 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         2025 +10.9% (dd 6.5), Q1-26 +10.4%, Q2-26 +3.6%, Q3-26 +0.7%; win 48-60% per position. SFP/CCV/FA dropped
         (FA best 2025 variant +9.9% then -13..-15% each 2026 quarter = overfit). CC public figures have no balances,
         so no % match is possible; per-quarter ranking Q1-26 > Q2-26 > 2025 avg matches theirs. Fixture plan_v3.md.
+- 1.10.0 (D-049) BUILT-IN PLANS: resources /library/*.json + research/PlanLibrary; GET /v1/library, POST
+        /v1/library/{id}/add; app Plans screen "Built-in plans". Plans: btc-trend-pullback (4h; prev daily close vs
+        1d SMA50 picks side; RSI4 <10 long / >90 short; exit RSI4 x 50, 5% stop, 60 bars; 95% equity),
+        chart-champions-v3, chart-champions-v3-plus-trend-pullback (ALLOCATED 25/25/50, STACK).
+        $10k app costs Jan25-Oct26: pullback +25.0% dd 5.2 83% win (2025 +17.2, 2026 +6.6); v3 +13.1% dd 12.4;
+        combined +9.9% dd 3.6. One crypto slot only -> combined plan is the side-by-side option; a 2nd crypto slot
+        (separate portfolios) awaits the owner's decision. Sweep: SF_START, SF_COSTS=app, timeframe-aware bars.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -126,7 +133,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-049). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-050). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

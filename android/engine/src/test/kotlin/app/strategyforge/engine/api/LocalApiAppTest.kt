@@ -469,6 +469,33 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-049 built-in plans are listed, validate when added and are marked as added`() {
+        start()
+        runBlocking {
+            val lib = repo.library()
+            assertThat(lib.map { it.id }).containsExactly("btc-trend-pullback", "chart-champions-v3", "chart-champions-v3-plus-trend-pullback")
+            assertThat(lib).allMatch { it.assetClass == "CRYPTO" && it.results.size == 3 && it.strategyId == null }
+            lib.forEach { p ->
+                val r = repo.addLibraryPlan(p.id)
+                assertThat(r.strategy.status).`as`("${p.id}: ${r.validation?.issues}").isEqualTo("VALIDATED")
+                assertThat(r.strategy.name).isEqualTo(p.name)
+            }
+            val after = repo.library()
+            assertThat(after).allMatch { it.strategyId != null }
+            val pullback = after.first { it.id == "btc-trend-pullback" }
+            val detail = repo.strategy(pullback.strategyId!!).value()
+            assertThat(detail.explanation).contains("RSI")
+            val combined = repo.strategy(after.first { it.id == "chart-champions-v3-plus-trend-pullback" }.strategyId!!).value()
+            assertThat(combined.plan!!.setups.map { it.id }).containsExactly("CC_FIB", "EMA_SWING", "TREND_PULLBACK")
+            assertThat(combined.plan!!.capitalPolicy).isEqualTo("ALLOCATED")
+            val b = repo.runBacktest(pullback.strategyId!!, "2026-02-01T00:00:00Z", "2026-06-22T00:00:00Z", "10000")
+            val done = repo.backtests(pullback.strategyId!!).first { it.id == b.id }
+            assertThat(done.status).`as`(done.error ?: "").isEqualTo("COMPLETED")
+            assertThat(runCatching { repo.addLibraryPlan("nope") }.isFailure).isTrue()
+        }
+    }
+
+    @Test
     fun `D-044 the futures data test reports when no live source is available`() {
         start()
         runBlocking {
