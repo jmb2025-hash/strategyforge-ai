@@ -336,6 +336,8 @@ object Indicators {
     ): Map<String, List<BigDecimal?>> {
         val out = linkedMapOf<String, List<BigDecimal?>>()
         specs.forEach { s ->
+            // Levels built from other series are computed after them (D-047).
+            if (s.type == IndicatorType.LEVEL) return@forEach
             if (s.timeframe != null) {
                 out.putAll(higherTimeframe(s, bars, ctx))
                 return@forEach
@@ -372,10 +374,93 @@ object Indicators {
                 IndicatorType.OPEN_INTEREST -> openInterest(bars.size, s.period!!, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
                 IndicatorType.FUNDING_RATE -> fundingRate(bars.size, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
                 IndicatorType.CVD -> cvd(bars.size, s.period!!, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
+                IndicatorType.ROUND_NUMBER -> roundNumbers(bars, s.step!!).forEach { (k, v) -> out["${s.id}.$k"] = v }
+                IndicatorType.NAKED_POC -> nakedPoc(bars, s.anchor!!, s.period!!, ctx).forEach { (k, v) -> out["${s.id}.$k"] = v }
                 else -> out["${s.id}.value"] = candlestick(s.type, bars)
             }
         }
+        specs.filter { it.type == IndicatorType.LEVEL }.forEach { s -> out["${s.id}.value"] = level(bars, s, out) }
         return out
+    }
+
+    // ------------------------------------------------------------------ levels (D-047)
+
+    private fun series(
+        o: Operand,
+        bars: List<CandleData>,
+        out: Map<String, List<BigDecimal?>>,
+    ): List<BigDecimal?> =
+        when (o) {
+            is Operand.Constant -> List(bars.size) { o.value }
+            is Operand.Price -> source(bars, o.field)
+            is Operand.IndicatorRef -> out["${o.id}.${o.component}"] ?: List(bars.size) { null }
+        }
+
+    /** from + ratio x (to - from) at every bar: quartiles, any Fibonacci ratio or extension, range multiples. */
+    fun level(
+        bars: List<CandleData>,
+        s: IndicatorSpec,
+        out: Map<String, List<BigDecimal?>>,
+    ): List<BigDecimal?> {
+        val a = series(s.from!!, bars, out)
+        val b = series(s.to!!, bars, out)
+        return bars.indices.map { i ->
+            val x = a[i]
+            val y = b[i]
+            if (x == null || y == null) null else x.add(s.ratio!!.multiply(y.subtract(x), MC), MC)
+        }
+    }
+
+    /** The round numbers (multiples of [step]) just below and just above each close. */
+    fun roundNumbers(
+        bars: List<CandleData>,
+        step: BigDecimal,
+    ): Map<String, List<BigDecimal?>> {
+        val below = bars.map { b -> b.close.divide(step, 0, java.math.RoundingMode.FLOOR).multiply(step) }
+        return mapOf("below" to below, "above" to below.map { it.add(step) })
+    }
+
+    /**
+     * The nearest volume-profile POCs above and below each close, among the last [lookback] complete
+     * periods, that no later bar has traded through yet. A POC counts as tested by bars before the
+     * current one only, so a rule can see price reach it.
+     */
+    fun nakedPoc(
+        bars: List<CandleData>,
+        anchor: Anchor,
+        lookback: Int,
+        ctx: SeriesContext,
+    ): Map<String, List<BigDecimal?>> {
+        val agg = Periods.aggregate(bars, anchor, ctx)
+        val above = MutableList<BigDecimal?>(bars.size) { null }
+        val below = MutableList<BigDecimal?>(bars.size) { null }
+        val pocs = arrayOfNulls<BigDecimal>(agg.periods.size)
+        // Bar index from which each period's POC is tested (the first bar after the period).
+        val untestedUntil = IntArray(agg.periods.size) { Int.MAX_VALUE }
+        for (i in bars.indices) {
+            val done = agg.completedAt[i]
+            val first = maxOf(0, done - lookback)
+            var up: BigDecimal? = null
+            var down: BigDecimal? = null
+            for (p in first until done) {
+                val poc = pocs[p] ?: agg.periods[p].let { pr -> profile(bars, pr.firstIndex, pr.lastIndex)?.get(0) }?.also { pocs[p] = it } ?: continue
+                if (untestedUntil[p] < i) continue
+                val close = bars[i].close
+                if (poc > close) {
+                    if (up == null || poc < up) up = poc
+                } else if (down == null || poc > down) {
+                    down = poc
+                }
+            }
+            above[i] = up
+            below[i] = down
+            // Mark POCs traded through by this bar (it counts for later bars only).
+            for (p in first until done) {
+                val poc = pocs[p] ?: continue
+                if (untestedUntil[p] == Int.MAX_VALUE && i > agg.periods[p].lastIndex && bars[i].low <= poc && bars[i].high >= poc) untestedUntil[p] = i
+            }
+        }
+        return mapOf("above" to above, "below" to below)
     }
 
     // ------------------------------------------------------------------ futures context (D-044)
@@ -699,8 +784,19 @@ class RuleEvaluator(
         i: Int,
     ): Boolean =
         when (node) {
-            is RuleGroup -> if (node.operator == GroupOperator.ALL) node.conditions.all { evaluate(it, i) } else node.conditions.any { evaluate(it, i) }
-            is Condition -> condition(node, i - node.offsetBars)
+            is RuleGroup ->
+                when (node.operator) {
+                    GroupOperator.ALL -> node.conditions.all { evaluate(it, i) }
+                    GroupOperator.ANY -> node.conditions.any { evaluate(it, i) }
+                    GroupOperator.AT_LEAST -> node.conditions.count { evaluate(it, i) } >= node.count
+                }
+            is Condition ->
+                if (node.withinBars <= 1) {
+                    condition(node, i - node.offsetBars)
+                } else {
+                    // Held on at least minimumBars of the last withinBars bars (only closed bars, never later ones).
+                    (0 until node.withinBars).count { k -> condition(node, i - node.offsetBars - k) } >= node.minimumBars
+                }
         }
 
     private fun condition(

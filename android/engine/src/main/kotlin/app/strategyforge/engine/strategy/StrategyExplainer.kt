@@ -30,11 +30,35 @@ object StrategyExplainer {
         return sb.toString()
     }
 
+    private fun stopText(
+        r: StopRule,
+        short: Boolean,
+        d: StrategyDefinition,
+    ): String {
+        val where = r.at?.let { operand(it, d) } ?: if (short) "the signal candle's high" else "the signal candle's low"
+        val buffer = if (r.bufferPercent.signum() > 0) " plus ${pct(r.bufferPercent)}" else ""
+        return "${if (short) "above" else "below"} $where$buffer"
+    }
+
+    private fun targetsText(
+        ts: List<TargetRule>,
+        d: StrategyDefinition,
+    ): String =
+        ts
+            .mapIndexed { n, t ->
+                val where = t.at?.let { operand(it, d) } ?: "${t.rMultiple!!.stripTrailingZeros().toPlainString()}R (times the risk)"
+                if (n == ts.lastIndex) "the rest at $where" else "${pct(t.closePercent)} at $where"
+            }.joinToString(", ")
+
     /** Exits, partial profits and sizing of one strategy or setup. */
     private fun trade(
         d: StrategyDefinition,
         sb: StringBuilder,
     ) {
+        if (d.exit.structured) {
+            structured(d, sb)
+            return
+        }
         sb.append("Exit at a ${pct(d.exit.stopLossPercent)} stop loss, a ${pct(d.exit.takeProfitPercent)} profit target")
         d.exit.trailingStopPercent?.let { sb.append(", a ${pct(it)} trailing stop") }
         sb.append(", or after ${d.exit.maximumHoldingBars} bars")
@@ -53,6 +77,42 @@ object StrategyExplainer {
                 SizingMethod.RISK_PERCENT ->
                     "Each position is sized so that hitting the stop loses ${pct(d.sizing.value)} of equity" +
                         " (at most ${pct(d.risk.maximumPositionPercent ?: java.math.BigDecimal(100))} of equity in one position)"
+            },
+        )
+    }
+
+    /** Chart-level stops, targets and trailing (D-047). */
+    private fun structured(
+        d: StrategyDefinition,
+        sb: StringBuilder,
+    ) {
+        val e = d.exit
+        val sides = if (d.direction == Direction.BOTH && (e.shortStop != null || e.shortTargets.isNotEmpty())) listOf(false, true) else listOf(d.direction == Direction.SHORT_ONLY)
+        sides.forEach { short ->
+            val who = if (sides.size > 1) (if (short) "Shorts: " else "Longs: ") else ""
+            val stop = e.stopFor(short)?.let { stopText(it, short && (sides.size > 1 || d.direction == Direction.SHORT_ONLY), d) } ?: "${pct(e.stopLossPercent)} from entry"
+            sb.append("${who}Stop $stop (never more than ${pct(e.stopLossPercent)} away, or no trade)")
+            e.targetsFor(short).takeIf { it.isNotEmpty() }?.let { sb.append("; take profit ${targetsText(it, d)}") }
+            sb.append(". ")
+        }
+        e.minimumRewardRisk?.let { sb.append("Skip a trade whose first target pays less than ${it.stripTrailingZeros().toPlainString()} times the risk. ") }
+        e.breakevenAfterTarget?.let { sb.append("Move the stop to the entry price after target $it. ") }
+        e.trailing?.let {
+            sb.append("Then trail the stop to each new confirmed swing (${it.swingPeriod} bars each side)")
+            sb.append(if (it.afterTarget > 0) " once target ${it.afterTarget} is taken. " else ". ")
+        }
+        sb.append("Also exit at a ${pct(e.takeProfitPercent)} gain at most, or after ${e.maximumHoldingBars} bars")
+        e.conditions?.let { sb.append(if (d.direction == Direction.BOTH) ", or (longs) when ${group(it, d)}" else ", or when ${group(it, d)}") }
+        e.shortConditions?.let { sb.append(", or (shorts) when ${group(it, d)}") }
+        sb.append(". ")
+        sb.append(
+            when (d.sizing.method) {
+                SizingMethod.RISK_PERCENT ->
+                    "Each position is sized so that hitting its stop loses ${pct(d.sizing.value)} of equity" +
+                        " (at most ${pct(d.risk.maximumPositionPercent ?: java.math.BigDecimal(100))} of equity in one position)"
+                SizingMethod.PERCENT_OF_EQUITY -> "Each position uses ${pct(d.sizing.value)} of portfolio equity"
+                SizingMethod.FIXED_CASH -> "Each position uses ${d.sizing.value.stripTrailingZeros().toPlainString()} USD"
+                SizingMethod.FIXED_QUANTITY -> "Each position is ${d.sizing.value.stripTrailingZeros().toPlainString()} units"
             },
         )
     }
@@ -92,6 +152,7 @@ object StrategyExplainer {
             sb.append("\n\nSetup ${n + 1}: ${s.name} (priority ${s.priority}")
             s.allocationPercent?.takeIf { d.plan.capitalPolicy == CapitalPolicy.ALLOCATED }?.let { sb.append(", ${pct(it)} of capital") }
             s.maximumOpenPositions?.let { sb.append(", at most $it open") }
+            s.decisionTimeframe?.let { sb.append(", decides on ${anchorWord(it)} closes") }
             sb.append("). ")
             s.description?.let { sb.append(it.trim().removeSuffix(".")).append(". ") }
             s.appliesWhen?.let { sb.append("Applies only while ${group(it, d)}. ") }
@@ -119,7 +180,11 @@ object StrategyExplainer {
     ): String {
         val parts = g.conditions.map { n -> if (n is RuleGroup) "(${group(n, d)})" else condition(n as Condition, d) }
         if (parts.size == 1) return parts.single()
-        return (if (g.operator == GroupOperator.ALL) "all of: " else "any of: ") + parts.joinToString("; ")
+        return when (g.operator) {
+            GroupOperator.ALL -> "all of: "
+            GroupOperator.ANY -> "any of: "
+            GroupOperator.AT_LEAST -> "at least ${g.count} of: "
+        } + parts.joinToString("; ")
     }
 
     private fun condition(
@@ -137,7 +202,13 @@ object StrategyExplainer {
                 Comparison.CROSSES_BELOW -> "crosses below"
             }
         val offset = if (c.offsetBars > 0) " (${c.offsetBars} bars ago)" else ""
-        return "${operand(c.left, d)} $cmp ${operand(c.right, d)}$offset"
+        val window =
+            when {
+                c.withinBars <= 1 -> ""
+                c.minimumBars <= 1 -> " within the last ${c.withinBars} bars"
+                else -> " on at least ${c.minimumBars} of the last ${c.withinBars} bars"
+            }
+        return "${operand(c.left, d)} $cmp ${operand(c.right, d)}$window$offset"
     }
 
     private fun operand(
@@ -175,6 +246,11 @@ object StrategyExplainer {
                             "the VWAP anchored at the ${if (spec.anchorPoint == AnchorPoint.HIGHEST_HIGH) "highest high" else "lowest low"} of the previous ${spec.period} bars"
                         IndicatorType.FIBONACCI -> return fib(spec, o.component)
                         IndicatorType.VOLUME_PROFILE -> return profile(spec, o.component)
+                        IndicatorType.LEVEL -> return "the level ${spec.ratio?.stripTrailingZeros()?.toPlainString()} of the way from ${spec.from?.let { operand(it, d) }} to ${spec.to?.let { operand(it, d) }}"
+                        IndicatorType.ROUND_NUMBER ->
+                            return "the round number (multiple of ${spec.step?.stripTrailingZeros()?.toPlainString()}) ${if (o.component == "above") "above" else "at or below"} the close"
+                        IndicatorType.NAKED_POC ->
+                            return "the nearest untested ${anchorWord(spec.anchor!!)} volume-profile POC (of the last ${spec.period}) ${if (o.component == "above") "above" else "at or below"} the close"
                         IndicatorType.OPEN_INTEREST ->
                             return if (o.component == "change") "the % change in futures open interest over ${spec.period} bars" else "futures open interest (contracts)"
                         IndicatorType.FUNDING_RATE ->
@@ -192,6 +268,9 @@ object StrategyExplainer {
 
     private fun anchorWord(a: Anchor) =
         when (a) {
+            Anchor.M30 -> "30-minute"
+            Anchor.H1 -> "hourly"
+            Anchor.H4 -> "4-hour"
             Anchor.DAY -> "daily"
             Anchor.WEEK -> "weekly"
             Anchor.MONTH -> "monthly"
@@ -203,6 +282,9 @@ object StrategyExplainer {
     ): String {
         val (cur, prev) =
             when (a) {
+                Anchor.M30 -> "this 30-minute candle's" to "the previous 30-minute candle's"
+                Anchor.H1 -> "this hourly candle's" to "the previous hourly candle's"
+                Anchor.H4 -> "this 4-hour candle's" to "the previous 4-hour candle's"
                 Anchor.DAY -> "today's" to "the previous day's"
                 Anchor.WEEK -> "this week's" to "the previous week's"
                 Anchor.MONTH -> "this month's" to "the previous month's"
@@ -244,16 +326,16 @@ object StrategyExplainer {
             }
         val scope =
             s.anchor?.let { a ->
-                "the previous ${if (a == Anchor.DAY) {
-                    "day"
-                } else if (a == Anchor.WEEK) {
-                    "week"
-                } else {
-                    "month"
-                }}"
+                "the previous " +
+                    when (a) {
+                        Anchor.DAY -> "day"
+                        Anchor.WEEK -> "week"
+                        Anchor.MONTH -> "month"
+                        else -> "${anchorWord(a)} period"
+                    }
             } ?: "the previous ${s.period} bars"
         return "the volume-profile $name of $scope"
     }
 
-    private fun label(tf: String) = mapOf("1m" to "1-minute", "5m" to "5-minute", "15m" to "15-minute", "1h" to "1-hour", "4h" to "4-hour", "1d" to "daily")[tf] ?: tf
+    private fun label(tf: String) = mapOf("1m" to "1-minute", "5m" to "5-minute", "15m" to "15-minute", "30m" to "30-minute", "1h" to "1-hour", "4h" to "4-hour", "1d" to "daily")[tf] ?: tf
 }

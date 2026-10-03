@@ -75,19 +75,22 @@ class RealDataResearchTest {
         return StrategyDefinition.from(JacksonCanonical.mapper.readTree(json))
     }
 
+    private val barCache = mutableMapOf<Long, List<CandleData>>()
+
     private fun report(
         label: String,
         def: StrategyDefinition,
         minutes: Long,
         from: String,
         to: String,
+        costs: CostModel = CostModel(),
     ) {
-        val b = bars(minutes)
-        val params = BacktestParams(Instant.parse(from), Instant.parse(to), BigDecimal(100000), CostModel())
+        val b = barCache.getOrPut(minutes) { bars(minutes) }
+        val params = BacktestParams(Instant.parse(from), Instant.parse(to), BigDecimal(100000), costs)
         val out = BacktestEngine(def, params).run(listOf(SymbolSeries("BTC-USD", AssetClass.CRYPTO, b, BigDecimal("0.01"), BigDecimal("0.00000001"), BigDecimal("0.00000001"))))
         val m = BacktestMetrics.compute(out, params.startingCapital, params.from, params.to, null)
         println("== $label: ${b.size} bars of ${minutes}m, ${b.first().openTime} .. ${b.last().openTime}; window $from .. $to")
-        listOf("netReturnPercent", "maxDrawdownPercent", "trades", "closedTrades", "winRatePercent", "profitFactor", "expectancy", "fees", "riskBlockedEntries", "exposurePercent")
+        listOf("netReturnPercent", "maxDrawdownPercent", "trades", "closedTrades", "winRatePercent", "profitFactor", "expectancy", "fees", "spreadCost", "slippage", "riskBlockedEntries", "exposurePercent")
             .forEach { k -> println("   $k = ${m[k]}") }
         BacktestMetrics.bySetup(out, def).forEach { println("   setup $it") }
         out.trades
@@ -101,5 +104,28 @@ class RealDataResearchTest {
     fun `Chart Champions plan v1 on real BTC history`() {
         assumeTrue(csv != null, "SF_REAL_BTC_CSV not set")
         report("CC plan v1", plan("/research/chart_champions_plan_v1_reply.md"), 60, "2025-07-01T00:00:00Z", "2026-10-01T00:00:00Z")
+    }
+
+    @Test
+    fun `Chart Champions plan v2 on real BTC history`() {
+        assumeTrue(csv != null, "SF_REAL_BTC_CSV not set")
+        report("CC plan v2", plan("/research/chart_champions_plan_v2_reply.md"), 30, "2025-07-01T00:00:00Z", "2026-10-01T00:00:00Z")
+    }
+
+    /** How much of the result is trading costs: the same plan with no spread or slippage. */
+    @Test
+    fun `Chart Champions plan v2 without trading costs`() {
+        assumeTrue(csv != null, "SF_REAL_BTC_CSV not set")
+        val none = CostModel(slippageBps = BigDecimal.ZERO, cryptoFallbackSpreadPercent = BigDecimal.ZERO)
+        report("CC plan v2, no costs", plan("/research/chart_champions_plan_v2_reply.md"), 30, "2025-07-01T00:00:00Z", "2026-10-01T00:00:00Z", none)
+    }
+
+    /** Costs close to a BTC perpetual on a major exchange: 0.02% spread, 0.05% taker fee, 2 bps slippage. */
+    @Test
+    fun `Chart Champions plans with perpetual futures costs`() {
+        assumeTrue(csv != null, "SF_REAL_BTC_CSV not set")
+        val perp = CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
+        report("CC plan v1, futures costs", plan("/research/chart_champions_plan_v1_reply.md"), 60, "2025-07-01T00:00:00Z", "2026-10-01T00:00:00Z", perp)
+        report("CC plan v2, futures costs", plan("/research/chart_champions_plan_v2_reply.md"), 30, "2025-07-01T00:00:00Z", "2026-10-01T00:00:00Z", perp)
     }
 }

@@ -40,6 +40,11 @@ enum class IndicatorType {
     OPEN_INTEREST,
     FUNDING_RATE,
     CVD,
+
+    // Levels (D-047): a level between two others, round numbers, and untested volume-profile POCs.
+    LEVEL,
+    ROUND_NUMBER,
+    NAKED_POC,
     ;
 
     /** Pattern detectors take no period. */
@@ -57,14 +62,32 @@ enum class IndicatorType {
     }
 }
 
-/** Calendar periods: crypto uses UTC days, US stocks New York days; weeks start on Monday (D-042). */
+/**
+ * Periods: fixed 30-minute, 1-hour and 4-hour buckets (D-047; crypto from midnight UTC, US stocks from
+ * the 09:30 New York open) and calendar days, weeks and months (D-042; crypto UTC days, US stocks New
+ * York days, weeks start on Monday).
+ */
 enum class Anchor(
     val code: String,
+    /** Length of a fixed bucket; null for calendar periods. */
+    val fixed: java.time.Duration? = null,
 ) {
+    M30("30m", java.time.Duration.ofMinutes(30)),
+    H1("1h", java.time.Duration.ofHours(1)),
+    H4("4h", java.time.Duration.ofHours(4)),
     DAY("1d"),
     WEEK("1w"),
     MONTH("1M"),
     ;
+
+    /** Approximate length, for comparing with a strategy's bar length. */
+    val nominal: java.time.Duration
+        get() =
+            fixed ?: when (this) {
+                DAY -> java.time.Duration.ofDays(1)
+                WEEK -> java.time.Duration.ofDays(7)
+                else -> java.time.Duration.ofDays(28)
+            }
 
     companion object {
         fun ofCode(code: String): Anchor? = entries.firstOrNull { it.code == code }
@@ -86,7 +109,8 @@ val FIB_LEVELS: Map<String, BigDecimal> =
 
 enum class Comparison { GT, GTE, LT, LTE, EQ, CROSSES_ABOVE, CROSSES_BELOW }
 
-enum class GroupOperator { ALL, ANY }
+/** ALL, ANY, or AT_LEAST a group's [RuleGroup.count] of its conditions (D-047, confluence). */
+enum class GroupOperator { ALL, ANY, AT_LEAST }
 
 enum class SizingMethod { FIXED_CASH, PERCENT_OF_EQUITY, FIXED_QUANTITY, RISK_PERCENT }
 
@@ -108,6 +132,12 @@ data class IndicatorSpec(
     /** The calendar period for PERIOD_LEVELS, VWAP and VOLUME_PROFILE (D-042). */
     val anchor: Anchor? = null,
     val anchorPoint: AnchorPoint? = null,
+    /** LEVEL: from + ratio x (to - from) (D-047). */
+    val from: Operand? = null,
+    val to: Operand? = null,
+    val ratio: BigDecimal? = null,
+    /** ROUND_NUMBER: spacing of the round numbers. */
+    val step: BigDecimal? = null,
 ) {
     /**
      * Strategy bars required before every value is available, given the strategy's own timeframe
@@ -123,6 +153,7 @@ data class IndicatorSpec(
             IndicatorType.PERIOD_LEVELS -> 2 * Periods.barsPer(anchor!!, base, assetClass) + 1
             IndicatorType.VWAP -> Periods.barsPer(anchor!!, base, assetClass) + 1
             IndicatorType.VOLUME_PROFILE -> if (anchor != null) 2 * Periods.barsPer(anchor, base, assetClass) + 1 else inner
+            IndicatorType.NAKED_POC -> (period!! + 1) * Periods.barsPer(anchor!!, base, assetClass) + 1
             else -> inner
         }
     }
@@ -148,6 +179,8 @@ data class IndicatorSpec(
             IndicatorType.OPEN_INTEREST -> period!! + 1
             IndicatorType.CVD -> period!!
             IndicatorType.FUNDING_RATE -> 1
+            IndicatorType.LEVEL, IndicatorType.ROUND_NUMBER -> 1
+            IndicatorType.NAKED_POC -> 1
         }
 
     fun components(): Set<String> =
@@ -160,6 +193,7 @@ data class IndicatorSpec(
             IndicatorType.OPEN_INTEREST -> setOf("value", "change")
             IndicatorType.FUNDING_RATE -> setOf("value", "annualized")
             IndicatorType.CVD -> setOf("value", "delta")
+            IndicatorType.ROUND_NUMBER, IndicatorType.NAKED_POC -> setOf("above", "below")
             else -> setOf("value")
         }
 
@@ -190,12 +224,36 @@ data class Condition(
     val comparison: Comparison,
     val right: Operand,
     val offsetBars: Int,
+    /** True when the comparison held on at least [minimumBars] of the last [withinBars] bars (D-047). */
+    val withinBars: Int = 1,
+    val minimumBars: Int = 1,
 ) : RuleNode
 
 data class RuleGroup(
     val operator: GroupOperator,
     val conditions: List<RuleNode>,
+    /** How many conditions must hold for AT_LEAST. */
+    val count: Int = 0,
 ) : RuleNode
+
+/** Where the stop goes (D-047): beyond the signal candle's wick ([at] null) or beyond a level, plus a buffer. */
+data class StopRule(
+    val at: Operand?,
+    val bufferPercent: BigDecimal,
+)
+
+/** A take-profit at a level or at a multiple of the risk, closing [closePercent] of the original position (D-047). */
+data class TargetRule(
+    val at: Operand?,
+    val rMultiple: BigDecimal?,
+    val closePercent: BigDecimal,
+)
+
+/** Raise (longs) or lower (shorts) the stop to each new confirmed swing of [swingPeriod] bars, once target [afterTarget] is taken (0: from entry). */
+data class TrailingRule(
+    val swingPeriod: Int,
+    val afterTarget: Int,
+)
 
 /** Take part of a position off at a first target (D-042). */
 data class PartialTakeProfit(
@@ -214,7 +272,24 @@ data class ExitRules(
     /** Exit conditions for short positions when the strategy trades both directions (D-042). */
     val shortConditions: RuleGroup? = null,
     val partialTakeProfit: PartialTakeProfit? = null,
+    /** Stop at a chart level or the signal candle's wick (D-047); stopLossPercent is then the farthest allowed stop. */
+    val stop: StopRule? = null,
+    val shortStop: StopRule? = null,
+    /** Up to three targets at levels or multiples of the risk (D-047); takeProfitPercent stays as an outer cap. */
+    val targets: List<TargetRule> = emptyList(),
+    val shortTargets: List<TargetRule> = emptyList(),
+    /** Skip a trade whose first target pays less than this multiple of the risk. */
+    val minimumRewardRisk: BigDecimal? = null,
+    /** Move the stop to the entry price once this target (1-based) has been taken. */
+    val breakevenAfterTarget: Int? = null,
+    val trailing: TrailingRule? = null,
 ) {
+    val structured: Boolean get() = stop != null || shortStop != null || targets.isNotEmpty() || shortTargets.isNotEmpty() || trailing != null
+
+    fun stopFor(short: Boolean): StopRule? = if (short && shortStop != null) shortStop else stop
+
+    fun targetsFor(short: Boolean): List<TargetRule> = if (short && shortTargets.isNotEmpty()) shortTargets else targets
+
     /** The exit rule group that applies to a position on this side. */
     fun conditionsFor(
         short: Boolean,
@@ -273,7 +348,7 @@ data class StrategyDefinition(
     val isPlan: Boolean get() = setups.isNotEmpty()
 
     /** The setups to evaluate, best priority first: a single strategy is one setup. */
-    fun setupsOrSelf(): List<Setup> = setups.ifEmpty { listOf(Setup(Setup.SINGLE, name, description, 1, null, null, null, this)) }
+    fun setupsOrSelf(): List<Setup> = setups.ifEmpty { listOf(Setup(Setup.SINGLE, name, description, 1, null, null, null, null, this)) }
 
     fun setup(id: String?): Setup? = setupsOrSelf().let { all -> all.firstOrNull { it.id == id } ?: all.takeIf { id == null || !isPlan }?.first() }
 
@@ -302,7 +377,7 @@ data class StrategyDefinition(
         private fun maxOffset(n: RuleNode?): Int =
             when (n) {
                 null -> 0
-                is Condition -> n.offsetBars
+                is Condition -> n.offsetBars + n.withinBars - 1
                 is RuleGroup -> n.conditions.maxOfOrNull { maxOffset(it) } ?: 0
             }
 
@@ -325,10 +400,25 @@ data class StrategyDefinition(
                     if (c.has("operator")) {
                         group(c)
                     } else {
-                        Condition(operand(c["left"]), Comparison.valueOf(c["comparison"].asText()), operand(c["right"]), int(c["offsetBars"]) ?: 0)
+                        Condition(
+                            operand(c["left"]),
+                            Comparison.valueOf(c["comparison"].asText()),
+                            operand(c["right"]),
+                            int(c["offsetBars"]) ?: 0,
+                            int(c["withinBars"]) ?: 1,
+                            int(c["minimumBars"]) ?: 1,
+                        )
                     }
                 },
+                int(n["count"]) ?: 0,
             )
+
+        private fun stopRule(n: JsonNode) = StopRule(n["at"]?.asText()?.takeIf { it != SIGNAL_WICK }?.let { operand(n["at"]) }, dec(n["bufferPercent"]) ?: BigDecimal.ZERO)
+
+        private fun targetRule(n: JsonNode) = TargetRule(n["at"]?.let { operand(it) }, dec(n["rMultiple"]), dec(n["closePercent"]) ?: BigDecimal(100))
+
+        /** The stop "at" value meaning the signal candle's own low (longs) or high (shorts). */
+        const val SIGNAL_WICK = "SIGNAL_WICK"
 
         fun indicator(i: JsonNode): IndicatorSpec =
             IndicatorSpec(
@@ -343,6 +433,10 @@ data class StrategyDefinition(
                 i["timeframe"]?.asText()?.let { Anchor.ofCode(it) },
                 i["anchor"]?.asText()?.let { Anchor.valueOf(it) },
                 i["anchorPoint"]?.asText()?.let { AnchorPoint.valueOf(it) },
+                i["from"]?.let { operand(it) },
+                i["to"]?.let { operand(it) },
+                dec(i["ratio"]),
+                dec(i["step"]),
             )
 
         /** Builds the definition from a document (a strategy or a trading plan) that has passed validation. */
@@ -373,6 +467,13 @@ data class StrategyDefinition(
                         e["conditions"]?.let { group(it) },
                         e["shortConditions"]?.let { group(it) },
                         e["partialTakeProfit"]?.let { p -> PartialTakeProfit(dec(p["atPercent"])!!, dec(p["closePercent"])!!, p["moveStopToEntry"]?.booleanValue() ?: false) },
+                        e["stop"]?.let(::stopRule),
+                        e["shortStop"]?.let(::stopRule),
+                        e["targets"]?.map(::targetRule).orEmpty(),
+                        e["shortTargets"]?.map(::targetRule).orEmpty(),
+                        dec(e["minimumRewardRisk"]),
+                        int(e["breakevenAfterTarget"]),
+                        e["trailing"]?.let { t -> TrailingRule(int(t["swingPeriod"]) ?: 3, int(t["afterTarget"]) ?: 0) },
                     ),
                 sizing = Sizing(SizingMethod.valueOf(doc["positionSizing"]["method"].asText()), dec(doc["positionSizing"]["value"])!!),
                 order = OrderInstructions(o["orderType"].asText(), o["timeInForce"].asText(), dec(o["limitOffsetPercent"])),

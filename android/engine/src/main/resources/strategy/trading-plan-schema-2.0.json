@@ -57,6 +57,7 @@
             "1m",
             "5m",
             "15m",
+            "30m",
             "1h",
             "4h",
             "1d"
@@ -278,6 +279,124 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "stop": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "at"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^SIGNAL_WICK$|^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+                  },
+                  "bufferPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5
+                  }
+                }
+              },
+              "shortStop": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "at"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^SIGNAL_WICK$|^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+                  },
+                  "bufferPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5
+                  }
+                }
+              },
+              "targets": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "closePercent"
+                  ],
+                  "properties": {
+                    "at": {
+                      "type": "string",
+                      "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+                    },
+                    "rMultiple": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 50
+                    },
+                    "closePercent": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                }
+              },
+              "shortTargets": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "closePercent"
+                  ],
+                  "properties": {
+                    "at": {
+                      "type": "string",
+                      "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+                    },
+                    "rMultiple": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 50
+                    },
+                    "closePercent": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                }
+              },
+              "minimumRewardRisk": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 20
+              },
+              "breakevenAfterTarget": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "trailing": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "swingPeriod": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "afterTarget": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3
+                  }
+                }
               }
             }
           },
@@ -303,6 +422,15 @@
                 "maximum": 10000000
               }
             }
+          },
+          "decisionTimeframe": {
+            "enum": [
+              "30m",
+              "1h",
+              "4h",
+              "1d",
+              "1w"
+            ]
           }
         }
       }
@@ -455,7 +583,10 @@
             "VOLUME_PROFILE",
             "OPEN_INTEREST",
             "FUNDING_RATE",
-            "CVD"
+            "CVD",
+            "LEVEL",
+            "ROUND_NUMBER",
+            "NAKED_POC"
           ]
         },
         "period": {
@@ -494,6 +625,9 @@
         },
         "timeframe": {
           "enum": [
+            "30m",
+            "1h",
+            "4h",
             "1d",
             "1w",
             "1M"
@@ -501,6 +635,9 @@
         },
         "anchor": {
           "enum": [
+            "M30",
+            "H1",
+            "H4",
             "DAY",
             "WEEK",
             "MONTH"
@@ -511,6 +648,24 @@
             "LOWEST_LOW",
             "HIGHEST_HIGH"
           ]
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+        },
+        "ratio": {
+          "type": "number",
+          "minimum": -10,
+          "maximum": 10
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10000000
         }
       }
     },
@@ -518,7 +673,7 @@
       "oneOf": [
         {
           "type": "string",
-          "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|change|annualized|delta))?$"
+          "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
         },
         {
           "type": "number",
@@ -557,6 +712,16 @@
           "type": "integer",
           "minimum": -1000,
           "maximum": 100
+        },
+        "withinBars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "minimumBars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
         }
       }
     },
@@ -571,7 +736,8 @@
         "operator": {
           "enum": [
             "ALL",
-            "ANY"
+            "ANY",
+            "AT_LEAST"
           ]
         },
         "conditions": {
@@ -588,6 +754,11 @@
               }
             ]
           }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
         }
       }
     }

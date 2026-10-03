@@ -62,12 +62,29 @@ object Periods {
         anchor: Anchor,
         zone: ZoneId,
     ): Instant {
+        anchor.fixed?.let { len ->
+            val sec = len.seconds
+            if (zone == ZoneOffset.UTC) return Instant.ofEpochSecond(Math.floorDiv(t.epochSecond, sec) * sec)
+            // US stocks: buckets counted from the 09:30 New York open.
+            val open =
+                t
+                    .atZone(zone)
+                    .toLocalDate()
+                    .atTime(9, 30)
+                    .atZone(zone)
+                    .toInstant()
+            val since =
+                java.time.Duration
+                    .between(open, t)
+                    .seconds
+            return open.plusSeconds(Math.floorDiv(since, sec) * sec)
+        }
         val d = t.atZone(zone).toLocalDate()
         val day =
             when (anchor) {
                 Anchor.DAY -> d
                 Anchor.WEEK -> d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                Anchor.MONTH -> d.withDayOfMonth(1)
+                else -> d.withDayOfMonth(1)
             }
         return day.atStartOfDay(zone).toInstant()
     }
@@ -77,12 +94,13 @@ object Periods {
         anchor: Anchor,
         zone: ZoneId,
     ): Instant {
+        anchor.fixed?.let { return start.plus(it) }
         val d = start.atZone(zone).toLocalDate()
         val next =
             when (anchor) {
                 Anchor.DAY -> d.plusDays(1)
                 Anchor.WEEK -> d.plusWeeks(1)
-                Anchor.MONTH -> d.plusMonths(1)
+                else -> d.plusMonths(1)
             }
         return next.atStartOfDay(zone).toInstant()
     }
@@ -101,10 +119,11 @@ object Periods {
             } else {
                 ((1440 + minutes - 1) / minutes).toInt()
             }
+        anchor.fixed?.let { len -> return ((len.toMinutes() + minutes - 1) / minutes).toInt().coerceAtLeast(1) }
         return when (anchor) {
             Anchor.DAY -> perDay
             Anchor.WEEK -> perDay * if (assetClass == AssetClass.US_EQUITY) 5 else 7
-            Anchor.MONTH -> perDay * if (assetClass == AssetClass.US_EQUITY) 23 else 31
+            else -> perDay * if (assetClass == AssetClass.US_EQUITY) 23 else 31
         }
     }
 

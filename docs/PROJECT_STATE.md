@@ -1,10 +1,10 @@
 # StrategyForge AI — Project State Manifesto
 
-Save point: **2026-10-03T07:48Z** · version **1.8.1** (versionCode 12) · branch `claude/strategyforge-v1-delivery-vgf1ah`
+Save point: **2026-10-03T08:08Z** · version **1.9.0** (versionCode 13) · branch `claude/strategyforge-v1-delivery-vgf1ah`
 
 ```text
 === STRATEGYFORGE AI — PROJECT STATE MANIFESTO ===
-SAVE POINT: 2026-10-03T07:48Z | v1.8.1 (versionCode 12) | engine 208/208 (+1 opt-in), core 27/27
+SAVE POINT: 2026-10-03T08:08Z | v1.9.0 (versionCode 13) | engine 221/221 (+4 opt-in real-data), core 27/27
 BRANCH: claude/strategyforge-v1-delivery-vgf1ah (push: git push -u origin <branch>; NO PR unless asked)
 APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest (StrategyForge.apk, CI-published)
 
@@ -83,6 +83,13 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         raw.githubusercontent.com/ff137/bitstamp-btcusd-minute-data/main/data/updates/btcusd_bitstamp_1min_latest.csv).
         v1 real result Jul25-Oct26: -14.6%, 57 trades, PF 0.47 (SFP 50 trades, half stopped at 1.2%).
         Fixed: offset-aware contradiction check; HISTORY_TOO_LONG kept inside plans.
+- 1.9.0 (D-047) FIDELITY: exitRules stop/shortStop {at SIGNAL_WICK|level, bufferPercent} (stopLossPercent = max),
+        targets/shortTargets (<=3, at level | rMultiple, closePercent), breakevenAfterTarget, trailing {swingPeriod,
+        afterTarget}, minimumRewardRisk; ExitPlan fixed at signal (signals.exit_plan, migration 8); RISK sizing from
+        real stop. Timeframe 30m; Anchor M30/H1/H4 (HTF candle via PERIOD_LEVELS, indicator timeframe); setup
+        decisionTimeframe. AT_LEAST/count; withinBars/minimumBars. LEVEL/ROUND_NUMBER/NAKED_POC. Compact schema in prompts.
+        Real BTC (Jul25-Oct26): v2 default costs -16.7% PF .73; no costs +4.3%; futures costs -12.6%; EMA swing strong,
+        mechanical SFP/failed auction no edge. Fixture research/chart_champions_plan_v2_reply.md.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -96,13 +103,13 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - Known approximations: volume profile and CVD derived from candles (not tick data).
 
 4. NEXT IMMEDIATE STEPS (ranked)
- 1. FIDELITY RELEASE (agreed, task 35), driven by the owner's research; compare CC plan v2 vs v1 on real data:
-    structural stops (signal wick + buffer, or indicator level) and level targets (POC/VAH/VAL/range/prev H-L, R-multiples),
-    up to 3 TPs, structure trail; sizing from actual stop distance; 30m bars + HTF indicator timeframes 30m/1h/4h + HTF
-    candle + per-setup decision timeframe; rule ops AT_LEAST k, WITHIN n bars, FOR k of n bars; level calculator
-    (A + r*(B-A)); nPOC + round-number levels; setup expiry. Then CC plan v2 fixture + real-data comparison.
- 2. Then (was 1.9.0): "Copy analysis prompt" export, plan comparison charts, "build a better plan".
+ 1. Owner imports research with Copy instructions on 1.9.0; review readback/approximations; check portfolio cost model
+    (default crypto fallback spread 0.20%/side is very conservative; real-data runs show costs dominate tight stops).
+ 2. Agreed next: "Copy analysis prompt" export (plan + per-setup results + trades for any AI), plan comparison charts,
+    "build a better plan". Consider exposing realistic cost presets (spot vs perpetual) in the app.
  3. Owner verifies Kraken futures on phone; open offer: live streaming.
+ 4. Known limits: one signal per symbol per bar; one plan timeframe (setups decide on longer ones via decisionTimeframe);
+    no cross-symbol (alt vs BTC) rules; no laddered entries (CCW).
 
 5. CRITICAL CAVEATS & CONSTRAINTS
 - Paper trading only. Never real orders. Shorts are simulated.
@@ -114,7 +121,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-047). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-048). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

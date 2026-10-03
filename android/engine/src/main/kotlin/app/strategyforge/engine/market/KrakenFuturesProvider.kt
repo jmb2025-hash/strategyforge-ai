@@ -213,6 +213,7 @@ class KrakenFuturesProvider(
                 Timeframe.M1 -> 60
                 Timeframe.M5 -> 300
                 Timeframe.M15 -> 900
+                Timeframe.M30 -> 1800
                 Timeframe.H1 -> 3600
                 Timeframe.H4 -> 14400
                 Timeframe.D1 -> 86400

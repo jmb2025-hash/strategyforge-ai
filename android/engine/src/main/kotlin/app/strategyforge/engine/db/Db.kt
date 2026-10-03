@@ -127,6 +127,9 @@ class Db(
                         .param("now", java.time.Instant.now())
                         .update()
                 },
+                Migration(8, "Chart-level exits: the stop and targets fixed when an entry signal fires") { db ->
+                    db.addColumn("signals", "exit_plan", "TEXT")
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1

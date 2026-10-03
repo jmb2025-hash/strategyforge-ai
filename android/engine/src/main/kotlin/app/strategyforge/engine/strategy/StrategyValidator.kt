@@ -203,7 +203,7 @@ class StrategyValidator(
 
     // ---------------------------------------------------------------- unknown fields
 
-    private enum class Shape { ROOT, PLAN, CONTEXT, PLAN_RULES, SETUP, METADATA, UNIVERSE, DATA, INDICATOR, GROUP, CONDITION, EXIT, PARTIAL, SIZING, ORDER, RISK, SCHEDULE, LEAF }
+    private enum class Shape { ROOT, PLAN, CONTEXT, PLAN_RULES, SETUP, STOP, TARGET, TRAIL, METADATA, UNIVERSE, DATA, INDICATOR, GROUP, CONDITION, EXIT, PARTIAL, SIZING, ORDER, RISK, SCHEDULE, LEAF }
 
     private val known: Map<Shape, Map<String, Shape>> =
         mapOf(
@@ -243,7 +243,7 @@ class StrategyValidator(
             Shape.CONTEXT to mapOf("longWhen" to Shape.GROUP, "shortWhen" to Shape.GROUP),
             Shape.PLAN_RULES to listOf("conflictPolicy", "capitalPolicy", "maximumOpenRiskPercent").associateWith { Shape.LEAF },
             Shape.SETUP to
-                listOf("id", "name", "description", "priority", "allocationPercent", "direction", "maximumOpenPositions").associateWith { Shape.LEAF } +
+                listOf("id", "name", "description", "priority", "allocationPercent", "direction", "maximumOpenPositions", "decisionTimeframe").associateWith { Shape.LEAF } +
                 mapOf(
                     "appliesWhen" to Shape.GROUP,
                     "entryRules" to Shape.GROUP,
@@ -254,9 +254,11 @@ class StrategyValidator(
             Shape.METADATA to listOf("name", "description", "assetClass", "timeframe", "createdBy", "direction", "tags").associateWith { Shape.LEAF },
             Shape.UNIVERSE to mapOf("symbols" to Shape.LEAF),
             Shape.DATA to mapOf("minimumHistoryBars" to Shape.LEAF, "maximumQuoteAgeSeconds" to Shape.LEAF, "indicators" to Shape.INDICATOR),
-            Shape.INDICATOR to listOf("id", "type", "period", "fastPeriod", "slowPeriod", "signalPeriod", "standardDeviations", "source", "timeframe", "anchor", "anchorPoint").associateWith { Shape.LEAF },
-            Shape.GROUP to mapOf("operator" to Shape.LEAF, "conditions" to Shape.CONDITION),
-            Shape.CONDITION to listOf("left", "comparison", "right", "offsetBars").associateWith { Shape.LEAF },
+            Shape.INDICATOR to
+                listOf("id", "type", "period", "fastPeriod", "slowPeriod", "signalPeriod", "standardDeviations", "source", "timeframe", "anchor", "anchorPoint", "from", "to", "ratio", "step")
+                    .associateWith { Shape.LEAF },
+            Shape.GROUP to mapOf("operator" to Shape.LEAF, "conditions" to Shape.CONDITION, "count" to Shape.LEAF),
+            Shape.CONDITION to listOf("left", "comparison", "right", "offsetBars", "withinBars", "minimumBars").associateWith { Shape.LEAF },
             Shape.EXIT to
                 mapOf(
                     "stopLossPercent" to Shape.LEAF,
@@ -266,7 +268,17 @@ class StrategyValidator(
                     "conditions" to Shape.GROUP,
                     "shortConditions" to Shape.GROUP,
                     "partialTakeProfit" to Shape.PARTIAL,
+                    "stop" to Shape.STOP,
+                    "shortStop" to Shape.STOP,
+                    "targets" to Shape.TARGET,
+                    "shortTargets" to Shape.TARGET,
+                    "minimumRewardRisk" to Shape.LEAF,
+                    "breakevenAfterTarget" to Shape.LEAF,
+                    "trailing" to Shape.TRAIL,
                 ),
+            Shape.STOP to mapOf("at" to Shape.LEAF, "bufferPercent" to Shape.LEAF),
+            Shape.TARGET to listOf("at", "rMultiple", "closePercent").associateWith { Shape.LEAF },
+            Shape.TRAIL to mapOf("swingPeriod" to Shape.LEAF, "afterTarget" to Shape.LEAF),
             Shape.PARTIAL to listOf("atPercent", "closePercent", "moveStopToEntry").associateWith { Shape.LEAF },
             Shape.SIZING to mapOf("method" to Shape.LEAF, "value" to Shape.LEAF),
             Shape.ORDER to mapOf("orderType" to Shape.LEAF, "timeInForce" to Shape.LEAF, "limitOffsetPercent" to Shape.LEAF),
@@ -345,6 +357,14 @@ class StrategyValidator(
         val ids = setups.map { it["id"].asText() }
         ids.groupingBy { it }.eachCount().filter { it.value > 1 }.keys.forEach { id ->
             out += ValidationIssue("DUPLICATE_SETUP_ID", IssueCategory.SEMANTIC, IssueSeverity.ERROR, "$.setups", "Setup id '$id' is used more than once")
+        }
+        val base = Timeframe.of(doc["metadata"]["timeframe"].asText())
+        setups.forEachIndexed { i, s ->
+            s["decisionTimeframe"]?.asText()?.let { Anchor.ofCode(it) }?.let { a ->
+                if (a.nominal <= base.duration) {
+                    out += ValidationIssue("CONTRADICTORY_PARAMETERS", IssueCategory.SEMANTIC, IssueSeverity.ERROR, "$.setups[$i].decisionTimeframe", "decisionTimeframe ${a.code} must be longer than the plan's ${base.code} bars")
+                }
+            }
         }
         val capital = doc["planRules"]?.get("capitalPolicy")?.asText() ?: "SHARED"
         val allocations = setups.mapNotNull { it["allocationPercent"]?.decimalValue() }
@@ -430,6 +450,9 @@ class StrategyValidator(
                     in IndicatorType.PATTERNS -> emptySet()
                     IndicatorType.PERIOD_LEVELS, IndicatorType.VWAP -> setOf("anchor")
                     IndicatorType.FUNDING_RATE -> emptySet()
+                    IndicatorType.LEVEL -> setOf("from", "to", "ratio")
+                    IndicatorType.ROUND_NUMBER -> setOf("step")
+                    IndicatorType.NAKED_POC -> setOf("anchor", "period")
                     // A volume profile covers either the previous N bars or the previous calendar period (D-042).
                     IndicatorType.VOLUME_PROFILE -> if (ind.has("anchor")) setOf("anchor") else setOf("period")
                     else -> setOf("period")
@@ -445,15 +468,38 @@ class StrategyValidator(
                 err("DERIVATIVES_CRYPTO_ONLY", "$p.type", "$type uses perpetual-futures data, which exists for crypto strategies only")
             }
             if (type == IndicatorType.VOLUME_PROFILE && ind.has("anchor") && ind.has("period")) err("CONTRADICTORY_PARAMETERS", p, "VOLUME_PROFILE takes either 'period' or 'anchor', not both")
+            val base = Timeframe.of(doc["metadata"]["timeframe"].asText())
             ind["timeframe"]?.asText()?.let { tf ->
-                val base = Timeframe.of(doc["metadata"]["timeframe"].asText())
                 val anchor = Anchor.ofCode(tf)
                 if (anchor == null) {
-                    err("UNSUPPORTED_PARAMETER", "$p.timeframe", "timeframe must be 1d, 1w or 1M")
-                } else if (anchor == Anchor.DAY && base == Timeframe.D1) {
-                    err("CONTRADICTORY_PARAMETERS", "$p.timeframe", "The strategy already uses daily bars; omit timeframe")
+                    err("UNSUPPORTED_PARAMETER", "$p.timeframe", "timeframe must be 30m, 1h, 4h, 1d, 1w or 1M")
+                } else if (anchor.nominal <= base.duration) {
+                    err("CONTRADICTORY_PARAMETERS", "$p.timeframe", "timeframe ${anchor.code} is not longer than the strategy's ${base.code} bars; omit it or use a longer one")
                 }
             }
+            ind["anchor"]?.asText()?.let { a ->
+                runCatching { Anchor.valueOf(a) }.getOrNull()?.let { anchor ->
+                    if (anchor.fixed != null && anchor.nominal <= base.duration) err("CONTRADICTORY_PARAMETERS", "$p.anchor", "anchor ${anchor.code} is not longer than the strategy's ${base.code} bars")
+                }
+            }
+            if (type == IndicatorType.LEVEL) {
+                listOf("from", "to").forEach { k ->
+                    val ref = ind[k]
+                    if (ref != null && ref.isTextual) {
+                        val r = ref.asText()
+                        val refId = r.substringBefore('.')
+                        val comp = if (r.contains('.')) r.substringAfter('.') else "value"
+                        val price = PriceField.entries.any { it.name == r }
+                        val known = specs[refId]
+                        when {
+                            price -> Unit
+                            known == null -> err("UNKNOWN_REFERENCE", "$p.$k", "'$r' must be a price field or an indicator declared before this LEVEL")
+                            comp !in known.components() -> err("UNKNOWN_COMPONENT", "$p.$k", "${known.type} has no component '$comp'")
+                        }
+                    }
+                }
+            }
+            if (type == IndicatorType.NAKED_POC && (ind["period"]?.intValue() ?: 0) > 60) err("UNSAFE_VALUE", "$p.period", "NAKED_POC looks back at most 60 periods")
             if (type == IndicatorType.MACD && ind["fastPeriod"] != null && ind["slowPeriod"] != null && ind["fastPeriod"].intValue() >= ind["slowPeriod"].intValue()) {
                 err("CONTRADICTORY_PARAMETERS", p, "MACD fastPeriod must be less than slowPeriod")
             }
@@ -471,6 +517,10 @@ class StrategyValidator(
                         ind["timeframe"]?.asText()?.let { Anchor.ofCode(it) },
                         ind["anchor"]?.asText()?.let { Anchor.valueOf(it) },
                         ind["anchorPoint"]?.asText()?.let { AnchorPoint.valueOf(it) },
+                        ind["from"]?.let { StrategyDefinition.operand(it) },
+                        ind["to"]?.let { StrategyDefinition.operand(it) },
+                        ind["ratio"]?.decimalValue(),
+                        ind["step"]?.decimalValue(),
                     )
             }
         }
@@ -500,6 +550,12 @@ class StrategyValidator(
                 return
             }
             val pairs = mutableListOf<Triple<String, String, Comparison>>()
+            val op = g["operator"].asText()
+            val count = g["count"]?.intValue()
+            if (op == "AT_LEAST" && (count == null || count > g["conditions"].size())) {
+                err("INVALID_COUNT", "$path.count", "AT_LEAST needs a count between 1 and the number of its conditions")
+            }
+            if (op != "AT_LEAST" && count != null) err("UNSUPPORTED_PARAMETER", "$path.count", "count is only used with operator AT_LEAST")
             g["conditions"].forEachIndexed { i, c ->
                 val cp = "$path.conditions[$i]"
                 if (c.has("operator")) {
@@ -510,7 +566,10 @@ class StrategyValidator(
                 val cmp = Comparison.valueOf(c["comparison"].asText())
                 val offset = c["offsetBars"]?.intValue() ?: 0
                 if (offset < 0) err("FUTURE_DATA_REFERENCE", "$cp.offsetBars", "Negative offsets reference future bars and are prohibited")
-                maxOffset = maxOf(maxOffset, offset)
+                val within = c["withinBars"]?.intValue() ?: 1
+                val minimum = c["minimumBars"]?.intValue() ?: 1
+                if (minimum > within) err("CONTRADICTORY_PARAMETERS", "$cp.minimumBars", "minimumBars cannot exceed withinBars")
+                maxOffset = maxOf(maxOffset, offset + within - 1)
                 val sides = listOf(c["left"], c["right"])
                 sides.forEachIndexed { si, o ->
                     if (o.isTextual) {
@@ -527,7 +586,8 @@ class StrategyValidator(
                 if ((cmp == Comparison.CROSSES_ABOVE || cmp == Comparison.CROSSES_BELOW) && sides.first().isNumber) err("INVALID_CROSS", cp, "The left side of a cross must be a series")
                 // Conditions on different bars (offsetBars) never contradict each other.
                 val at = if (offset != 0) "@$offset" else ""
-                pairs += Triple(c["left"].toString() + at, c["right"].toString() + at, cmp)
+                // A windowed condition ("within the last N bars") never contradicts a single-bar one.
+                if (within <= 1) pairs += Triple(c["left"].toString() + at, c["right"].toString() + at, cmp)
             }
             if (g["operator"].asText() == "ALL") {
                 pairs.forEach { (l, r, cmp) ->
@@ -615,10 +675,56 @@ class StrategyValidator(
                 err("CONTRADICTORY_SETTINGS", "$.exitRules.partialTakeProfit.atPercent", "The partial target must be closer than takeProfitPercent")
             }
         }
+        chartLevelExits(doc, specs, direction, ::err)
         val trailing = doc["exitRules"]["trailingStopPercent"]?.decimalValue()
         if (trailing != null && trailing > stop.multiply(BigDecimal(5))) {
             issues += ValidationIssue("WIDE_TRAILING_STOP", IssueCategory.RISK, IssueSeverity.WARNING, "$.exitRules.trailingStopPercent", "Trailing stop is much wider than the stop loss")
         }
+    }
+
+    /** Stops at levels, targets and trailing (D-047): references, one price source per target, consistent settings. */
+    private fun chartLevelExits(
+        doc: JsonNode,
+        specs: Map<String, IndicatorSpec>,
+        direction: String,
+        err: (String, String, String) -> Unit,
+    ) {
+        val e = doc["exitRules"]
+
+        fun ref(
+            r: String,
+            path: String,
+        ) {
+            if (r == StrategyDefinition.SIGNAL_WICK || PriceField.entries.any { it.name == r }) return
+            val spec = specs[r.substringBefore('.')]
+            val comp = if (r.contains('.')) r.substringAfter('.') else "value"
+            when {
+                spec == null -> err("UNKNOWN_REFERENCE", path, "'$r' is not a declared indicator or price field")
+                comp !in spec.components() -> err("UNKNOWN_COMPONENT", path, "${spec.type} has no component '$comp'")
+            }
+        }
+        listOf("stop", "shortStop").forEach { k -> e[k]?.get("at")?.asText()?.let { ref(it, "$.exitRules.$k.at") } }
+        listOf("targets", "shortTargets").forEach { k ->
+            val ts = e[k] ?: return@forEach
+            ts.forEachIndexed { n, t ->
+                val p = "$.exitRules.$k[$n]"
+                val hasAt = t["at"] != null
+                val hasR = t["rMultiple"] != null
+                if (hasAt == hasR) err("CONTRADICTORY_PARAMETERS", p, "A target needs exactly one of 'at' (a level) or 'rMultiple'")
+                t["at"]?.asText()?.let { ref(it, "$p.at") }
+            }
+            val early = ts.toList().dropLast(1).sumOf { it["closePercent"]?.decimalValue() ?: BigDecimal.ZERO }
+            if (early >= BigDecimal(100)) err("CONTRADICTORY_PARAMETERS", "$.exitRules.$k", "Targets before the last close 100% or more; the last target closes the rest")
+        }
+        if (direction != "BOTH") {
+            listOf("shortStop", "shortTargets").forEach { k -> if (e[k] != null) err("UNSUPPORTED_PARAMETER", "$.exitRules.$k", "$k is only used when direction is BOTH; use ${k.removePrefix("short").replaceFirstChar { it.lowercase() }}") }
+        }
+        val count = maxOf(e["targets"]?.size() ?: 0, e["shortTargets"]?.size() ?: 0)
+        e["breakevenAfterTarget"]?.intValue()?.let { if (it > count) err("CONTRADICTORY_PARAMETERS", "$.exitRules.breakevenAfterTarget", "There is no target $it") }
+        e["trailing"]?.get("afterTarget")?.intValue()?.let { if (it > count) err("CONTRADICTORY_PARAMETERS", "$.exitRules.trailing.afterTarget", "There is no target $it") }
+        if (e["partialTakeProfit"] != null && count > 0) err("CONTRADICTORY_PARAMETERS", "$.exitRules.partialTakeProfit", "Use either partialTakeProfit or targets, not both")
+        if (e["trailingStopPercent"] != null && e["trailing"] != null) err("CONTRADICTORY_PARAMETERS", "$.exitRules.trailing", "Use either trailingStopPercent or trailing, not both")
+        if (e["minimumRewardRisk"] != null && count == 0) err("CONTRADICTORY_PARAMETERS", "$.exitRules.minimumRewardRisk", "minimumRewardRisk needs targets")
     }
 
     private fun universeRules(
@@ -651,7 +757,8 @@ class StrategyValidator(
         val active = market()
         val native = active.provider.nativeTimeframes(def.assetClass)
         val obtainable =
-            def.timeframe in native || (def.timeframe in setOf(Timeframe.M5, Timeframe.M15) && Timeframe.M1 in native) || (def.timeframe == Timeframe.H4 && Timeframe.H1 in native)
+            def.timeframe in native || (def.timeframe in setOf(Timeframe.M5, Timeframe.M15, Timeframe.M30) && Timeframe.M1 in native) ||
+                (def.timeframe == Timeframe.M30 && Timeframe.M15 in native) || (def.timeframe == Timeframe.H4 && Timeframe.H1 in native)
         if (!obtainable) issues += ValidationIssue("TIMEFRAME_UNAVAILABLE", IssueCategory.DATA, IssueSeverity.ERROR, "$.metadata.timeframe", "${def.timeframe.code} bars are not available from ${active.name}")
         def.symbols.forEachIndexed { i, s ->
             val r = active.provider.lookup(s)

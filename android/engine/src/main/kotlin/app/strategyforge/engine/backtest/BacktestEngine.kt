@@ -11,6 +11,7 @@ import app.strategyforge.engine.portfolio.CostModel
 import app.strategyforge.engine.risk.RiskLimits
 import app.strategyforge.engine.strategy.CapitalPolicy
 import app.strategyforge.engine.strategy.ConflictPolicy
+import app.strategyforge.engine.strategy.ExitPlan
 import app.strategyforge.engine.strategy.Indicators
 import app.strategyforge.engine.strategy.RuleEvaluator
 import app.strategyforge.engine.strategy.SeriesContext
@@ -155,6 +156,13 @@ private class Simulation(
         var extreme: BigDecimal,
         val partial: Boolean,
         var partialTaken: Boolean = false,
+        /** Chart-level stop and targets fixed at the signal (D-047). */
+        val plan: ExitPlan? = null,
+        var stopPrice: BigDecimal? = null,
+        val originalQty: BigDecimal = qty,
+        var targetsDone: Int = 0,
+        var breakeven: Boolean = false,
+        var trailed: Boolean = false,
     ) {
         val key: String get() = key(symbol, setup.id)
     }
@@ -168,6 +176,7 @@ private class Simulation(
         val reason: String,
         val short: Boolean = false,
         val setup: Setup,
+        val plan: ExitPlan? = null,
     ) {
         val key: String get() = key(symbol, setup.id)
     }
@@ -219,7 +228,7 @@ private class Simulation(
                 val bar = s.bars[i]
                 applyCorporateActions(s, day)
                 fillPending(s, i, bar, t)
-                held(s.symbol).forEach { protectiveExits(it, s, bar, t) }
+                held(s.symbol).forEach { if (it.plan != null) plannedExits(it, s, i, bar, t) else protectiveExits(it, s, bar, t) }
                 lastClose[s.symbol] = bar.close
             }
             val eq = markToMarket()
@@ -333,13 +342,19 @@ private class Simulation(
             unfilled++
             return
         }
+        // A gap through the planned stop before the fill: the setup is no longer valid.
+        val stop = o.plan?.stop
+        if (stop != null && (if (short) bar.open >= stop else bar.open <= stop)) {
+            unfilled++
+            return
+        }
         val isPartial = qty < o.qty
         if (isPartial) partialFills++
         val notional = qty.multiply(px)
         val fee = Pricing.commission(m, qty, notional, true)
         cash = if (short) cash.add(notional).subtract(fee) else cash.subtract(notional).subtract(fee)
         turnover = turnover.add(notional)
-        positions[o.key] = Pos(o.setup, s.symbol, short, qty, Decimals.price(px), t, fee, price.multiply(hs).multiply(qty), touch.subtract(px).abs().multiply(qty), extreme = px, partial = isPartial)
+        positions[o.key] = Pos(o.setup, s.symbol, short, qty, Decimals.price(px), t, fee, price.multiply(hs).multiply(qty), touch.subtract(px).abs().multiply(qty), extreme = px, partial = isPartial, plan = o.plan, stopPrice = o.plan?.stop)
         dayTrades++
     }
 
@@ -420,6 +435,72 @@ private class Simulation(
             closePosition(p, if (short) bar.open.min(target) else bar.open.max(target), t, "TAKE_PROFIT", s, false)
         } else {
             p.extreme = if (short) p.extreme.min(bar.low) else p.extreme.max(bar.high)
+        }
+    }
+
+    private val swingCache = mutableMapOf<Triple<String, Boolean, Int>, List<BigDecimal?>>()
+
+    /**
+     * Chart-level exits (D-047): the stop first (assumed hit before any target in the same bar), then
+     * each target in order, each closing its share of the original position; the stop moves to the
+     * entry after the configured target, and a trailing stop follows each new confirmed swing.
+     */
+    private fun plannedExits(
+        p: Pos,
+        s: SymbolSeries,
+        i: Int,
+        bar: CandleData,
+        t: Instant,
+    ) {
+        val short = p.short
+        val plan = p.plan!!
+        val exit = p.setup.def.exit
+        val stop = p.stopPrice ?: plan.stop!!
+        if (if (short) bar.high >= stop else bar.low <= stop) {
+            val reason =
+                when {
+                    p.trailed -> "TRAILING_STOP"
+                    p.breakeven -> "BREAKEVEN_STOP"
+                    else -> "STOP_LOSS"
+                }
+            closePosition(p, if (short) bar.open.max(stop) else bar.open.min(stop), t, reason, s, true)
+            return
+        }
+        while (p.targetsDone < plan.targets.size) {
+            val target = plan.targets[p.targetsDone]
+            if (!(if (short) bar.low <= target.price else bar.high >= target.price)) break
+            val n = p.targetsDone + 1
+            val px = if (short) bar.open.min(target.price) else bar.open.max(target.price)
+            val last = p.targetsDone == plan.targets.lastIndex
+            val part = Decimals.floorToStep(p.originalQty.multiply(target.closeFraction, mc), s.quantityIncrement)
+            p.targetsDone = n
+            if (last || part >= p.qty) {
+                closePosition(p, px, t, "TARGET_$n", s, false)
+                return
+            }
+            if (part >= s.minQuantity) closePosition(p, px, t, "TARGET_$n", s, false, part)
+            if (exit.breakevenAfterTarget == n) {
+                p.stopPrice = if (short) p.stopPrice!!.min(p.entryPrice) else p.stopPrice!!.max(p.entryPrice)
+                p.breakeven = true
+            }
+        }
+        // takeProfitPercent stays as an outer cap.
+        val tpPct = exit.takeProfitPercent.divide(Decimals.HUNDRED, mc)
+        val cap = if (short) p.entryPrice.multiply(BigDecimal.ONE.subtract(tpPct)) else p.entryPrice.multiply(BigDecimal.ONE.add(tpPct))
+        if (if (short) bar.low <= cap else bar.high >= cap) {
+            closePosition(p, if (short) bar.open.min(cap) else bar.open.max(cap), t, "TAKE_PROFIT", s, false)
+            return
+        }
+        exit.trailing?.let { tr ->
+            if (p.targetsDone < tr.afterTarget) return@let
+            val swings = swingCache.getOrPut(Triple(s.symbol, short, tr.swingPeriod)) { ExitPlan.swings(s.bars, short, tr.swingPeriod) }
+            val sw = swings.getOrNull(i) ?: return@let
+            // Only tighten, and only to a swing on the right side of the price.
+            val better = if (short) sw < p.stopPrice!! && sw > bar.close else sw > p.stopPrice!! && sw < bar.close
+            if (better) {
+                p.stopPrice = sw
+                p.trailed = true
+            }
         }
     }
 
@@ -522,6 +603,7 @@ private class Simulation(
             if (positions.containsKey(key(s.symbol, setup.id)) || pending.any { it.key == key(s.symbol, setup.id) }) continue
             setup.maximumOpenPositions?.let { cap -> if (positions.values.count { it.setup.id == setup.id } + pending.count { it.entry && it.setup.id == setup.id } >= cap) continue }
             if (i + 1 < setup.def.minimumHistoryBars) continue
+            if (!setup.decides(s.bars, i, ctx)) continue
             val short = setup.signal(plan, ev, i) ?: continue
             if (short && !shortingAllowed) continue
             // Never long and short in the same symbol at once.
@@ -541,9 +623,15 @@ private class Simulation(
     ): Boolean {
         val sd = setup.def
         val close = s.bars[i].close
+        val exitPlan =
+            if (sd.exit.structured) {
+                ExitPlan.build(sd, short, s.bars, evaluators.getValue(s.symbol), i, close).first ?: return false
+            } else {
+                null
+            }
         val allocated = plan.capitalPolicy == CapitalPolicy.ALLOCATED && setup.allocationPercent != null
         val budget = if (allocated) eq.multiply(setup.allocationPercent).divide(Decimals.HUNDRED, mc) else eq
-        val qty = sizing(sd, budget, close, maxTradePercent, rp.maxTradeValue)
+        val qty = sizing(sd, budget, close, maxTradePercent, rp.maxTradeValue, exitPlan?.riskFraction(close))
         val limit =
             sd.order.limitOffsetPercent?.takeIf { sd.order.orderType == "LIMIT" }?.let { off ->
                 val f = off.divide(Decimals.HUNDRED, mc)
@@ -566,15 +654,22 @@ private class Simulation(
                 val open =
                     positions.values.fold(BigDecimal.ZERO) { a, p ->
                         a.add(
-                            p.qty
+                            p.stopPrice?.let { st -> p.qty.multiply(p.entryPrice.subtract(st).abs()) } ?: p.qty
                                 .multiply(p.entryPrice)
                                 .multiply(p.setup.def.exit.stopLossPercent)
                                 .divide(Decimals.HUNDRED, mc),
                         )
                     }
                 val queued =
-                    pending.filter { it.entry }.fold(BigDecimal.ZERO) { a, o -> a.add((o.qty ?: BigDecimal.ZERO).multiply(close).multiply(o.setup.def.exit.stopLossPercent).divide(Decimals.HUNDRED, mc)) }
-                val add = notional.multiply(sd.exit.stopLossPercent).divide(Decimals.HUNDRED, mc)
+                    pending.filter { it.entry }.fold(BigDecimal.ZERO) { a, o ->
+                        a.add(
+                            (o.qty ?: BigDecimal.ZERO).multiply(close).multiply(
+                                o.plan?.riskFraction(close) ?: o.setup.def.exit.stopLossPercent
+                                    .divide(Decimals.HUNDRED, mc),
+                            ),
+                        )
+                    }
+                val add = notional.multiply(exitPlan?.riskFraction(close) ?: sd.exit.stopLossPercent.divide(Decimals.HUNDRED, mc))
                 eq.signum() > 0 && open
                     .add(queued)
                     .add(add)
@@ -585,7 +680,7 @@ private class Simulation(
             riskBlocked++
             return false
         }
-        pending += Pending(s.symbol, fillAt, true, Decimals.floorToStep(qty, s.quantityIncrement), limit, "ENTRY_RULE", short, setup)
+        pending += Pending(s.symbol, fillAt, true, Decimals.floorToStep(qty, s.quantityIncrement), limit, "ENTRY_RULE", short, setup, exitPlan)
         return true
     }
 
@@ -642,6 +737,8 @@ fun sizing(
     price: BigDecimal,
     profileMaxTradePercent: BigDecimal? = null,
     profileMaxTradeValue: BigDecimal? = null,
+    /** Actual distance to a chart-level stop as a fraction of price (D-047); else stopLossPercent. */
+    riskFraction: BigDecimal? = null,
 ): BigDecimal {
     val mc = Decimals.MC
     if (price.signum() <= 0) return BigDecimal.ZERO
@@ -651,7 +748,7 @@ fun sizing(
         SizingMethod.PERCENT_OF_EQUITY -> equity.multiply(def.sizing.value).divide(Decimals.HUNDRED, mc).divide(price, 18, RoundingMode.FLOOR)
         SizingMethod.RISK_PERCENT -> {
             val risk = equity.multiply(def.sizing.value).divide(Decimals.HUNDRED, mc)
-            val perUnit = price.multiply(def.exit.stopLossPercent).divide(Decimals.HUNDRED, mc)
+            val perUnit = riskFraction?.takeIf { it.signum() > 0 }?.let { price.multiply(it, mc) } ?: price.multiply(def.exit.stopLossPercent).divide(Decimals.HUNDRED, mc)
             val byRisk = risk.divide(perUnit, 18, RoundingMode.FLOOR)
             val capPct = listOfNotNull(def.risk.maximumPositionPercent, profileMaxTradePercent, Decimals.HUNDRED).min()
             val capValue = listOfNotNull(equity.multiply(capPct).divide(Decimals.HUNDRED, mc), profileMaxTradeValue).min()

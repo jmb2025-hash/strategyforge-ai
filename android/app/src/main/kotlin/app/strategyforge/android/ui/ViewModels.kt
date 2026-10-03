@@ -449,6 +449,7 @@ class StrategyDetailViewModel
                         "1m" -> 3L
                         "5m" -> 14L
                         "15m" -> 30L
+                        "30m" -> 90L
                         "1h", "4h" -> 180L
                         else -> 730L
                     }

@@ -67,6 +67,11 @@ object ResearchPrompts {
             "long and short trades in the same strategy (simulated shorts are available for crypto and stocks), " +
             "partial profit taking with an optional move of the stop to the entry price, sizing by percent of equity at risk, " +
             "a daily cap on losing trades, " +
+            "stops placed beyond the signal candle's wick or a chart level, up to three targets at chart levels or multiples of the risk, " +
+            "moving the stop to entry after a target, trailing the stop to each new confirmed swing, a minimum reward-to-risk, " +
+            "30-minute, 1-hour and 4-hour candles and indicators inside a faster plan, a setup that only decides on a longer timeframe's closes, " +
+            "'at least N of' confluence groups, conditions that held within the last N bars, levels between two other levels at any ratio " +
+            "(quartiles, any Fibonacci ratio or extension, range multiples), round numbers, untested (naked) volume-profile POCs, " +
             "and for crypto only: perpetual-futures open interest and its change, the funding rate, and taker delta / cumulative volume delta (CVD)"
 
     /** How the compiler expresses chart structure and candlestick patterns with the schema (D-036). */
@@ -188,8 +193,27 @@ object ResearchPrompts {
           sizes from its allocationPercent, which then every setup needs and which together are at most 100);
           maximumOpenRiskPercent caps equity at risk to the stops across all open positions (for example 3 with 1% risk per trade).
         - riskLimits apply to the whole plan: open positions, trades per day, daily loss, drawdown, losing trades per day.
-        - "At least two of A, B and C" (confluence) is a group with operator ANY whose conditions are groups with operator ALL
-          for each pair: (A and B), (A and C), (B and C).
+        - "At least two of A, B and C" (confluence) is {"operator": "AT_LEAST", "count": 2, "conditions": [A, B, C]}.
+        - A setup decided on a longer timeframe inside a faster plan uses "decisionTimeframe" ("30m", "1h", "4h", "1d"): it
+          only looks for entries on bars that complete that period. Its candle is PERIOD_LEVELS with the same anchor
+          (M30, H1, H4, DAY): open, high, low so far and the previous candle's levels.
+        Chart-level trade management (in each setup's exitRules):
+        - "stop": {"at": "SIGNAL_WICK", "bufferPercent": 0.1} puts the stop beyond the signal candle's low (longs) or high (shorts)
+          plus a buffer; "at" can also be a level such as "VA.val". stopLossPercent is then the farthest stop allowed (no trade
+          if the stop would be farther). "shortStop" and "shortTargets" set the short side of a BOTH setup.
+        - "targets": up to three, each {"at": "<level>"} or {"rMultiple": 2} (a multiple of the stop distance), with
+          "closePercent" (the last target closes the rest). takeProfitPercent stays as a far outer cap.
+        - "breakevenAfterTarget": 1 moves the stop to entry after target 1; "trailing": {"swingPeriod": 3, "afterTarget": 1}
+          then trails the stop to each new confirmed swing; "minimumRewardRisk": 2 skips trades whose first target pays less.
+        - RISK_PERCENT sizing uses the actual stop distance.
+        Conditions and levels:
+        - A condition with "withinBars": 6 holds if it was true on any of the last 6 bars; add "minimumBars": 2 to require 2 of them
+          (for example acceptance: two closes back inside within the last 2 bars).
+        - LEVEL {"from": "D.prevLow", "to": "D.prevHigh", "ratio": 0.25} is a level a quarter of the way up the previous day's
+          range; ratios may be negative or above 1 (extensions, 1.5x a range).
+        - ROUND_NUMBER {"step": 1000} gives the round numbers just below and above the close (components below, above).
+        - NAKED_POC {"anchor": "DAY", "period": 20} gives the nearest untested daily POCs of the last 20 days below and above the
+          close (components below, above).
         """.trimIndent()
 
     fun conversationCompileSystem(schema: String): String =
@@ -204,7 +228,7 @@ object ResearchPrompts {
         - Use only the fields, indicator types, comparison operators and enum values defined by the schema.
         - Set metadata.createdBy to "AI_COMPILED", metadata.assetClass to the value in <constraints>, and give metadata.name a
           short descriptive name (for example the investor or strategy researched).
-        - Choose metadata.timeframe from: 1m, 5m, 15m, 1h, 4h, 1d, matching the research.
+        - Choose metadata.timeframe from: 1m, 5m, 15m, 30m, 1h, 4h, 1d, matching the research.
         - Use only symbols from the tradable list in <constraints>.
         - Choose conservative risk limits; they can only make the platform's own limits stricter, never looser.
         - Summarise the strategy in plain English in metadata.description (at most 900 characters), ending with any parts of
@@ -336,7 +360,7 @@ object ResearchPrompts {
         It must conform to the JSON Schema at the end of these instructions.
         - Use only the fields, indicator types, comparison operators and values the schema allows.
         - Set metadata.createdBy to "IMPORTED" and metadata.assetClass to "$assetClass". Give metadata.name a short descriptive name
-          and choose metadata.timeframe from 1m, 5m, 15m, 1h, 4h, 1d to match the research.
+          and choose metadata.timeframe from 1m, 5m, 15m, 30m, 1h, 4h, 1d to match the research.
         - Use only these symbols: ${tradable.joinToString(", ")}.
         - Use the method's own risk and sizing rules. Where, even after researching, the method states none, use a
           conservative value and list it under STILL MISSING with the value you used.

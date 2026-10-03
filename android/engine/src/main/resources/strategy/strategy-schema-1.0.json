@@ -5,70 +5,318 @@
   "description": "Restricted declarative strategy format. No executable content, expressions or unknown fields. Semantic rules are enforced in addition to this schema.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "metadata", "universe", "dataRequirements", "entryRules", "exitRules", "positionSizing", "orderInstructions", "riskLimits", "inactivityConditions"],
+  "required": [
+    "schemaVersion",
+    "metadata",
+    "universe",
+    "dataRequirements",
+    "entryRules",
+    "exitRules",
+    "positionSizing",
+    "orderInstructions",
+    "riskLimits",
+    "inactivityConditions"
+  ],
   "properties": {
-    "schemaVersion": { "const": "1.0" },
-    "strategyId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
-    "version": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "strategyId": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
     "metadata": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "assetClass", "timeframe"],
+      "required": [
+        "name",
+        "assetClass",
+        "timeframe"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "description": { "type": "string", "maxLength": 1000 },
-        "assetClass": { "enum": ["US_EQUITY", "CRYPTO"] },
-        "timeframe": { "enum": ["1m", "5m", "15m", "1h", "4h", "1d"] },
-        "createdBy": { "enum": ["OWNER", "AI_COMPILED", "IMPORTED"] },
-        "direction": { "enum": ["LONG_ONLY", "SHORT_ONLY", "BOTH"] },
-        "tags": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 20, "pattern": "^[A-Za-z0-9 _-]+$" } }
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "assetClass": {
+          "enum": [
+            "US_EQUITY",
+            "CRYPTO"
+          ]
+        },
+        "timeframe": {
+          "enum": [
+            "1m",
+            "5m",
+            "15m",
+            "30m",
+            "1h",
+            "4h",
+            "1d"
+          ]
+        },
+        "createdBy": {
+          "enum": [
+            "OWNER",
+            "AI_COMPILED",
+            "IMPORTED"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "LONG_ONLY",
+            "SHORT_ONLY",
+            "BOTH"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "^[A-Za-z0-9 _-]+$"
+          }
+        }
       }
     },
     "universe": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["symbols"],
+      "required": [
+        "symbols"
+      ],
       "properties": {
         "symbols": {
           "type": "array",
           "minItems": 1,
           "maxItems": 500,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9.]{0,9}(-USD)?$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9.]{0,9}(-USD)?$"
+          }
         }
       }
     },
     "dataRequirements": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minimumHistoryBars", "maximumQuoteAgeSeconds", "indicators"],
+      "required": [
+        "minimumHistoryBars",
+        "maximumQuoteAgeSeconds",
+        "indicators"
+      ],
       "properties": {
-        "minimumHistoryBars": { "type": "integer", "minimum": 1, "maximum": 5000 },
-        "maximumQuoteAgeSeconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
-        "indicators": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/indicator" } }
+        "minimumHistoryBars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "maximumQuoteAgeSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "indicators": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/indicator"
+          }
+        }
       }
     },
-    "entryRules": { "$ref": "#/$defs/ruleGroup" },
-    "shortEntryRules": { "$ref": "#/$defs/ruleGroup" },
+    "entryRules": {
+      "$ref": "#/$defs/ruleGroup"
+    },
+    "shortEntryRules": {
+      "$ref": "#/$defs/ruleGroup"
+    },
     "exitRules": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["stopLossPercent", "takeProfitPercent", "maximumHoldingBars"],
+      "required": [
+        "stopLossPercent",
+        "takeProfitPercent",
+        "maximumHoldingBars"
+      ],
       "properties": {
-        "stopLossPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 50 },
-        "takeProfitPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 500 },
-        "trailingStopPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 50 },
-        "maximumHoldingBars": { "type": "integer", "minimum": 1, "maximum": 10000 },
-        "conditions": { "$ref": "#/$defs/ruleGroup" },
-        "shortConditions": { "$ref": "#/$defs/ruleGroup" },
+        "stopLossPercent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 50
+        },
+        "takeProfitPercent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 500
+        },
+        "trailingStopPercent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 50
+        },
+        "maximumHoldingBars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "conditions": {
+          "$ref": "#/$defs/ruleGroup"
+        },
+        "shortConditions": {
+          "$ref": "#/$defs/ruleGroup"
+        },
         "partialTakeProfit": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["atPercent", "closePercent"],
+          "required": [
+            "atPercent",
+            "closePercent"
+          ],
           "properties": {
-            "atPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 500 },
-            "closePercent": { "type": "number", "minimum": 1, "maximum": 99 },
-            "moveStopToEntry": { "type": "boolean" }
+            "atPercent": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 500
+            },
+            "closePercent": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 99
+            },
+            "moveStopToEntry": {
+              "type": "boolean"
+            }
+          }
+        },
+        "stop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^SIGNAL_WICK$|^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+            },
+            "bufferPercent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 5
+            }
+          }
+        },
+        "shortStop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^SIGNAL_WICK$|^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+            },
+            "bufferPercent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 5
+            }
+          }
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "closePercent"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+              },
+              "rMultiple": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 50
+              },
+              "closePercent": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        },
+        "shortTargets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "closePercent"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+              },
+              "rMultiple": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 50
+              },
+              "closePercent": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        },
+        "minimumRewardRisk": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 20
+        },
+        "breakevenAfterTarget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "trailing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "swingPeriod": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "afterTarget": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
           }
         }
       }
@@ -76,103 +324,350 @@
     "positionSizing": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["method", "value"],
+      "required": [
+        "method",
+        "value"
+      ],
       "properties": {
-        "method": { "enum": ["FIXED_CASH", "PERCENT_OF_EQUITY", "FIXED_QUANTITY", "RISK_PERCENT"] },
-        "value": { "type": "number", "exclusiveMinimum": 0, "maximum": 10000000 }
+        "method": {
+          "enum": [
+            "FIXED_CASH",
+            "PERCENT_OF_EQUITY",
+            "FIXED_QUANTITY",
+            "RISK_PERCENT"
+          ]
+        },
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10000000
+        }
       }
     },
     "orderInstructions": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["orderType", "timeInForce"],
+      "required": [
+        "orderType",
+        "timeInForce"
+      ],
       "properties": {
-        "orderType": { "enum": ["MARKET", "LIMIT"] },
-        "timeInForce": { "enum": ["DAY", "GTC"] },
-        "limitOffsetPercent": { "type": "number", "minimum": 0, "maximum": 10 }
+        "orderType": {
+          "enum": [
+            "MARKET",
+            "LIMIT"
+          ]
+        },
+        "timeInForce": {
+          "enum": [
+            "DAY",
+            "GTC"
+          ]
+        },
+        "limitOffsetPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        }
       }
     },
     "riskLimits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["maximumOpenPositions", "maximumDailyTrades", "maximumDailyLossPercent", "allowShort"],
+      "required": [
+        "maximumOpenPositions",
+        "maximumDailyTrades",
+        "maximumDailyLossPercent",
+        "allowShort"
+      ],
       "properties": {
-        "maximumOpenPositions": { "type": "integer", "minimum": 1, "maximum": 500 },
-        "maximumDailyTrades": { "type": "integer", "minimum": 1, "maximum": 1000 },
-        "maximumDailyLossPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
-        "maximumDrawdownPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
-        "maximumPositionPercent": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
-        "maximumConsecutiveLosses": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "allowShort": { "type": "boolean" },
-        "maximumDailyLosingTrades": { "type": "integer", "minimum": 1, "maximum": 100 }
+        "maximumOpenPositions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "maximumDailyTrades": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "maximumDailyLossPercent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "maximumDrawdownPercent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "maximumPositionPercent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "maximumConsecutiveLosses": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "allowShort": {
+          "type": "boolean"
+        },
+        "maximumDailyLosingTrades": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
       }
     },
     "schedule": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "evaluate": { "enum": ["ON_BAR_CLOSE"] },
-        "sessions": { "enum": ["REGULAR"] }
+        "evaluate": {
+          "enum": [
+            "ON_BAR_CLOSE"
+          ]
+        },
+        "sessions": {
+          "enum": [
+            "REGULAR"
+          ]
+        }
       }
     },
     "inactivityConditions": {
       "type": "array",
       "uniqueItems": true,
       "maxItems": 10,
-      "items": { "enum": ["STALE_MARKET_DATA", "RISK_ENGINE_UNAVAILABLE", "RECONCILIATION_FAILURE", "MISSING_HISTORY", "PROVIDER_UNAVAILABLE"] }
+      "items": {
+        "enum": [
+          "STALE_MARKET_DATA",
+          "RISK_ENGINE_UNAVAILABLE",
+          "RECONCILIATION_FAILURE",
+          "MISSING_HISTORY",
+          "PROVIDER_UNAVAILABLE"
+        ]
+      }
     }
   },
   "$defs": {
     "indicator": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,31}$" },
-        "type": {
-          "enum": ["SMA", "EMA", "RSI", "MACD", "ATR", "BOLLINGER_BANDS", "HIGHEST", "LOWEST", "SWING_HIGH", "SWING_LOW", "RELATIVE_VOLUME",
-            "BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "SHOOTING_STAR", "DOJI", "MORNING_STAR", "EVENING_STAR",
-            "PERIOD_LEVELS", "VWAP", "ANCHORED_VWAP", "FIBONACCI", "VOLUME_PROFILE", "OPEN_INTEREST", "FUNDING_RATE", "CVD"]
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,31}$"
         },
-        "period": { "type": "integer", "minimum": 2, "maximum": 500 },
-        "fastPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
-        "slowPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
-        "signalPeriod": { "type": "integer", "minimum": 2, "maximum": 500 },
-        "standardDeviations": { "type": "number", "minimum": 0.5, "maximum": 5 },
-        "source": { "enum": ["CLOSE", "OPEN", "HIGH", "LOW", "VOLUME"] },
-        "timeframe": { "enum": ["1d", "1w", "1M"] },
-        "anchor": { "enum": ["DAY", "WEEK", "MONTH"] },
-        "anchorPoint": { "enum": ["LOWEST_LOW", "HIGHEST_HIGH"] }
+        "type": {
+          "enum": [
+            "SMA",
+            "EMA",
+            "RSI",
+            "MACD",
+            "ATR",
+            "BOLLINGER_BANDS",
+            "HIGHEST",
+            "LOWEST",
+            "SWING_HIGH",
+            "SWING_LOW",
+            "RELATIVE_VOLUME",
+            "BULLISH_ENGULFING",
+            "BEARISH_ENGULFING",
+            "HAMMER",
+            "SHOOTING_STAR",
+            "DOJI",
+            "MORNING_STAR",
+            "EVENING_STAR",
+            "PERIOD_LEVELS",
+            "VWAP",
+            "ANCHORED_VWAP",
+            "FIBONACCI",
+            "VOLUME_PROFILE",
+            "OPEN_INTEREST",
+            "FUNDING_RATE",
+            "CVD",
+            "LEVEL",
+            "ROUND_NUMBER",
+            "NAKED_POC"
+          ]
+        },
+        "period": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 500
+        },
+        "fastPeriod": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 500
+        },
+        "slowPeriod": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 500
+        },
+        "signalPeriod": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 500
+        },
+        "standardDeviations": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 5
+        },
+        "source": {
+          "enum": [
+            "CLOSE",
+            "OPEN",
+            "HIGH",
+            "LOW",
+            "VOLUME"
+          ]
+        },
+        "timeframe": {
+          "enum": [
+            "30m",
+            "1h",
+            "4h",
+            "1d",
+            "1w",
+            "1M"
+          ]
+        },
+        "anchor": {
+          "enum": [
+            "M30",
+            "H1",
+            "H4",
+            "DAY",
+            "WEEK",
+            "MONTH"
+          ]
+        },
+        "anchorPoint": {
+          "enum": [
+            "LOWEST_LOW",
+            "HIGHEST_HIGH"
+          ]
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+        },
+        "ratio": {
+          "type": "number",
+          "minimum": -10,
+          "maximum": 10
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10000000
+        }
       }
     },
     "operand": {
       "oneOf": [
-        { "type": "string", "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|change|annualized|delta))?$" },
-        { "type": "number", "minimum": -1000000000, "maximum": 1000000000 }
+        {
+          "type": "string",
+          "pattern": "^([A-Z][A-Z0-9_]{0,31})(\\.(value|signal|histogram|upper|middle|lower|open|high|low|prevOpen|prevHigh|prevLow|prevClose|prevEq|f236|f382|f500|f618|f660|f786|trend|poc|vah|val|above|below|change|annualized|delta))?$"
+        },
+        {
+          "type": "number",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        }
       ]
     },
     "condition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["left", "comparison", "right"],
+      "required": [
+        "left",
+        "comparison",
+        "right"
+      ],
       "properties": {
-        "left": { "$ref": "#/$defs/operand" },
-        "comparison": { "enum": ["GT", "GTE", "LT", "LTE", "EQ", "CROSSES_ABOVE", "CROSSES_BELOW"] },
-        "right": { "$ref": "#/$defs/operand" },
-        "offsetBars": { "type": "integer", "minimum": -1000, "maximum": 100 }
+        "left": {
+          "$ref": "#/$defs/operand"
+        },
+        "comparison": {
+          "enum": [
+            "GT",
+            "GTE",
+            "LT",
+            "LTE",
+            "EQ",
+            "CROSSES_ABOVE",
+            "CROSSES_BELOW"
+          ]
+        },
+        "right": {
+          "$ref": "#/$defs/operand"
+        },
+        "offsetBars": {
+          "type": "integer",
+          "minimum": -1000,
+          "maximum": 100
+        },
+        "withinBars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "minimumBars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
       }
     },
     "ruleGroup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["operator", "conditions"],
+      "required": [
+        "operator",
+        "conditions"
+      ],
       "properties": {
-        "operator": { "enum": ["ALL", "ANY"] },
+        "operator": {
+          "enum": [
+            "ALL",
+            "ANY",
+            "AT_LEAST"
+          ]
+        },
         "conditions": {
           "type": "array",
           "minItems": 1,
           "maxItems": 20,
-          "items": { "anyOf": [{ "$ref": "#/$defs/condition" }, { "$ref": "#/$defs/ruleGroup" }] }
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/condition"
+              },
+              {
+                "$ref": "#/$defs/ruleGroup"
+              }
+            ]
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
         }
       }
     }

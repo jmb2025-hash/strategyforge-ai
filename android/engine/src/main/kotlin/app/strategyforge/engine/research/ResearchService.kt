@@ -187,7 +187,12 @@ class ResearchService(
 ) {
     private val log = EngineLog.of(javaClass)
     private val mapper: ObjectMapper = JacksonCanonical.mapper
-    private val schema = javaClass.getResource("/strategy/trading-plan-schema-2.0.json")!!.readText()
+
+    /** The plan schema as compact JSON: the same content in half the characters of the AI budget. */
+    private val schema =
+        com.fasterxml.jackson.databind
+            .ObjectMapper()
+            .let { m -> m.writeValueAsString(m.readTree(javaClass.getResource("/strategy/trading-plan-schema-2.0.json")!!.readText())) }
 
     fun create(req: ResearchCreate): ResearchSession {
         val p = aiProvider(req.providerId)

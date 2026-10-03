@@ -65,7 +65,7 @@ class ChartService(
         portfolioId: UUID? = null,
         strategyId: UUID? = null,
     ): CandleChart {
-        val tf = runCatching { Timeframe.of(timeframe) }.getOrElse { throw Problems.badRequest("invalid-timeframe", "timeframe must be one of 1m, 5m, 15m, 1h, 4h, 1d") }
+        val tf = runCatching { Timeframe.of(timeframe) }.getOrElse { throw Problems.badRequest("invalid-timeframe", "timeframe must be one of 1m, 5m, 15m, 30m, 1h, 4h, 1d") }
         val count = bars.coerceIn(MIN_BARS, MAX_BARS)
         val i = instruments.bySymbol(symbol.trim().uppercase())
         val now = marketClock.now()

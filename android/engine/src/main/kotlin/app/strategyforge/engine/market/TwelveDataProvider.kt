@@ -73,6 +73,7 @@ class TwelveDataProvider(
             Timeframe.M1 -> "1min"
             Timeframe.M5 -> "5min"
             Timeframe.M15 -> "15min"
+            Timeframe.M30 -> "30min"
             Timeframe.H1 -> "1h"
             Timeframe.H4 -> "4h"
             Timeframe.D1 -> "1day"

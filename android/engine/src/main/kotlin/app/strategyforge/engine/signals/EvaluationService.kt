@@ -44,6 +44,8 @@ import app.strategyforge.engine.risk.RiskEngine
 import app.strategyforge.engine.strategy.CapitalPolicy
 import app.strategyforge.engine.strategy.Condition
 import app.strategyforge.engine.strategy.ConflictPolicy
+import app.strategyforge.engine.strategy.ExitPlan
+import app.strategyforge.engine.strategy.ExitPlanJson
 import app.strategyforge.engine.strategy.Indicators
 import app.strategyforge.engine.strategy.Operand
 import app.strategyforge.engine.strategy.RuleEvaluator
@@ -95,6 +97,8 @@ data class SignalDraft(
     val rationale: String,
     /** The plan setup behind the signal (D-045). */
     val setupId: String? = null,
+    /** Chart-level stop and targets fixed at an entry signal (D-047). */
+    val exitPlan: ExitPlan? = null,
 )
 
 /**
@@ -346,14 +350,16 @@ class EvaluationService(
         for (setup in setups) {
             if (here.any { it.setupId == setup.id }) continue
             setup.maximumOpenPositions?.let { cap -> if (all.count { it.setupId == setup.id } >= cap) continue }
+            if (!setup.decides(bars, idx, SeriesContext.of(def.timeframe, def.assetClass))) continue
             val short = setup.signal(def.plan, ev, idx) ?: continue
             if (short && !portfolio.shortingEnabled) continue
             // Never long and short in the same symbol at once.
             if (here.any { it.holding.short != short }) continue
             val sd = setup.def
+            val exitPlan = if (sd.exit.structured) ExitPlan.build(sd, short, bars, ev, idx, last).first ?: continue else null
             val allocated = def.plan.capitalPolicy == CapitalPolicy.ALLOCATED && setup.allocationPercent != null
             val budget = if (allocated) equity.multiply(setup.allocationPercent).divide(Decimals.HUNDRED, Decimals.MC) else equity
-            val qty = Decimals.floorToStep(sizing(sd, budget, last, tradeCap, limits?.maxTradeValue), i.quantityIncrement)
+            val qty = Decimals.floorToStep(sizing(sd, budget, last, tradeCap, limits?.maxTradeValue, exitPlan?.riskFraction(last)), i.quantityIncrement)
             if (qty < i.minQuantity) continue
             val notional = qty.multiply(last)
             if (allocated && all.filter { it.setupId == setup.id }.fold(BigDecimal.ZERO) { acc, h -> acc.add(h.holding.quantity.multiply(h.holding.averageCost)) }.add(notional) > budget.multiply(BigDecimal("1.001"))) continue
@@ -369,7 +375,7 @@ class EvaluationService(
                                     .divide(Decimals.HUNDRED, Decimals.MC),
                             )
                         }
-                    val add = notional.multiply(sd.exit.stopLossPercent).divide(Decimals.HUNDRED, Decimals.MC)
+                    val add = notional.multiply(exitPlan?.riskFraction(last) ?: sd.exit.stopLossPercent.divide(Decimals.HUNDRED, Decimals.MC))
                     equity.signum() > 0 && open.add(add).multiply(Decimals.HUNDRED).divide(equity, Decimals.MC) > cap
                 } ?: false
             if (overRisk) continue
@@ -382,7 +388,12 @@ class EvaluationService(
                 "$label${if (short) "Short entry" else "Entry"}: ${triggered.joinToString("; ")} on the ${def.timeframe.code} bar that closed at ${BarSchedule.closeTime(i.assetClass, def.timeframe, bar.openTime)}. " +
                     "Last price ${last.stripTrailingZeros().toPlainString()}; size ${sd.sizing.method.name.lowercase().replace('_', ' ')} ${sd.sizing.value.stripTrailingZeros().toPlainString()}."
             val limit = limitFor(last, side.buys)
-            return SignalDraft(i, if (short) "ENTER_SHORT" else "ENTER_LONG", side, qty, if (limit != null) OrderType.LIMIT else OrderType.MARKET, limit, last, triggered, rationale, setup.id)
+            val planNote =
+                exitPlan?.stop?.let { st ->
+                    " Stop ${st.setScale(2, RoundingMode.HALF_EVEN).toPlainString()}" +
+                        exitPlan.targets.joinToString("") { tg -> ", target ${tg.price.setScale(2, RoundingMode.HALF_EVEN).toPlainString()}" } + "."
+                } ?: ""
+            return SignalDraft(i, if (short) "ENTER_SHORT" else "ENTER_LONG", side, qty, if (limit != null) OrderType.LIMIT else OrderType.MARKET, limit, last, triggered, rationale + planNote, setup.id, exitPlan)
         }
         return null
     }
@@ -405,6 +416,7 @@ class EvaluationService(
         val favour = { f: BigDecimal -> if (short) avgCost.multiply(BigDecimal.ONE.subtract(f)) else avgCost.multiply(BigDecimal.ONE.add(f)) }
         val reached = { level: BigDecimal -> if (short) last <= level else last >= level }
         val breached = { level: BigDecimal -> if (short) last >= level else last <= level }
+        held.plan?.let { return plannedExitDraft(def, i, bars, ev, idx, held, it, last, limitFor) }
         val partial = def.exit.partialTakeProfit
         val breakeven = held.partialTaken && partial?.moveStopToEntry == true
         val stop = if (breakeven) avgCost else against(pct(def.exit.stopLossPercent))
@@ -429,6 +441,77 @@ class EvaluationService(
         val side = if (short) OrderSide.BUY_TO_COVER else OrderSide.SELL
         val portion = if (qty < held.quantity) " (${qty.stripTrailingZeros().toPlainString()} of ${held.quantity.stripTrailingZeros().toPlainString()})" else ""
         val rationale = "Exit ($reason)$portion: last ${last.stripTrailingZeros().toPlainString()} vs average cost ${avgCost.setScale(4, RoundingMode.HALF_EVEN).toPlainString()} after $barsSince bar(s)."
+        val limit = limitFor(last, side.buys)
+        return SignalDraft(i, if (short) "EXIT_SHORT" else "EXIT_LONG", side, qty, if (limit != null) OrderType.LIMIT else OrderType.MARKET, limit, last, listOf(reason), rationale)
+    }
+
+    /**
+     * Exits from the stop and targets fixed at entry (D-047): the stop (moved to entry after the
+     * configured target, and trailed to confirmed swings since entry), then the next target, then the
+     * outer take-profit cap, holding time and exit rules. Targets already taken are worked out from how
+     * much of the position has been closed.
+     */
+    private fun plannedExitDraft(
+        def: StrategyDefinition,
+        i: Instrument,
+        bars: List<CandleData>,
+        ev: RuleEvaluator,
+        idx: Int,
+        held: Holding,
+        plan: ExitPlan,
+        last: BigDecimal,
+        limitFor: (BigDecimal, Boolean) -> BigDecimal?,
+    ): SignalDraft? {
+        val short = held.short
+        val e = def.exit
+        val closed = BigDecimal.ONE.subtract(held.quantity.divide(held.opened, Decimals.MC))
+        var cumulative = BigDecimal.ZERO
+        val done =
+            plan.targets.count { t ->
+                cumulative = cumulative.add(t.closeFraction)
+                cumulative <= closed.add(BigDecimal("0.000001"))
+            }
+        var stop = plan.stop!!
+        var reasonForStop = "STOP_LOSS"
+        if (e.breakevenAfterTarget != null && done >= e.breakevenAfterTarget) {
+            stop = if (short) stop.min(held.averageCost) else stop.max(held.averageCost)
+            reasonForStop = "BREAKEVEN_STOP"
+        }
+        e.trailing?.takeIf { done >= it.afterTarget }?.let { tr ->
+            val swings = ExitPlan.swings(bars, short, tr.swingPeriod)
+            val from = bars.indexOfFirst { !it.openTime.isBefore(held.entryAt) }.coerceAtLeast(0)
+            (from..idx).forEach { j ->
+                val sw = swings[j] ?: return@forEach
+                val better = if (short) sw < stop && sw > bars[j].close else sw > stop && sw < bars[j].close
+                if (better) {
+                    stop = sw
+                    reasonForStop = "TRAILING_STOP"
+                }
+            }
+        }
+        val reached = { level: BigDecimal -> if (short) last <= level else last >= level }
+        val breached = { level: BigDecimal -> if (short) last >= level else last <= level }
+        val pct = { x: BigDecimal -> x.divide(Decimals.HUNDRED, Decimals.MC) }
+        val cap = if (short) held.averageCost.multiply(BigDecimal.ONE.subtract(pct(e.takeProfitPercent))) else held.averageCost.multiply(BigDecimal.ONE.add(pct(e.takeProfitPercent)))
+        val barsSince = bars.count { !it.openTime.isBefore(held.entryAt) }
+        var qty = held.quantity
+        val next = plan.targets.getOrNull(done)
+        val reason =
+            when {
+                breached(stop) -> reasonForStop
+                next != null && reached(next.price) -> {
+                    val part = Decimals.floorToStep(held.opened.multiply(next.closeFraction, Decimals.MC), i.quantityIncrement)
+                    if (done < plan.targets.lastIndex && part >= i.minQuantity && part < held.quantity) qty = part
+                    "TARGET_${done + 1}"
+                }
+                reached(cap) -> "TAKE_PROFIT"
+                barsSince >= e.maximumHoldingBars -> "MAX_HOLDING_BARS"
+                e.conditionsFor(short, def.direction)?.let { ev.evaluate(it, idx) } == true -> "EXIT_RULE"
+                else -> null
+            } ?: return null
+        val side = if (short) OrderSide.BUY_TO_COVER else OrderSide.SELL
+        val portion = if (qty < held.quantity) " (${qty.stripTrailingZeros().toPlainString()} of ${held.quantity.stripTrailingZeros().toPlainString()})" else ""
+        val rationale = "Exit ($reason)$portion: last ${last.stripTrailingZeros().toPlainString()}, stop ${stop.setScale(2, RoundingMode.HALF_EVEN).toPlainString()}, average cost ${held.averageCost.setScale(4, RoundingMode.HALF_EVEN).toPlainString()} after $barsSince bar(s)."
         val limit = limitFor(last, side.buys)
         return SignalDraft(i, if (short) "EXIT_SHORT" else "EXIT_LONG", side, qty, if (limit != null) OrderType.LIMIT else OrderType.MARKET, limit, last, listOf(reason), rationale)
     }
@@ -486,6 +569,9 @@ class EvaluationService(
         val short: Boolean,
         /** Some of the position was already closed, so a partial target was taken. */
         val partialTaken: Boolean,
+        /** Quantity originally opened, and the stop and targets fixed at entry (D-047). */
+        val opened: BigDecimal = quantity,
+        val plan: ExitPlan? = null,
     )
 
     private data class HeldBy(
@@ -514,12 +600,13 @@ class EvaluationService(
             val cost: BigDecimal,
             val at: Instant,
             val short: Boolean,
+            val plan: String?,
         )
         val lots =
             db
                 .sql(
                     """
-                    select l.instrument_id, sg.setup_id, l.quantity_remaining, l.quantity_open, l.cost_remaining, l.opened_at, l.side from position_lots l
+                    select l.instrument_id, sg.setup_id, sg.exit_plan, l.quantity_remaining, l.quantity_open, l.cost_remaining, l.opened_at, l.side from position_lots l
                     join paper_executions e on e.id = l.open_execution_id join paper_orders o on o.id = e.order_id
                     left join signals sg on sg.id = o.signal_id
                     where l.portfolio_id = :p and coalesce(l.managed_by_strategy_id, o.strategy_id) = :s and l.closed_at is null
@@ -528,14 +615,15 @@ class EvaluationService(
                 .param("s", a.strategyId)
                 .list { rs ->
                     val setup = rs.string("setup_id")?.takeIf { it in setupIds } ?: defaultSetup
-                    Lot(rs.uuid("instrument_id"), setup, rs.dec("quantity_remaining"), rs.dec("quantity_open"), rs.dec("cost_remaining").abs(), rs.instant("opened_at"), rs.str("side") == "SHORT")
+                    Lot(rs.uuid("instrument_id"), setup, rs.dec("quantity_remaining"), rs.dec("quantity_open"), rs.dec("cost_remaining").abs(), rs.instant("opened_at"), rs.str("side") == "SHORT", rs.string("exit_plan"))
                 }
         return lots.groupBy { it.instrument to it.setup }.mapNotNull { (k, ls) ->
             val q = ls.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.remaining) }
             if (q.signum() == 0) return@mapNotNull null
             val opened = ls.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.open) }
             val c = ls.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.cost) }
-            HeldBy(k.first, k.second, Holding(q, c.divide(q, Decimals.MC), ls.minOf { it.at }, ls.first().short, q < opened))
+            val plan = ls.minByOrNull { it.at }?.plan?.let { ExitPlanJson.read(it) }
+            HeldBy(k.first, k.second, Holding(q, c.divide(q, Decimals.MC), ls.minOf { it.at }, ls.first().short, q < opened, opened, plan))
         }
     }
 
@@ -563,8 +651,8 @@ class EvaluationService(
                     .sql(
                         """
                         insert or ignore into signals(id, strategy_id, version_id, content_hash, activation_id, evaluation_id, portfolio_id, instrument_id, bucket_start, action, side, quantity,
-                          order_type, limit_price, reference_price, market_snapshot_id, triggered_rules, rationale, expires_at, disposition, created_at, setup_id)
-                        values (:id, :s, :v, :h, :a, :e, :p, :i, :b, :act, :side, :q, :t, :l, :ref, :snap, :tr, :rat, :exp, 'RECOMMENDED', :now, :su)
+                          order_type, limit_price, reference_price, market_snapshot_id, triggered_rules, rationale, expires_at, disposition, created_at, setup_id, exit_plan)
+                        values (:id, :s, :v, :h, :a, :e, :p, :i, :b, :act, :side, :q, :t, :l, :ref, :snap, :tr, :rat, :exp, 'RECOMMENDED', :now, :su, :xp)
                         """.trimIndent(),
                     ).param("id", id)
                     .param("s", a.strategyId)
@@ -587,6 +675,7 @@ class EvaluationService(
                     .param("exp", (expires))
                     .param("now", (clock.instant()))
                     .param("su", d.setupId)
+                    .param("xp", d.exitPlan?.let { ExitPlanJson.write(it) })
                     .update()
             if (inserted == 0) return@tx false
             dispatcher.dispatch(a, id, d)

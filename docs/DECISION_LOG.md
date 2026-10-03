@@ -590,3 +590,42 @@ When a conflict is unresolved, the safest reversible option is selected.
     - Conditions on different bars ("close above now, below two bars ago") were reported as contradictory. The contradiction check now accounts for offsetBars.
     - A setup that needed more history than can be loaded (HISTORY_TOO_LONG) passed validation inside a plan, and its entries were then silently blocked. The issue is now reported for that setup.
 - **Requirements affected:** FR-030 to FR-036, FR-041 to FR-043.
+
+## D-047 Fidelity release: chart-level trade management, multiple timeframes, richer rules and levels
+
+- **Date:** 2026-10-03
+- **Context:** The owner's Chart Champions research (D-046) describes stops beyond the wick, targets at structural levels, size from the stop distance, higher-timeframe levels with lower-timeframe triggers, 30-minute acceptance closes, "two or more confluences", naked POCs and round numbers. In 1.8.1 all of these had to be approximated. Plan v1, built from that research, lost 14.6% on real BTC data.
+- **Decision:**
+  - **Chart-level trade management** (exitRules, single strategies and plan setups):
+    - **Stops.** `stop` / `shortStop` sit at `SIGNAL_WICK` (the signal candle's low or high) or at any level, plus `bufferPercent`. `stopLossPercent` becomes the farthest stop allowed; a farther stop means no trade.
+    - **Targets.** `targets` / `shortTargets` allow up to 3, each at a level or an `rMultiple`, with `closePercent`; the last target closes the rest. `takeProfitPercent` stays as an outer cap.
+    - **Management.** `breakevenAfterTarget` moves the stop to entry after that target. `trailing` {swingPeriod, afterTarget} ratchets the stop to each new confirmed swing. `minimumRewardRisk` filters entries.
+    - **When no trade.** A stop or level target on the wrong side, or a stop beyond the limit, means no trade.
+    - **Sizing.** RISK_PERCENT sizes from the actual stop distance, and the plan's open-risk cap uses it too.
+    - **Fixed at the signal.** Stop and targets are fixed when the signal fires (`ExitPlan`). Backtests manage them inside each bar, assuming the stop fills first. Live trading stores them on the entry signal (migration 8 `signals.exit_plan`) and works out targets already taken from the quantity closed; the stop never loosens.
+  - **Timeframes.**
+    - 30-minute bars: aggregated from 15-minute or 1-minute data; Twelve Data `30min`; Kraken 1800 s.
+    - 30m, 1h and 4h periods: fixed buckets (crypto from midnight UTC, US stocks from the 09:30 open). They serve as `anchor` (PERIOD_LEVELS is then the higher-timeframe candle, plus VWAP and profiles) and as indicator `timeframe`. The period must be longer than the strategy's bars.
+    - A setup's `decisionTimeframe` ("30m" … "1w") makes it decide only on bars that complete that period.
+  - **Rules.**
+    - Group operator `AT_LEAST` with `count`, for confluence.
+    - Condition `withinBars` / `minimumBars`: held on at least m of the last n closed bars.
+    - Windowed conditions never count as contradictions, and they extend the history requirement.
+  - **Levels.**
+    - `LEVEL` {from, to, ratio}: quartiles, any Fibonacci ratio or extension, range multiples. It is computed after the levels it uses; plan setups bring those levels along.
+    - `ROUND_NUMBER` {step}: the round numbers just below and above the close.
+    - `NAKED_POC` {anchor, period}: the nearest untested POCs below and above the close, from the last N complete periods. A POC counts as tested only by bars before the current one.
+  - **AI instructions** describe all of the above. The plan schema is sent compact, halving its share of the AI budget.
+  - **Bug found by the research.** Indicators used only by a stop or target were dropped from a setup's own strategy.
+  - **Real-data research (Bitstamp BTC/USD, July 2025 to October 2026, opt-in harness).** Plan v2 is the owner's research expressed with these features: SFP, failed auction, CCV, CC Fibonacci and the 4h EMA swing, on 30m bars, with no approximations left.
+
+    | Run | Result | Trades | Profit factor |
+    |---|---|---|---|
+    | v2, default app costs (0.2% spread) | −16.7% | 227 | 0.73 (v1: 0.47) |
+    | v2, no costs | +4.3% | n/a | 1.05 |
+    | v2, perpetual-futures costs (0.02% spread, 0.05% fee) | −12.6% | n/a | n/a |
+
+    - With futures costs, the 4h EMA swing won 4 of 5 trades (+$6,640), while the mechanical SFP lost on 244 trades.
+    - Neither published filter (2R minimum, SFP judged on the 4h candle) made the level-reaction setups profitable; it only moved trades between setups.
+    - Conclusion recorded for the owner: the discretionary level-reaction judgement cannot be recovered from public rules, and trading costs dominate tight-stop setups. The trend setup is promising on a small sample. These are research findings, not trading advice.
+- **Requirements affected:** FR-040 to FR-047, FR-050 to FR-053, FR-060 to FR-066.

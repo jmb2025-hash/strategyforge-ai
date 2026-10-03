@@ -112,6 +112,7 @@ object BarSchedule {
                 Timeframe.H4 -> 2L
                 Timeframe.H1 -> 7L
                 Timeframe.M15 -> 26L
+                Timeframe.M30 -> 13L
                 Timeframe.M5 -> 78L
                 Timeframe.M1 -> 390L
             }

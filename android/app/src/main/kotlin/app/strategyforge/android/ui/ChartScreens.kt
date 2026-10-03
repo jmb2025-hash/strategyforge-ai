@@ -28,7 +28,7 @@ import app.strategyforge.android.core.model.Scorecard
 
 // ------------------------------------------------------------------ chart glue (D-038)
 
-val TIMEFRAMES = listOf("1m" to "1m", "5m" to "5m", "15m" to "15m", "1h" to "1H", "4h" to "4H", "1d" to "1D")
+val TIMEFRAMES = listOf("1m" to "1m", "5m" to "5m", "15m" to "15m", "30m" to "30m", "1h" to "1H", "4h" to "4H", "1d" to "1D")
 val RANGES = listOf("1D" to "1D", "1W" to "1W", "1M" to "1M", "3M" to "3M", "ALL" to "All")
 
 fun List<ChartPoint>.toLine(fmt: Formatters): List<LinePoint> =

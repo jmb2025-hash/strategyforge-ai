@@ -84,6 +84,44 @@ class TradingPlanLiveTest {
     }
 
     @Test
+    fun `live positions are managed from the stop and targets fixed at entry`() {
+        val json =
+            """
+            {"schemaVersion":"2.0","metadata":{"name":"Wick stops","assetClass":"CRYPTO","timeframe":"1m","createdBy":"OWNER"},
+             "universe":{"symbols":["BTC-USD"]},
+             "dataRequirements":{"minimumHistoryBars":30,"maximumQuoteAgeSeconds":120,"indicators":[]},
+             "setups":[{"id":"WICK","name":"Wick stop","priority":1,
+               "entryRules":{"operator":"ALL","conditions":[{"left":"CLOSE","comparison":"GT","right":1}]},
+               "exitRules":{"stopLossPercent":5,"takeProfitPercent":50,"maximumHoldingBars":500,
+                 "stop":{"at":"SIGNAL_WICK","bufferPercent":0.05},
+                 "targets":[{"rMultiple":0.3,"closePercent":50},{"rMultiple":5,"closePercent":50}],"breakevenAfterTarget":1},
+               "positionSizing":{"method":"RISK_PERCENT","value":0.5}}],
+             "orderInstructions":{"orderType":"MARKET","timeInForce":"GTC"},
+             "riskLimits":{"maximumOpenPositions":1,"maximumDailyTrades":200,"maximumDailyLossPercent":5,"maximumDrawdownPercent":20,"maximumPositionPercent":100,"allowShort":false},
+             "inactivityConditions":["STALE_MARKET_DATA"]}
+            """.trimIndent()
+
+        @Suppress("UNCHECKED_CAST")
+        val id = e.eligible(JacksonCanonical.mapper.readValue(json, Map::class.java) as Map<String, Any?>)
+        e.activate(id, p, ActivationMode.AUTONOMOUS)
+        e.advance(90)
+        val rows =
+            e.db
+                .sql("select action, triggered_rules, exit_plan, rationale from signals where strategy_id = :s order by created_at, id")
+                .param("s", id)
+                .list { listOf(it.string("action"), it.string("triggered_rules"), it.string("exit_plan"), it.string("rationale")) }
+        assertThat(rows).isNotEmpty()
+        val entry = rows.first()
+        assertThat(entry[0]).isEqualTo("ENTER_LONG")
+        assertThat(entry[2]).`as`("the plan is stored with the entry").contains("\"stop\"").contains("\"targets\"")
+        assertThat(entry[3]).contains("Stop ").contains("target ")
+        val exits = rows.filter { it[0] == "EXIT_LONG" }.map { it[1] }
+        println("Live wick-stop exits: $exits")
+        assertThat(exits).`as`(rows.toString()).isNotEmpty()
+        assertThat(exits).allMatch { r -> listOf("STOP_LOSS", "TARGET_1", "TARGET_2", "BREAKEVEN_STOP").any { r!!.contains(it) } }
+    }
+
+    @Test
     fun `upgrading retires the single strategies of earlier versions and keeps their history`() {
         val single = e.eligible(Strategies.alwaysLong("Old single", "1m", quantity = "0.01", maxHoldingBars = 500))
         e.activate(single, p, ActivationMode.AUTONOMOUS)

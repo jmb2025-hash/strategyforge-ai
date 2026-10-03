@@ -48,9 +48,22 @@ data class Setup(
     val allocationPercent: BigDecimal?,
     val appliesWhen: RuleGroup?,
     val maximumOpenPositions: Int?,
+    /** Only look for entries on bars that complete this longer period, e.g. a 4-hour setup in a 30-minute plan (D-047). */
+    val decisionTimeframe: Anchor? = null,
     /** The setup as a complete strategy definition (plan indicators, universe, orders and risk included). */
     val def: StrategyDefinition,
 ) {
+    /** Whether bar [i] completes the setup's decision period (always true without one). */
+    fun decides(
+        bars: List<app.strategyforge.engine.market.CandleData>,
+        i: Int,
+        ctx: SeriesContext,
+    ): Boolean {
+        val anchor = decisionTimeframe ?: return true
+        val close = bars[i].openTime.plus(ctx.barDuration)
+        return !close.isBefore(Periods.end(Periods.start(bars[i].openTime, anchor, ctx.zone), anchor, ctx.zone))
+    }
+
     /**
      * Whether this setup enters on [short] side at bar [i]: the plan's context for that side, the
      * setup's own applies-when conditions and its entry rules must all hold.
@@ -102,8 +115,9 @@ object TradingPlans {
         fun walk(x: JsonNode) {
             when {
                 x.isObject -> {
-                    listOf("left", "right").forEach { k -> x[k]?.takeIf { it.isTextual }?.let { out += it.asText().substringBefore('.') } }
-                    x.fields().forEach { (k, v) -> if (k != "left" && k != "right") walk(v) }
+                    // Rule operands, and the levels that stops and targets are placed at (D-047).
+                    listOf("left", "right", "at").forEach { k -> x[k]?.takeIf { it.isTextual }?.let { out += it.asText().substringBefore('.') } }
+                    x.fields().forEach { (k, v) -> if (k != "left" && k != "right" && k != "at") walk(v) }
                 }
                 x.isArray -> x.forEach(::walk)
             }
@@ -116,8 +130,24 @@ object TradingPlans {
         plan: JsonNode,
         vararg used: JsonNode?,
     ): JsonNode {
-        val ids = used.flatMap { references(it) }.toSet()
         val all = plan["dataRequirements"]?.get("indicators")
+        // Levels built from other indicators bring those along (D-047).
+        val ids = used.flatMap { references(it) }.toMutableSet()
+        var grew = true
+        while (grew) {
+            grew = false
+            all?.forEach { i ->
+                if (i["id"]?.asText() in ids) {
+                    listOf("from", "to").forEach { k ->
+                        i[k]
+                            ?.takeIf { it.isTextual }
+                            ?.asText()
+                            ?.substringBefore('.')
+                            ?.let { if (ids.add(it)) grew = true }
+                    }
+                }
+            }
+        }
         val arr = JsonNodeFactory.instance.arrayNode()
         all?.forEach { i -> if (i["id"]?.asText() in ids) arr.add(i.deepCopy<JsonNode>()) }
         return arr
@@ -211,6 +241,7 @@ object TradingPlans {
                         s["allocationPercent"]?.takeIf { !it.isNull }?.decimalValue(),
                         s["appliesWhen"]?.let { StrategyDefinition.group(it) },
                         s["maximumOpenPositions"]?.intValue(),
+                        s["decisionTimeframe"]?.asText()?.let { Anchor.ofCode(it) },
                         StrategyDefinition.from(setupDocument(plan, s)),
                     )
                 }.sortedWith(compareBy({ it.priority }, { it.id }))

@@ -314,6 +314,7 @@ class MarketDataService(
             when {
                 tf in native -> tf
                 tf == Timeframe.M5 || tf == Timeframe.M15 -> Timeframe.M1.takeIf { it in native }
+                tf == Timeframe.M30 -> Timeframe.M15.takeIf { it in native } ?: Timeframe.M1.takeIf { it in native }
                 tf == Timeframe.H4 -> Timeframe.H1.takeIf { it in native }
                 else -> null
             } ?: return CandleSeries(instrument.id, instrument.symbol, tf, null, emptyList(), providerName, emptyList(), DataStatus.UNSUPPORTED, "Timeframe ${tf.code} unavailable from $providerName")

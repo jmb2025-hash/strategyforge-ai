@@ -428,6 +428,30 @@ class LocalApiAppTest {
     }
 
     @Test
+    fun `D-047 the owner's research as plan v2 uses chart-level stops, targets and timeframes`() {
+        start()
+        runBlocking {
+            val reply = javaClass.getResource("/research/chart_champions_plan_v2_reply.md")!!.readText()
+            val r = repo.importStrategy(reply)
+            assertThat(r.strategy.status).`as`(r.validation?.issues.toString()).isEqualTo("VALIDATED")
+            assertThat(r.importNotes!!.readback).allMatch { Regex("""^\[(Published|Legacy|Observed|Proposed|Approximation)]""").containsMatchIn(it) }
+            assertThat(r.importNotes!!.readback).noneMatch { it.startsWith("[Approximation]") }
+            val detail = repo.strategy(r.strategy.id).value()
+            assertThat(detail.plan!!.setups.map { it.id }).containsExactly("SFP", "FAILED_AUCTION", "CCV", "CC_FIB", "EMA_SWING")
+            assertThat(detail.explanation)
+                .contains("Stop below the signal candle's low plus 0.1%")
+                .contains("take profit 50% at the volume-profile point of control of the previous day")
+                .contains("decides on 4-hour closes")
+                .contains("at least 2 of:")
+            val b = repo.runBacktest(r.strategy.id, "2026-02-01T00:00:00Z", "2026-06-22T00:00:00Z", "100000")
+            val done = repo.backtests(r.strategy.id).first { it.id == b.id }
+            assertThat(done.status).`as`(done.error ?: "").isEqualTo("COMPLETED")
+            val setups = done.metrics!!["setups"] as JsonArray
+            println("CC plan v2 on demo data: " + setups.joinToString { it.jsonObject.let { s -> "${s["id"]} trades=${s["trades"]} net=${s["netPnl"]}" } })
+        }
+    }
+
+    @Test
     fun `D-044 the futures data test reports when no live source is available`() {
         start()
         runBlocking {
