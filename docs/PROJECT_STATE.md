@@ -1,10 +1,10 @@
 # StrategyForge AI — Project State Manifesto
 
-Save point: **2026-10-03T10:30Z** · version **1.10.0** (versionCode 14) · branch `claude/strategyforge-v1-delivery-vgf1ah`
+Save point: **2026-10-03T11:30Z** · version **1.10.1** (versionCode 15) · branch `claude/strategyforge-v1-delivery-vgf1ah`
 
 ```text
 === STRATEGYFORGE AI — PROJECT STATE MANIFESTO ===
-SAVE POINT: 2026-10-03T10:30Z | v1.10.0 (versionCode 14) | engine 225 (6 opt-in real-data skipped), core 27/27
+SAVE POINT: 2026-10-03T11:30Z | v1.10.1 (versionCode 15) | engine 225 (6 opt-in real-data skipped), core 27/27
 BRANCH: claude/strategyforge-v1-delivery-vgf1ah (push: git push -u origin <branch>; NO PR unless asked)
 APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest (StrategyForge.apk, CI-published)
 
@@ -102,6 +102,12 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         $10k app costs Jan25-Oct26: pullback +25.0% dd 5.2 83% win (2025 +17.2, 2026 +6.6); v3 +13.1% dd 12.4;
         combined +9.9% dd 3.6. One crypto slot only -> combined plan is the side-by-side option; a 2nd crypto slot
         (separate portfolios) awaits the owner's decision. Sweep: SF_START, SF_COSTS=app, timeframe-aware bars.
+- 1.10.1 (D-050) HISTORY 2018-2026: Bitstamp 1m merged (scratch btc1m_2018.csv from data/historical
+        btcusd_bitstamp_1min_2012-2025.csv.gz + updates). 4h pullback WITHDRAWN (lost 5 of 7 earlier years); combined
+        plan removed. Library = btc-daily-trend-dip-rip (1d; close vs SMA40 picks side; RSI2<15 long / >85 short;
+        exit close x SMA10, 8% stop, 30 bars; 95% equity; $10k app costs: +270% 2018-Oct26, dd 21.6, 73% win,
+        7/9 years up; chosen on 2018-22, 2023-26 +26%) + chart-champions-v3 (4/9 years up). History write-up:
+        docs/research/BTC_HISTORY_2018_2026.md. Harness SF_PERIODS=years.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -133,7 +139,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-050). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-051). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

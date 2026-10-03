@@ -1,29 +1,92 @@
 {
   "id": "chart-champions-v3",
   "name": "Chart Champions BTC playbook v3",
-  "summary": "The owner's Chart Champions research, tuned on real 2025 BTC data: the CC Fibonacci pullback with confluence and the 4-hour EMA swing, on 30-minute bars.",
-  "backtest": "Real Bitstamp BTC/USD history, $10,000 start, the app's default trading costs (0.2% spread, 2 bps slippage).",
+  "summary": "The owner's Chart Champions research, tuned on 2025 BTC data: the CC Fibonacci pullback with confluence and the 4-hour EMA swing, on 30-minute bars. Over 2018-2026 it was profitable in 4 of 9 years and stopped at its 20% drawdown limit in the long runs.",
+  "backtest": "Real Bitstamp BTC/USD history, $10,000 start for each period, the app's default trading costs (0.2% spread, 2 bps slippage).",
   "results": [
     {
+      "period": "Jan 2018 to Oct 2026",
+      "returnPercent": "-16.8",
+      "maxDrawdownPercent": "20.7",
+      "trades": 86,
+      "winRatePercent": "44"
+    },
+    {
+      "period": "2018-2022 (selection)",
+      "returnPercent": "-16.8",
+      "maxDrawdownPercent": "20.7",
+      "trades": 86,
+      "winRatePercent": "44"
+    },
+    {
+      "period": "2023 to Oct 2026 (unseen)",
+      "returnPercent": "-19.2",
+      "maxDrawdownPercent": "20.5",
+      "trades": 147,
+      "winRatePercent": "45"
+    },
+    {
+      "period": "2018",
+      "returnPercent": "-13.7",
+      "maxDrawdownPercent": "18.2",
+      "trades": 83,
+      "winRatePercent": "46"
+    },
+    {
+      "period": "2019",
+      "returnPercent": "16.2",
+      "maxDrawdownPercent": "14.0",
+      "trades": 117,
+      "winRatePercent": "52"
+    },
+    {
+      "period": "2020",
+      "returnPercent": "-6.8",
+      "maxDrawdownPercent": "20.3",
+      "trades": 105,
+      "winRatePercent": "45"
+    },
+    {
+      "period": "2021",
+      "returnPercent": "12.0",
+      "maxDrawdownPercent": "11.6",
+      "trades": 114,
+      "winRatePercent": "51"
+    },
+    {
+      "period": "2022",
+      "returnPercent": "-5.8",
+      "maxDrawdownPercent": "14.9",
+      "trades": 121,
+      "winRatePercent": "48"
+    },
+    {
+      "period": "2023",
+      "returnPercent": "-12.6",
+      "maxDrawdownPercent": "15.6",
+      "trades": 104,
+      "winRatePercent": "48"
+    },
+    {
+      "period": "2024",
+      "returnPercent": "-14.4",
+      "maxDrawdownPercent": "20.4",
+      "trades": 74,
+      "winRatePercent": "41"
+    },
+    {
       "period": "2025",
-      "returnPercent": "6.1",
-      "maxDrawdownPercent": "8.8",
-      "trades": 76,
+      "returnPercent": "11.3",
+      "maxDrawdownPercent": "9.0",
+      "trades": 121,
       "winRatePercent": "55"
     },
     {
       "period": "2026 to Oct 3",
       "returnPercent": "9.8",
       "maxDrawdownPercent": "12.4",
-      "trades": 81,
-      "winRatePercent": "54"
-    },
-    {
-      "period": "Jan 2025 to Oct 2026",
-      "returnPercent": "13.1",
-      "maxDrawdownPercent": "12.4",
-      "trades": 158,
-      "winRatePercent": "54"
+      "trades": 82,
+      "winRatePercent": "55"
     }
   ],
   "plan": {

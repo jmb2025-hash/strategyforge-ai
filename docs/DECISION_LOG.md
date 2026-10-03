@@ -705,3 +705,30 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Harness.** The sweep takes SF_START (starting capital) and SF_COSTS=app (the app's default costs), picks the bar size from the plan's timeframe, prints validator warnings, and adds 2026-YTD and whole-span periods.
 - **Version.** 1.10.0 (versionCode 14).
 - **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.
+
+## D-050 Research extended to 2018–2026: the 4-hour pullback is withdrawn and replaced by the daily trend dip and rip
+
+- **Date:** 2026-10-03
+- **Context:** The owner asked for the BTC history to be expanded, not summarized. Bitstamp 1-minute BTC/USD data back to 2012 was available, so the research now covers January 2018 to October 3 2026: 4.6 million rows with no gaps, spanning two full bull/bear cycles plus the 2025–2026 cycle. The full history is written up in `docs/research/BTC_HISTORY_2018_2026.md`.
+- **Findings:**
+  - **The D-049 4-hour trend pullback** was chosen on 2025 alone. It lost money in 2018, 2019, 2022, 2023 and 2024, and halted at its 35% drawdown limit over 2018–2026. Its 2025–2026 results came from a range-bound market. It is **withdrawn**.
+  - **Chart Champions v3** was profitable in 4 of 9 calendar years. Over 2018–2022 and 2023–2026 it reached its 20% drawdown limit. It stays in the library, at the owner's request, with that record shown.
+  - **Search method.** Selection used 2018–2022 only and testing used 2023 – Oct 2026; the search covered about 2,160 dip-buy and spike-short rules on daily and 4h bars.
+  - **What failed and what held.** Most rules that ranked best on 2018–2022 lost money after 2023; long-term filters (100- and 200-day averages) failed in particular. The daily-bar family with a 40–60-day trend filter held in both halves.
+  - **Plan chosen: BTC daily trend dip and rip** (the 40-day version ranked best on 2018–2022):
+    - **Long:** close above its 40-day SMA and RSI(2) < 15.
+    - **Short:** close below its 40-day SMA and RSI(2) > 85.
+    - **Exit:** close back across the 10-day SMA, an 8% stop, or 30 days.
+    - **Size:** 95% of equity.
+  - **App backtester, $10,000, default costs:**
+    - **By year:** 2018 −15.3%, 2019 +27.0%, 2020 +48.5%, 2021 +53.6%, 2022 +19.5%, 2023 +5.7%, 2024 −3.0%, 2025 +20.2%, 2026 +2.4%.
+    - **2018–2022:** +193%. **2023–2026:** +26%.
+    - **Whole span:** +270%, max drawdown 21.6%, 160 trades, 73% won. BTC over the same span: +530%, with an 81% drawdown.
+  - **Neighbours** (50- and 60-day SMA) were also profitable in 7 of 9 years.
+- **Decision:**
+  - The library is now `btc-daily-trend-dip-rip` and `chart-champions-v3`. Each shows every calendar year plus the selection, unseen and whole spans.
+  - The combined plan is removed. A daily setup inside a 30-minute plan would check its exits on every 30-minute bar, which would change the rule, so it was not rebuilt.
+  - Running two crypto plans side by side needs a second crypto slot. That is left for the owner to decide.
+- **Harness.** SF_PERIODS=years adds each calendar year and the 2018–2022, 2023–2026 and whole spans.
+- **Version.** 1.10.1 (versionCode 15).
+- **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.

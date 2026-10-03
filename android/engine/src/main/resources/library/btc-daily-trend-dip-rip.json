@@ -1,0 +1,205 @@
+{
+  "id": "btc-daily-trend-dip-rip",
+  "name": "BTC daily trend dip and rip",
+  "summary": "Buys sharp dips while BTC's daily trend is up and shorts sharp rallies while it is down, on daily bars. Found in real BTC history 2018-2026; about 7 in 10 trades won and 7 of 9 years were profitable.",
+  "backtest": "Real Bitstamp BTC/USD history, $10,000 start for each period, the app's default trading costs (0.2% spread, 2 bps slippage).",
+  "results": [
+    {
+      "period": "Jan 2018 to Oct 2026",
+      "returnPercent": "270.0",
+      "maxDrawdownPercent": "21.6",
+      "trades": 160,
+      "winRatePercent": "73"
+    },
+    {
+      "period": "2018-2022 (selection)",
+      "returnPercent": "193.2",
+      "maxDrawdownPercent": "21.6",
+      "trades": 92,
+      "winRatePercent": "74"
+    },
+    {
+      "period": "2023 to Oct 2026 (unseen)",
+      "returnPercent": "26.2",
+      "maxDrawdownPercent": "21.6",
+      "trades": 68,
+      "winRatePercent": "71"
+    },
+    {
+      "period": "2018",
+      "returnPercent": "-15.3",
+      "maxDrawdownPercent": "21.6",
+      "trades": 20,
+      "winRatePercent": "60"
+    },
+    {
+      "period": "2019",
+      "returnPercent": "27.0",
+      "maxDrawdownPercent": "15.3",
+      "trades": 16,
+      "winRatePercent": "81"
+    },
+    {
+      "period": "2020",
+      "returnPercent": "48.5",
+      "maxDrawdownPercent": "19.2",
+      "trades": 16,
+      "winRatePercent": "75"
+    },
+    {
+      "period": "2021",
+      "returnPercent": "53.6",
+      "maxDrawdownPercent": "12.3",
+      "trades": 19,
+      "winRatePercent": "79"
+    },
+    {
+      "period": "2022",
+      "returnPercent": "19.5",
+      "maxDrawdownPercent": "13.5",
+      "trades": 21,
+      "winRatePercent": "76"
+    },
+    {
+      "period": "2023",
+      "returnPercent": "5.7",
+      "maxDrawdownPercent": "20.3",
+      "trades": 19,
+      "winRatePercent": "74"
+    },
+    {
+      "period": "2024",
+      "returnPercent": "-3.0",
+      "maxDrawdownPercent": "21.6",
+      "trades": 19,
+      "winRatePercent": "63"
+    },
+    {
+      "period": "2025",
+      "returnPercent": "20.2",
+      "maxDrawdownPercent": "9.0",
+      "trades": 17,
+      "winRatePercent": "76"
+    },
+    {
+      "period": "2026 to Oct 3",
+      "returnPercent": "2.4",
+      "maxDrawdownPercent": "13.6",
+      "trades": 13,
+      "winRatePercent": "69"
+    }
+  ],
+  "plan": {
+    "schemaVersion": "1.0",
+    "metadata": {
+      "name": "BTC daily trend dip and rip",
+      "assetClass": "CRYPTO",
+      "timeframe": "1d",
+      "createdBy": "IMPORTED",
+      "direction": "BOTH",
+      "description": "Found in real BTC/USD daily history from 2018 to October 2026 (chosen on 2018-2022, confirmed unchanged on 2023-2026). Trade with the trend, against the short-term extreme: while the daily close is above its 40-day average, buy when the 2-day RSI falls below 15 (a sharp dip); while it is below, sell short when the 2-day RSI rises above 85 (a sharp rally). Exit when the close crosses back over the 10-day average, at an 8% stop, or after 30 days. One position at a time, 95% of equity. The 40-day average decides the direction, so it buys dips in up-trends and sells rallies in down-trends by itself. Neighbouring settings (50- and 60-day average) were profitable in 7 of 9 years too; losing years were 2018 and 2024."
+    },
+    "universe": {
+      "symbols": [
+        "BTC-USD"
+      ]
+    },
+    "dataRequirements": {
+      "minimumHistoryBars": 60,
+      "maximumQuoteAgeSeconds": 300,
+      "indicators": [
+        {
+          "id": "TREND",
+          "type": "SMA",
+          "period": 40
+        },
+        {
+          "id": "EXIT",
+          "type": "SMA",
+          "period": 10
+        },
+        {
+          "id": "R",
+          "type": "RSI",
+          "period": 2
+        }
+      ]
+    },
+    "entryRules": {
+      "operator": "ALL",
+      "conditions": [
+        {
+          "left": "CLOSE",
+          "comparison": "GT",
+          "right": "TREND"
+        },
+        {
+          "left": "R",
+          "comparison": "LT",
+          "right": 15
+        }
+      ]
+    },
+    "shortEntryRules": {
+      "operator": "ALL",
+      "conditions": [
+        {
+          "left": "CLOSE",
+          "comparison": "LT",
+          "right": "TREND"
+        },
+        {
+          "left": "R",
+          "comparison": "GT",
+          "right": 85
+        }
+      ]
+    },
+    "exitRules": {
+      "stopLossPercent": 8,
+      "takeProfitPercent": 50,
+      "maximumHoldingBars": 30,
+      "conditions": {
+        "operator": "ANY",
+        "conditions": [
+          {
+            "left": "CLOSE",
+            "comparison": "GT",
+            "right": "EXIT"
+          }
+        ]
+      },
+      "shortConditions": {
+        "operator": "ANY",
+        "conditions": [
+          {
+            "left": "CLOSE",
+            "comparison": "LT",
+            "right": "EXIT"
+          }
+        ]
+      }
+    },
+    "positionSizing": {
+      "method": "PERCENT_OF_EQUITY",
+      "value": 95
+    },
+    "orderInstructions": {
+      "orderType": "MARKET",
+      "timeInForce": "GTC"
+    },
+    "riskLimits": {
+      "maximumOpenPositions": 1,
+      "maximumDailyTrades": 2,
+      "maximumDailyLossPercent": 15,
+      "maximumDrawdownPercent": 35,
+      "maximumPositionPercent": 100,
+      "allowShort": true
+    },
+    "inactivityConditions": [
+      "STALE_MARKET_DATA",
+      "MISSING_HISTORY",
+      "PROVIDER_UNAVAILABLE"
+    ]
+  }
+}

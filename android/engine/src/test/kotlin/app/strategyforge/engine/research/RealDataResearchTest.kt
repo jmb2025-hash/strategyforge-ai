@@ -158,15 +158,26 @@ class RealDataResearchTest {
         // SF_COSTS=app uses the app's default costs (0.2% spread); otherwise perpetual-futures costs.
         val costs = if (System.getenv("SF_COSTS") == "app") CostModel() else CostModel(commissionPercent = BigDecimal("0.05"), cryptoFallbackSpreadPercent = BigDecimal("0.02"))
         val start = BigDecimal(System.getenv("SF_START") ?: "100000")
+        // SF_PERIODS=years runs every calendar year in the file plus the whole span.
+        val years = System.getenv("SF_PERIODS") == "years"
         val periods =
-            listOf(
-                "2025" to ("2025-01-07T00:00:00Z" to "2026-01-01T00:00:00Z"),
-                "Q1-2026" to ("2026-01-01T00:00:00Z" to "2026-04-01T00:00:00Z"),
-                "Q2-2026" to ("2026-04-01T00:00:00Z" to "2026-07-01T00:00:00Z"),
-                "Q3-2026" to ("2026-07-01T00:00:00Z" to "2026-10-01T00:00:00Z"),
-                "2026-YTD" to ("2026-01-01T00:00:00Z" to "2026-10-03T00:00:00Z"),
-                "ALL" to ("2025-01-07T00:00:00Z" to "2026-10-03T00:00:00Z"),
-            )
+            if (years) {
+                (2018..2026).map { y -> "$y" to ("$y-01-01T00:00:00Z" to "${y + 1}-01-01T00:00:00Z") } +
+                    listOf(
+                        "2018-2022" to ("2018-01-01T00:00:00Z" to "2023-01-01T00:00:00Z"),
+                        "2023-2026" to ("2023-01-01T00:00:00Z" to "2026-10-03T00:00:00Z"),
+                        "ALL" to ("2018-01-01T00:00:00Z" to "2026-10-03T00:00:00Z"),
+                    )
+            } else {
+                listOf(
+                    "2025" to ("2025-01-07T00:00:00Z" to "2026-01-01T00:00:00Z"),
+                    "Q1-2026" to ("2026-01-01T00:00:00Z" to "2026-04-01T00:00:00Z"),
+                    "Q2-2026" to ("2026-04-01T00:00:00Z" to "2026-07-01T00:00:00Z"),
+                    "Q3-2026" to ("2026-07-01T00:00:00Z" to "2026-10-01T00:00:00Z"),
+                    "2026-YTD" to ("2026-01-01T00:00:00Z" to "2026-10-03T00:00:00Z"),
+                    "ALL" to ("2025-01-07T00:00:00Z" to "2026-10-03T00:00:00Z"),
+                )
+            }
         val validator =
             app.strategyforge.engine.support.TestEngine
                 .create()
