@@ -31,7 +31,7 @@ data class LibraryPlan(
  * other strategy file, so it is validated and versioned the same way and can be put in a slot.
  */
 object PlanLibrary {
-    val IDS = listOf("btc-daily-trend-dip-rip", "chart-champions-v3")
+    val IDS = listOf("btc-trend-core", "btc-daily-trend-dip-rip", "chart-champions-v3", "index-dip-score", "spy-trend-core")
 
     val all: List<LibraryPlan> by lazy { IDS.map(::load) }
 

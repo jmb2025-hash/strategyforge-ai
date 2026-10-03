@@ -1,0 +1,327 @@
+{
+  "id": "index-dip-score",
+  "name": "Index dip score",
+  "summary": "Buys SPY, QQQ or IWM after a sharp dip, when at least 2 of 4 oversold signals agree, while the fund is above its 50-day average; sells on the bounce. A new composite found in real data 1998-2021; about 7 in 10 trades win.",
+  "backtest": "Real daily history (QuantConnect's public split- and dividend-adjusted data) to March 2021, $10,000 start for each period, the app's default stock costs (0.1% spread, 2 bps slippage). 2021-2026 still to be checked.",
+  "results": [
+    {
+      "period": "1998 to Mar 2021",
+      "returnPercent": "33.4",
+      "maxDrawdownPercent": "11.5",
+      "trades": 247,
+      "winRatePercent": "73"
+    },
+    {
+      "period": "1998-2012 (selection)",
+      "returnPercent": "14.6",
+      "maxDrawdownPercent": "11.5",
+      "trades": 138,
+      "winRatePercent": "74"
+    },
+    {
+      "period": "2013 to Mar 2021 (unseen)",
+      "returnPercent": "15.8",
+      "maxDrawdownPercent": "5.9",
+      "trades": 109,
+      "winRatePercent": "72"
+    },
+    {
+      "period": "1998",
+      "returnPercent": "0.8",
+      "maxDrawdownPercent": "1.1",
+      "trades": 4,
+      "winRatePercent": "75"
+    },
+    {
+      "period": "1999",
+      "returnPercent": "2.7",
+      "maxDrawdownPercent": "2.3",
+      "trades": 7,
+      "winRatePercent": "71"
+    },
+    {
+      "period": "2000",
+      "returnPercent": "-10.2",
+      "maxDrawdownPercent": "10.9",
+      "trades": 9,
+      "winRatePercent": "22"
+    },
+    {
+      "period": "2001",
+      "returnPercent": "1.2",
+      "maxDrawdownPercent": "1.2",
+      "trades": 7,
+      "winRatePercent": "57"
+    },
+    {
+      "period": "2002",
+      "returnPercent": "1.7",
+      "maxDrawdownPercent": "1.6",
+      "trades": 11,
+      "winRatePercent": "82"
+    },
+    {
+      "period": "2003",
+      "returnPercent": "0.4",
+      "maxDrawdownPercent": "4.9",
+      "trades": 15,
+      "winRatePercent": "93"
+    },
+    {
+      "period": "2004",
+      "returnPercent": "2.6",
+      "maxDrawdownPercent": "0.8",
+      "trades": 11,
+      "winRatePercent": "82"
+    },
+    {
+      "period": "2005",
+      "returnPercent": "-2.8",
+      "maxDrawdownPercent": "3.3",
+      "trades": 7,
+      "winRatePercent": "29"
+    },
+    {
+      "period": "2006",
+      "returnPercent": "4.0",
+      "maxDrawdownPercent": "3.0",
+      "trades": 14,
+      "winRatePercent": "86"
+    },
+    {
+      "period": "2007",
+      "returnPercent": "2.7",
+      "maxDrawdownPercent": "0.8",
+      "trades": 6,
+      "winRatePercent": "83"
+    },
+    {
+      "period": "2008",
+      "returnPercent": "1.2",
+      "maxDrawdownPercent": "0.9",
+      "trades": 4,
+      "winRatePercent": "75"
+    },
+    {
+      "period": "2009",
+      "returnPercent": "5.5",
+      "maxDrawdownPercent": "2.2",
+      "trades": 11,
+      "winRatePercent": "82"
+    },
+    {
+      "period": "2010",
+      "returnPercent": "-0.8",
+      "maxDrawdownPercent": "2.5",
+      "trades": 6,
+      "winRatePercent": "50"
+    },
+    {
+      "period": "2011",
+      "returnPercent": "1.9",
+      "maxDrawdownPercent": "1.6",
+      "trades": 7,
+      "winRatePercent": "71"
+    },
+    {
+      "period": "2012",
+      "returnPercent": "2.3",
+      "maxDrawdownPercent": "1.1",
+      "trades": 15,
+      "winRatePercent": "87"
+    },
+    {
+      "period": "2013",
+      "returnPercent": "5.0",
+      "maxDrawdownPercent": "0.8",
+      "trades": 19,
+      "winRatePercent": "84"
+    },
+    {
+      "period": "2014",
+      "returnPercent": "2.4",
+      "maxDrawdownPercent": "2.7",
+      "trades": 19,
+      "winRatePercent": "68"
+    },
+    {
+      "period": "2015",
+      "returnPercent": "1.9",
+      "maxDrawdownPercent": "1.9",
+      "trades": 11,
+      "winRatePercent": "73"
+    },
+    {
+      "period": "2016",
+      "returnPercent": "1.8",
+      "maxDrawdownPercent": "1.1",
+      "trades": 10,
+      "winRatePercent": "70"
+    },
+    {
+      "period": "2017",
+      "returnPercent": "1.6",
+      "maxDrawdownPercent": "0.5",
+      "trades": 12,
+      "winRatePercent": "83"
+    },
+    {
+      "period": "2018",
+      "returnPercent": "-3.6",
+      "maxDrawdownPercent": "5.9",
+      "trades": 10,
+      "winRatePercent": "40"
+    },
+    {
+      "period": "2019",
+      "returnPercent": "-0.8",
+      "maxDrawdownPercent": "2.4",
+      "trades": 5,
+      "winRatePercent": "40"
+    },
+    {
+      "period": "2020",
+      "returnPercent": "3.0",
+      "maxDrawdownPercent": "2.4",
+      "trades": 14,
+      "winRatePercent": "79"
+    },
+    {
+      "period": "2021 to Mar 31",
+      "returnPercent": "2.6",
+      "maxDrawdownPercent": "1.2",
+      "trades": 4,
+      "winRatePercent": "100"
+    }
+  ],
+  "plan": {
+    "schemaVersion": "1.0",
+    "metadata": {
+      "name": "Index dip score",
+      "assetClass": "US_EQUITY",
+      "timeframe": "1d",
+      "createdBy": "IMPORTED",
+      "direction": "LONG_ONLY",
+      "description": "A new composite found in real daily history of SPY, QQQ and IWM 1998 to March 2021 (chosen on 1998-2012, confirmed unchanged on 2013-2021; also profitable on large stocks such as AAPL, BAC and GOOG). While a fund closes above its 50-day average, buy it when at least 2 of 4 oversold signals agree: the 2-day RSI under 10, the close in the bottom 20% of the day's range, the close under the lower Bollinger band (20, 2), and a 10-day closing low. Sell when the close is back above the 5-day average, after 20 days at most, or at a 15% stop. Up to 3 positions at about a third of equity each. About 7 in 10 trades win; it is invested only about a tenth of the time."
+    },
+    "universe": {
+      "symbols": [
+        "SPY",
+        "QQQ",
+        "IWM"
+      ]
+    },
+    "dataRequirements": {
+      "minimumHistoryBars": 60,
+      "maximumQuoteAgeSeconds": 3600,
+      "indicators": [
+        {
+          "id": "TREND",
+          "type": "SMA",
+          "period": 50
+        },
+        {
+          "id": "R",
+          "type": "RSI",
+          "period": 2
+        },
+        {
+          "id": "IBS20",
+          "type": "LEVEL",
+          "from": "LOW",
+          "to": "HIGH",
+          "ratio": 0.2
+        },
+        {
+          "id": "BB",
+          "type": "BOLLINGER_BANDS",
+          "period": 20,
+          "standardDeviations": 2
+        },
+        {
+          "id": "LOW10",
+          "type": "LOWEST",
+          "period": 10,
+          "source": "CLOSE"
+        },
+        {
+          "id": "EXIT",
+          "type": "SMA",
+          "period": 5
+        }
+      ]
+    },
+    "entryRules": {
+      "operator": "ALL",
+      "conditions": [
+        {
+          "left": "CLOSE",
+          "comparison": "GT",
+          "right": "TREND"
+        },
+        {
+          "operator": "AT_LEAST",
+          "count": 2,
+          "conditions": [
+            {
+              "left": "R",
+              "comparison": "LT",
+              "right": 10
+            },
+            {
+              "left": "CLOSE",
+              "comparison": "LT",
+              "right": "IBS20"
+            },
+            {
+              "left": "CLOSE",
+              "comparison": "LT",
+              "right": "BB.lower"
+            },
+            {
+              "left": "CLOSE",
+              "comparison": "LTE",
+              "right": "LOW10"
+            }
+          ]
+        }
+      ]
+    },
+    "exitRules": {
+      "stopLossPercent": 15,
+      "takeProfitPercent": 30,
+      "maximumHoldingBars": 20,
+      "conditions": {
+        "operator": "ANY",
+        "conditions": [
+          {
+            "left": "CLOSE",
+            "comparison": "GT",
+            "right": "EXIT"
+          }
+        ]
+      }
+    },
+    "positionSizing": {
+      "method": "PERCENT_OF_EQUITY",
+      "value": 32
+    },
+    "orderInstructions": {
+      "orderType": "MARKET",
+      "timeInForce": "GTC"
+    },
+    "riskLimits": {
+      "maximumOpenPositions": 3,
+      "maximumDailyTrades": 5,
+      "maximumDailyLossPercent": 10,
+      "maximumDrawdownPercent": 40,
+      "maximumPositionPercent": 100,
+      "allowShort": false
+    },
+    "inactivityConditions": [
+      "STALE_MARKET_DATA",
+      "MISSING_HISTORY",
+      "PROVIDER_UNAVAILABLE"
+    ]
+  }
+}

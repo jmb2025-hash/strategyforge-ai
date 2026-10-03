@@ -752,3 +752,41 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Tests:** StrategySlotsTest (next free slot, shared-symbol refusal, slots full, invalid slot, explicit replacement); LocalApiAppTest D-051 through the app's calls; the portfolio cap test uses the new limit.
 - **Version:** 1.11.0 (versionCode 16).
 - **Requirements affected:** FR-070 to FR-075.
+
+## D-052 Stock research on 1998–2021 data, the dip score, trend cores and a slot plan
+
+- **Date:** 2026-10-03
+- **Context:**
+  - The owner asked for 10 years of stock data, more simulations to find winning and novel strategies, and a plan built from the results.
+  - This environment's network policy blocks every stock-data provider tried: Yahoo, Stooq, Twelve Data, Nasdaq Data Link, Alpha Vantage and Tiingo. The owner was told how to allow one.
+  - QuantConnect's public sample data on GitHub was reachable: daily SPY, QQQ, IWM, AAPL, IBM, BAC, AIG and GOOG, 1998 to March 2021, adjusted with its factor files.
+- **Method.**
+  - Rules were scanned in Python, selected on 1998–2012 and run unchanged on 2013 – Mar 2021, then confirmed in the app's backtester through a new opt-in stock sweep (`SF_STOCK_DIR`).
+  - BTC rules used the 2018–2026 data (D-050): selection on 2018–2022, unseen 2023–2026.
+- **Findings:**
+  - **Dip score (new composite).** Count of 4 oversold signals: RSI(2) < 10, close in the bottom 20% of the day's range (a LEVEL from LOW to HIGH at 0.2), close below the lower Bollinger band, and a 10-day closing low.
+    - Above the 50-day average, at least 3 of 4: 1.25% per trade and 73% won in 1998–2012; 0.69% per trade and 74% won in 2013–2021; positive on all 8 symbols in both spans.
+    - It beats each single signal and does not transfer to BTC.
+  - **Rejected stock rules:**
+    - Weekly or monthly failed breakdowns and reversal days were not consistent.
+    - Narrow-range and 55-day breakouts decayed after 2012.
+    - Unfiltered mean reversion lost in bear markets.
+  - **SPY trend core** (hold above the 200-day average): 1998–2021 +224%, max drawdown 26.7%.
+  - **BTC trend cores:**
+    - Long-only above the 100–150-day average held in both halves.
+    - Long-and-short versions that led in 2018–2022 collapsed afterwards.
+    - The 100-day core was chosen by return per unit of drawdown on 2018–2022. Results: 2018–2022 +531%, 2023–2026 +231%, whole span +1,985%, max drawdown 37.2%, 23% of trades won.
+- **Engine findings while testing:**
+  - Daily equity orders need GTC, because DAY orders signalled at the close expire before the next open.
+  - The market calendar covers 2023–2027 only. Backtests before 2023 still run, but live sessions and holidays outside that range are unknown.
+- **Decision:**
+  - **Library:**
+    - `btc-trend-core`, `btc-daily-trend-dip-rip`, `chart-champions-v3`, `index-dip-score` (SPY, QQQ, IWM; 2 of 4 signals, up to 3 positions) and `spy-trend-core`.
+    - Each shows its selection, unseen and whole spans plus every calendar year.
+    - The stock plans say their data ends in March 2021.
+  - **Slot plan** (`docs/research/STRATEGY_RESEARCH_2026-10.md`), each slot in its own portfolio:
+    - Crypto 1: BTC trend core. Crypto 2: dip and rip. Crypto 3: Chart Champions v3.
+    - Stock 1: S&P 500 trend core. Stock 2: Index dip score.
+  - **Pending.** Re-test the stock plans on April 2021 – October 2026 once a stock-data host is allowed.
+- **Version:** 1.12.0 (versionCode 17).
+- **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.
