@@ -60,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.repeatOnLifecycle
 import app.strategyforge.android.core.api.ApiError
 import app.strategyforge.android.core.cache.Resource
 import app.strategyforge.android.core.format.Formatters
@@ -421,3 +422,30 @@ fun ConfirmDialog(
 }
 
 fun formatters(timezone: String?): Formatters = Formatters(runCatching { ZoneId.of(timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC")))
+
+/** How often screens showing live values re-read them while open (D-056). */
+const val LIVE_REFRESH_MS = 5_000L
+
+/** TSX intraday prices refresh about once a minute, so their screens re-read less often. */
+const val TSX_REFRESH_MS = 30_000L
+
+/**
+ * Calls [onRefresh] every [everyMs] while the screen is in the foreground (D-056), so values that
+ * move with live prices update without a manual refresh; it stops when the app is in the background.
+ */
+@Composable
+fun AutoRefresh(
+    everyMs: Long,
+    onRefresh: () -> Unit,
+) {
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val latest by androidx.compose.runtime.rememberUpdatedState(onRefresh)
+    androidx.compose.runtime.LaunchedEffect(owner, everyMs) {
+        owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (true) {
+                kotlinx.coroutines.delay(everyMs)
+                latest()
+            }
+        }
+    }
+}

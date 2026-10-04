@@ -29,4 +29,13 @@ class YahooTsxProviderTest {
         assertThat(r).isEqualTo(TsxFetch.Failed("No data found, symbol may be delisted", notFound = true))
         assertThat(yahoo.parse("not json")).isInstanceOf(TsxFetch.Failed::class.java)
     }
+
+    @Test
+    fun `reads the current price from the chart meta`() {
+        val q = yahoo.parseLatest("""{"chart":{"result":[{"meta":{"currency":"CAD","regularMarketPrice":278.91,"regularMarketTime":1790971200,"previousClose":277.86}}]}}""")!!
+        assertThat(q.price).isEqualTo(278.91)
+        assertThat(q.at.epochSecond).isEqualTo(1790971200)
+        assertThat(q.previousClose).isEqualTo(277.86)
+        assertThat(yahoo.parseLatest("""{"chart":{"result":null}}""")).isNull()
+    }
 }

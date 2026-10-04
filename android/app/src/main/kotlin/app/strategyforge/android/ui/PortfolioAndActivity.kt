@@ -56,6 +56,7 @@ fun PortfolioScreen(
     val selected by vm.selected.collectAsStateWithLifecycle()
     val orders by vm.orders.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
+    AutoRefresh(LIVE_REFRESH_MS) { vm.refresh() }
     var name by rememberSaveable { mutableStateOf("") }
     var balance by rememberSaveable { mutableStateOf("100000") }
     var symbol by rememberSaveable { mutableStateOf("") }

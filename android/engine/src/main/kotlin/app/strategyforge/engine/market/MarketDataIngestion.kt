@@ -49,6 +49,28 @@ class MarketDataIngestion(
             .flatMap { it.instrumentIds() }
             .toSet()
 
+    /** The watched instruments' symbols per asset class, for the live streams (D-056). */
+    fun interestSymbols(): Map<AssetClass, Set<String>> =
+        instruments
+            .byIds(interestIds())
+            .filter { it.active }
+            .groupBy({ it.assetClass }, { it.symbol })
+            .mapValues { it.value.toSet() }
+
+    /** Stores fresh streamed quotes for the watched instruments (no network) and evaluates alerts; returns how many were new. */
+    fun refreshStreamed(): Int {
+        var n = 0
+        instruments.byIds(interestIds()).filter { it.active }.forEach { i ->
+            val v = runCatching { data.streamQuote(i) }.getOrNull() ?: return@forEach
+            val q = v.quote
+            if (v.verified && q != null) {
+                n++
+                runCatching { alerts.evaluate(i, q) }.onFailure { log.warn("Alert evaluation failed for {}", i.symbol, it) }
+            }
+        }
+        return n
+    }
+
     /** Refreshes quotes for every instrument of interest, evaluates alerts and raises stale-data events. */
     fun refreshAll(): IngestionReport {
         val now = clock.now()

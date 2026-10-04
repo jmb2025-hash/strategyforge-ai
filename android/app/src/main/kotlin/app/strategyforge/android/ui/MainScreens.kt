@@ -276,6 +276,7 @@ fun HomeScreen(
             ?.portfolio
             ?.id
     LaunchedEffect(primaryId) { primaryId?.let { vm.loadEquity(it) } }
+    AutoRefresh(LIVE_REFRESH_MS) { vm.refresh() }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         ResourceContent(state, fmt, onRetry = vm::refresh) { d -> DashboardContent(d, fmt, equity, onOpen = { nav.navigate(it) }) }
         TextButton(onClick = vm::refresh) { Text("Refresh") }

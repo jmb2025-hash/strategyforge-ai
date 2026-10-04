@@ -251,6 +251,13 @@ class LocalApi(
             engine.equityKey.set(obj(r).str("key"))
             stocks()
         }
+        get("/v1/market-data/streams") { _, _ -> streams() }
+        put("/v1/market-data/stocks/stream-key") { r, _ ->
+            val b = obj(r)
+            engine.streamKey.set(b.str("keyId"), b.str("secret"))
+            engine.streams.reset()
+            streams()
+        }
         post("/v1/market-data/stocks/test") { _, _ ->
             if (!engine.equityKey.configured()) throw Problems.unprocessable("no-stock-key", "Add a Twelve Data key first")
             val t = engine.equitySource()?.diagnose(engine.wall.instant()) ?: throw Problems.unavailable("stocks-unavailable", "Stock data is not available in this build")
@@ -278,6 +285,27 @@ class LocalApi(
             "configured" to engine.equityKey.configured(),
             "fingerprint" to engine.equityKey.fingerprint(),
             "keyUrl" to "https://twelvedata.com/account/api-keys",
+        )
+
+    private fun streams() =
+        mapOf(
+            "stockKeyConfigured" to engine.streamKey.configured(),
+            "stockKeyFingerprint" to engine.streamKey.fingerprint(),
+            "stockKeyUrl" to "https://app.alpaca.markets/signup",
+            "streams" to
+                engine.streams.statuses().map { s ->
+                    mapOf(
+                        "name" to s.name,
+                        "assetClass" to s.assetClass.name,
+                        "state" to s.state.name,
+                        "symbols" to s.symbols,
+                        "subscribed" to s.subscribed,
+                        "connectedAt" to s.connectedAt?.toString(),
+                        "lastMessageAt" to s.lastMessageAt?.toString(),
+                        "error" to s.error,
+                        "reconnects" to s.reconnects,
+                    )
+                },
         )
 
     private fun runtime() =
@@ -1274,9 +1302,18 @@ class LocalApi(
                         ?.map { mapOf("symbol" to it.key, "name" to TsxCatalog.listing(it.key)?.name, "weight" to it.value) },
                 "holdings" to
                     v.holdings.map { h ->
-                        mapOf("symbol" to h.symbol, "name" to TsxCatalog.listing(h.symbol)?.name, "shares" to h.shares, "price" to h.price, "value" to h.shares * h.price)
+                        mapOf(
+                            "symbol" to h.symbol,
+                            "name" to TsxCatalog.listing(h.symbol)?.name,
+                            "shares" to h.shares,
+                            "price" to h.price,
+                            "value" to h.shares * h.price,
+                            "livePrice" to h.livePrice,
+                        )
                     },
                 "createdAt" to v.createdAt.toString(),
+                "liveValue" to v.liveValue,
+                "liveAt" to v.liveAt?.toString(),
             )
         if (!detail) return base
         val months =

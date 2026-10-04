@@ -37,6 +37,8 @@ data class TsxHolding(
     val symbol: String,
     val shares: Double,
     val price: Double,
+    /** Intraday price newer than [price] (the last close), when known (D-056). */
+    val livePrice: Double? = null,
 )
 
 data class TsxRunView(
@@ -57,6 +59,9 @@ data class TsxRunView(
     val pending: Map<String, Double>?,
     val pendingDay: LocalDate?,
     val createdAt: Instant,
+    /** Value at intraday prices since the last close (display only, D-056); null outside the session. */
+    val liveValue: Double? = null,
+    val liveAt: Instant? = null,
 )
 
 data class TsxEvent(
@@ -101,6 +106,13 @@ class TsxService(
     @Volatile private var lastError: String? = null
     private var cache: TsxData? = null
 
+    /** Intraday prices for held listings, refreshed in the background while the TSX is open (D-056). */
+    private val intraday = java.util.concurrent.ConcurrentHashMap<String, TsxQuote>()
+
+    @Volatile private var intradayRunning = false
+
+    @Volatile private var intradayAt: Instant? = null
+
     val listings: List<TsxListing> get() = TsxCatalog.listings
 
     // ------------------------------------------------------------------ data
@@ -133,7 +145,9 @@ class TsxService(
     fun refresh(): Boolean {
         val p = provider() ?: return false.also { lastError = "No TSX data source is configured" }
         if (refreshing) return false
-        val today = wall.instant().atZone(YahooTsxProvider.TORONTO).toLocalDate()
+        // Only completed sessions: before 16:30 Toronto today's daily bar is still forming.
+        val local = wall.instant().atZone(YahooTsxProvider.TORONTO)
+        val today = if (local.toLocalTime() < java.time.LocalTime.of(16, 30)) local.toLocalDate().minusDays(1) else local.toLocalDate()
         val lastDays = db.sql("select symbol, last_day from tsx_history").list { it.str("symbol") to it.string("last_day")?.let(LocalDate::parse) }.toMap()
         val symbols = (listings.map { it.symbol } + TsxCatalog.plans.flatMap { it.namedSymbols }).distinct()
         refreshing = true
@@ -219,6 +233,48 @@ class TsxService(
         val last = lastRefreshAt()
         if (active && !refreshing && (last == null || Duration.between(last, wall.instant()) > AUTO_REFRESH)) refresh()
         processRuns()
+        if (active) refreshIntraday()
+    }
+
+    /** True from 9:30 to 16:15 Toronto time on weekdays (holidays simply return yesterday's prices). */
+    fun sessionOpen(now: Instant = wall.instant()): Boolean {
+        val t = now.atZone(YahooTsxProvider.TORONTO)
+        if (t.dayOfWeek == java.time.DayOfWeek.SATURDAY || t.dayOfWeek == java.time.DayOfWeek.SUNDAY) return false
+        val m = t.hour * 60 + t.minute
+        return m in (9 * 60 + 30)..(16 * 60 + 15)
+    }
+
+    /** Fetches intraday prices for the listings active runs hold, at most once a minute during the session. */
+    fun refreshIntraday(): Boolean {
+        val p = provider() ?: return false
+        val now = wall.instant()
+        if (intradayRunning || !sessionOpen(now)) return false
+        if (intradayAt?.let { Duration.between(it, now) < INTRADAY_EVERY } == true) return false
+        val symbols =
+            db
+                .sql("select holdings from tsx_runs where status = 'ACTIVE'")
+                .list {
+                    mapper
+                        .readTree(it.str("holdings"))
+                        .fieldNames()
+                        .asSequence()
+                        .toList()
+                }.flatten()
+                .toSortedSet()
+        if (symbols.isEmpty()) return false
+        intradayRunning = true
+        intradayAt = now
+        background {
+            try {
+                for (s in symbols) {
+                    runCatching { p.latest(s) }.getOrNull()?.let { intraday[s] = it }
+                    if (pauseMs > 0) Thread.sleep(pauseMs / 2)
+                }
+            } finally {
+                intradayRunning = false
+            }
+        }
+        return true
     }
 
     // ------------------------------------------------------------------ runs
@@ -289,6 +345,8 @@ class TsxService(
             .param("id", id)
             .firstOrNull { r ->
                 val book = book(r.str("cash"), r.str("holdings"))
+                val lastDay = r.string("last_day")?.let(LocalDate::parse)
+                val live = liveQuotes(book, lastDay)
                 TsxRunView(
                     id = id,
                     planId = r.str("plan_id"),
@@ -303,12 +361,31 @@ class TsxService(
                     status = r.str("status"),
                     startDay = r.string("start_day")?.let(LocalDate::parse),
                     lastDay = r.string("last_day")?.let(LocalDate::parse),
-                    holdings = book.shares.map { (s, n) -> TsxHolding(s, n, book.lastPx[s] ?: 0.0) }.sortedByDescending { it.shares * it.price },
+                    holdings = book.shares.map { (s, n) -> TsxHolding(s, n, book.lastPx[s] ?: 0.0, live[s]?.price) }.sortedByDescending { it.shares * it.price },
                     pending = r.string("pending")?.let { readWeights(it) },
                     pendingDay = r.string("pending_day")?.let(LocalDate::parse),
                     createdAt = Instant.ofEpochMilli(r.long("created_at") ?: 0L),
+                    liveValue = if (live.isEmpty() || r.str("status") != "ACTIVE") null else book.cash + book.shares.entries.sumOf { (s, n) -> n * (live[s]?.price ?: book.lastPx[s] ?: 0.0) },
+                    liveAt = live.values.maxOfOrNull { it.at },
                 )
             } ?: throw Problems.notFound("TSX plan run", id)
+
+    /** Intraday prices for the book's holdings that are newer than the run's last close. */
+    private fun liveQuotes(
+        book: Book,
+        lastDay: LocalDate?,
+    ): Map<String, TsxQuote> =
+        book.shares.keys
+            .mapNotNull { s ->
+                intraday[s]
+                    ?.takeIf { q ->
+                        lastDay == null ||
+                            q.at
+                                .atZone(YahooTsxProvider.TORONTO)
+                                .toLocalDate()
+                                .isAfter(lastDay)
+                    }?.let { s to it }
+            }.toMap()
 
     fun values(id: UUID): List<SimPoint> =
         db
@@ -724,6 +801,9 @@ class TsxService(
         val DATA_START: LocalDate = LocalDate.parse("2014-10-01")
         const val REFRESH_KEY = "tsx_last_refresh"
         val AUTO_REFRESH: Duration = Duration.ofHours(6)
+
+        /** Intraday prices are display-only and refreshed at most this often during the session (D-056). */
+        val INTRADAY_EVERY: Duration = Duration.ofMinutes(1)
 
         /** Trading days a held listing may go without prices before it is treated as taken over. */
         const val DELIST_GRACE_DAYS = 10

@@ -104,6 +104,10 @@ class Engine(
     derivativesProvider: () -> app.strategyforge.engine.market.DerivativesProvider? = { null },
     /** Daily TSX history with dividends for the portfolio plans (Yahoo Finance in the app, D-055). */
     tsxProvider: () -> app.strategyforge.engine.tsx.TsxHistoryProvider? = { null },
+    /** Live crypto price stream (Coinbase WebSocket in the app, D-056). */
+    cryptoStream: () -> app.strategyforge.engine.market.QuoteStream? = { null },
+    /** Builds the live US stock stream around the owner's stored key pair (Alpaca IEX in the app, D-056). */
+    stockStream: ((keys: () -> Pair<String, String>?) -> app.strategyforge.engine.market.QuoteStream)? = null,
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -120,13 +124,21 @@ class Engine(
     private val equities: MarketDataProvider? by lazy { equityProvider?.invoke(equityKey::get) }
     val sources = MarketSources(marketClock, replayProvider, { fixtures.dataset.replayStart }, cryptoProvider, { equities?.takeIf { equityKey.configured() } })
 
+    val streamKey =
+        app.strategyforge.engine.market
+            .StreamKey(secrets, auth, audit)
+    private val stocksStream: app.strategyforge.engine.market.QuoteStream? by lazy { stockStream?.invoke(streamKey::get) }
+    val streams =
+        app.strategyforge.engine.market
+            .StreamHub(cryptoStream, { stocksStream })
+
     /** The US equity source even before a key is stored (for the key test screen). */
     fun equitySource(): MarketDataProvider? = equities
 
     val settings = SettingsService(db, audit, auth, wall)
     val notifications = NotificationService(db, wall, settings)
     val instruments = InstrumentService(db, sources, audit)
-    val market = MarketDataService(db, sources, marketClock, wall, audit)
+    val market = MarketDataService(db, sources, marketClock, wall, audit, { streams.quote(it) })
     val corporateActions = CorporateActionService(db, sources, audit, wall)
     val derivatives =
         app.strategyforge.engine.market

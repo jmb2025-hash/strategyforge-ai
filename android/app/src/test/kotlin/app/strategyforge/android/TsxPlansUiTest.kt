@@ -37,7 +37,7 @@ class TsxPlansUiTest {
             """
             {"id":"r1","planId":"tsx-high-yield-trend","planName":"TSX high yield with trend guard","slot":2,"mode":"NOTIFY","drip":true,
              "startingCash":10000.0,"cash":12.5,"value":10250.0,"dividendsReceived":61.2,"status":"ACTIVE","startDay":"2026-09-01","lastDay":"2026-10-02",
-             "pendingDay":"2026-10-01","pending":[{"symbol":"ENB","name":"Enbridge","weight":0.1}],
+             "pendingDay":"2026-10-01","liveValue":10455.0,"liveAt":"2026-10-02T15:00:00Z","pending":[{"symbol":"ENB","name":"Enbridge","weight":0.1}],
              "holdings":[{"symbol":"BCE","name":"BCE Inc.","shares":100.0,"price":33.0,"value":3300.0}],
              "values":[{"day":"2026-09-01","value":10000.0},{"day":"2026-10-02","value":10250.0}],
              "monthlyDividends":[{"month":"2026-09","amount":61.2}],
@@ -57,6 +57,8 @@ class TsxPlansUiTest {
         }
         rule.onNodeWithText("Slot 2: TSX high yield with trend guard").assertExists()
         rule.onNodeWithText("Rebalance waiting for approval (2026-10-01)").assertExists()
+        rule.onNodeWithText("Now (intraday)").assertExists()
+        rule.onNodeWithText("11:00 Toronto").assertExists()
         rule.onNodeWithText("ENB · Enbridge").assertExists()
         rule.onNodeWithText("Dividend C$61.20 reinvested").assertExists()
         rule.onNodeWithTag("tsx-approve").performScrollTo().performClick()

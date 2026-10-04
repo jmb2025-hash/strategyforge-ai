@@ -45,13 +45,13 @@ class EngineSchedulerTest {
         val e = Engine(JdbcSqlBackend(DriverManager.getConnection("jdbc:sqlite::memory:")), clock, reader, cryptoProvider = { live })
         e.setMarketMode(MarketMode.LIVE)
         val s = EngineScheduler(e)
-        assertThat(s.tick().ran).containsExactly("tsx", "ingestion", "execution", "maintenance", "reconciliation", "reconciliation-all", "evaluation", "expiry", "equity")
+        assertThat(s.tick().ran).containsExactly("tsx", "stream", "ingestion", "execution", "maintenance", "reconciliation", "reconciliation-all", "evaluation", "expiry", "equity")
         clock.advanceSeconds(5)
-        assertThat(s.tick().ran).containsExactly("execution", "reconciliation")
+        assertThat(s.tick().ran).containsExactly("stream", "execution", "reconciliation")
         clock.advanceSeconds(10)
-        assertThat(s.tick().ran).containsExactly("ingestion", "execution", "reconciliation", "expiry")
+        assertThat(s.tick().ran).containsExactly("stream", "ingestion", "execution", "reconciliation", "expiry")
         clock.advanceSeconds(5)
-        assertThat(s.tick().ran).containsExactly("execution", "reconciliation", "evaluation")
+        assertThat(s.tick().ran).containsExactly("stream", "execution", "reconciliation", "evaluation")
 
         // A market order placed in live mode fills on a later tick once its execution delay has passed.
         val pid = e.portfolio()

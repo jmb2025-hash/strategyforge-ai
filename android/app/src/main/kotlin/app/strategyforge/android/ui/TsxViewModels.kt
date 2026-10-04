@@ -55,6 +55,11 @@ class TsxPlansViewModel
             }
         }
 
+        /** Re-reads the running plans (their values move with intraday prices). */
+        fun loadRuns() {
+            viewModelScope.launch { runCatching { repo.tsxRuns() }.onSuccess { _runs.value = it } }
+        }
+
         private suspend fun loadStatus() {
             runCatching { repo.tsxData() }.onSuccess {
                 _data.value = it

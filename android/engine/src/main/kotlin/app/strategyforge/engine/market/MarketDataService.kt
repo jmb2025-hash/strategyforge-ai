@@ -29,14 +29,26 @@ class MarketDataService(
     private val marketClock: MarketClock,
     private val wall: Clock,
     private val audit: AuditService,
+    /** A fresh streamed quote for an instrument, or null (D-056). */
+    private val stream: (Instrument) -> QuoteData? = { null },
 ) {
+    /** Instruments whose stored quote came from a stream, with that quote's time. */
+    private val streamed = java.util.concurrent.ConcurrentHashMap<UUID, Instant>()
+
     // ---------------------------------------------------------------- quotes
 
     fun refreshQuote(instrument: Instrument): QuoteVerification {
         val active = registry.active()
         val now = marketClock.now()
+        streamQuote(instrument, now)?.let { return it }
         return when (val r = active.provider.quote(instrument.symbol, instrument.assetClass, now)) {
-            is ProviderResult.Ok -> storeQuote(instrument, r.value, registry.nameFor(instrument.assetClass), now)
+            is ProviderResult.Ok -> {
+                val existing = streamed[instrument.id]
+                // A polled quote (possibly delayed) older than the streamed one is not news, and not out of order.
+                if (existing != null && r.value.exchangeTs.isBefore(existing)) return verifyQuote(instrument, Long.MAX_VALUE, now)
+                streamed.remove(instrument.id)
+                storeQuote(instrument, r.value, registry.nameFor(instrument.assetClass), now)
+            }
             is ProviderResult.Unsupported -> {
                 flag(instrument.id, QUOTE_KEY, DataStatus.UNSUPPORTED, r.detail)
                 QuoteVerification(DataStatus.UNSUPPORTED, null, null, r.detail)
@@ -47,6 +59,24 @@ class MarketDataService(
                 QuoteVerification(status, latestQuote(instrument.id), null, "${r.kind}: ${r.detail}")
             }
         }
+    }
+
+    /**
+     * Stores the stream's latest tick for [instrument] in LIVE mode (D-056). Null when no fresh tick
+     * exists, so the caller polls instead; a tick already stored returns the current verification.
+     */
+    fun streamQuote(
+        instrument: Instrument,
+        now: Instant = marketClock.now(),
+    ): QuoteVerification? {
+        if (registry.mode != MarketMode.LIVE) return null
+        val q = stream(instrument) ?: return null
+        val seen = streamed[instrument.id]
+        if (seen != null && !q.exchangeTs.isAfter(seen)) return verifyQuote(instrument, Long.MAX_VALUE, now)
+        val existing = latestQuote(instrument.id)
+        if (existing != null && q.exchangeTs.isBefore(existing.exchangeTs)) return null
+        streamed[instrument.id] = q.exchangeTs
+        return storeQuote(instrument, q, registry.nameFor(instrument.assetClass), now)
     }
 
     /** Validates and stores a quote; rejects malformed, future-dated (clock skew) and out-of-order quotes. */

@@ -63,6 +63,7 @@ fun StrategiesScreen(
         vm.loadSlots()
         vm.loadLibrary()
     }
+    AutoRefresh(LIVE_REFRESH_MS * 2) { vm.loadSlots() }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         SlotsSection(slots, onOpen = { nav.navigate("strategy/$it") }, onStop = vm::stop)
         SectionTitle("Trading plans")

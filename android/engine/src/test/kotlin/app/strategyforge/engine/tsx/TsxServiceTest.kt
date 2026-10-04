@@ -109,4 +109,44 @@ class TsxServiceTest {
         assertThat(r.path("endDrip").asDouble()).isGreaterThan(r.path("endPaidOut").asDouble())
         assertThat(tsx.backtests("tsx-dividend-growth-momentum")).hasSize(1)
     }
+
+    @Test
+    fun `intraday prices show a live value during the session without touching the closes`() {
+        val live =
+            object : TsxHistoryProvider {
+                override fun history(
+                    symbol: String,
+                    from: LocalDate,
+                    to: LocalDate,
+                ) = SyntheticTsx.provider.history(symbol, from, to)
+
+                override fun latest(symbol: String) = TsxQuote(SyntheticTsx.close(symbol, LocalDate.parse("2026-08-03")) * 1.02, clock.instant(), null)
+            }
+        val e =
+            Engine(
+                JdbcSqlBackend(DriverManager.getConnection("jdbc:sqlite::memory:")),
+                clock,
+                fixtureReader = { rel -> TestEngine::class.java.getResource("/replay/$rel")!!.readText() },
+                tsxProvider = { live },
+            ).also { it.tsx.pauseMs = 0 }
+        e.tsx.refresh()
+        val run = e.tsx.create("tsx-high-yield-trend", null, 10_000.0, true, TsxMode.AUTONOMOUS)
+        assertThat(run.liveValue).isNull()
+        // Tuesday 11:00 in Toronto: the session is open.
+        clock.advanceSeconds(18 * 3_600)
+        assertThat(e.tsx.sessionOpen()).isTrue()
+        e.tsx.tick()
+        val r = e.tsx.get(run.id)
+        val invested = r.holdings.sumOf { it.shares * it.price }
+        assertThat(r.liveValue!!).isCloseTo(r.cash + invested * 1.02, within(0.01))
+        assertThat(r.holdings).allSatisfy { assertThat(it.livePrice).isCloseTo(it.price * 1.02, within(1e-6)) }
+        assertThat(r.lastDay).isEqualTo(LocalDate.parse("2026-08-03"))
+        // A data refresh during the session stops at the last completed session.
+        e.tsx.refresh()
+        assertThat(e.tsx.status().latestDay).isEqualTo(LocalDate.parse("2026-08-03"))
+        // Outside the session nothing is fetched.
+        clock.advanceSeconds(12 * 3_600)
+        assertThat(e.tsx.sessionOpen()).isFalse()
+        assertThat(e.tsx.refreshIntraday()).isFalse()
+    }
 }

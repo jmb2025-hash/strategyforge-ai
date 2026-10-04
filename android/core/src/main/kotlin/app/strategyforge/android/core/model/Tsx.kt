@@ -112,6 +112,9 @@ data class TsxRun(
     val monthlyValues: List<TsxMonthValue> = emptyList(),
     val monthlyDividends: List<TsxMonthDividend> = emptyList(),
     val events: List<TsxEvent> = emptyList(),
+    /** Value at intraday prices since the last close (display only, D-056). */
+    val liveValue: Double? = null,
+    val liveAt: String? = null,
 )
 
 @Serializable
@@ -128,6 +131,7 @@ data class TsxHolding(
     val shares: Double,
     val price: Double,
     val value: Double,
+    val livePrice: Double? = null,
 )
 
 @Serializable

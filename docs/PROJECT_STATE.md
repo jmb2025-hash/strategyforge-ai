@@ -131,16 +131,23 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         paid out, scheduler task "tsx" (auto refresh 6h while a run is active). API /v1/tsx/*. App: Strategies ->
         "TSX plans" screen + tsx-run/{id}; deep link strategyforge://tsxrun/{id}. Doubles for plan math (documented).
         Kotlin/Python parity P1 47,908/47,930 P2 28,729 P3 37,748/37,750 P4 51,497.
+- 1.15.0 (D-056) LIVE STREAMING: market/QuoteStreams.kt (CoinbaseQuoteStream ws-feed ticker+heartbeat, no key;
+        AlpacaQuoteStream IEX, owner key pair via StreamKey/Keystore, 30 symbols), StreamHub; scheduler task "stream" every
+        tick stores fresh ticks (crypto <=30s, stocks <=5min) under the class's provider name, else 15s polling; polled
+        quotes older than streamed ones are skipped (no OUT_OF_ORDER). TSX intraday display (Yahoo regularMarketPrice,
+        1/min 09:30-16:15 Toronto, liveValue/livePrice), TSX daily refresh ends at last completed session. Screens
+        auto-refresh (AutoRefresh). API /v1/market-data/streams, PUT /v1/market-data/stocks/stream-key. WebSocket hosts
+        are blocked in this cloud env: first live connection is verified on the phone.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.
-- Tests: engine 241/241 (incl. tsx BookTest, TsxServiceTest, YahooTsxProviderTest; LocalApiAppTest TSX), core 27/27 (incl. LevelIndicatorsTest 9, BacktestFeaturesTest 4,
+- Tests: engine 248/248 (incl. market QuoteStreamTest, tsx BookTest, TsxServiceTest, YahooTsxProviderTest; LocalApiAppTest TSX + stream key), core 27/27 (incl. LevelIndicatorsTest 9, BacktestFeaturesTest 4,
   ChartChampionsStrategyTest 2, LiveStrategyFeaturesTest 3, LocalApiAppTest D-042, ChartsUiTest ShortingSwitch).
 - futures.kraken.com and docs.kraken.com are DENIED by this cloud env network policy -> Kraken formats were
   taken from ccxt (raw.githubusercontent.com works) and doc summaries; live verification is on the phone.
 - Open decisions awaiting user:
   a) (done in 1.7.0) Kraken Futures for OI / funding / delta-CVD.
-  b) Live streaming upgrade (Coinbase websocket + Alpaca IEX) - offered, unanswered.
+  b) (done in 1.15.0) Live streaming (Coinbase websocket + Alpaca IEX); owner must add Alpaca keys for stocks.
 - Known approximations: volume profile and CVD derived from candles (not tick data).
 
 4. NEXT IMMEDIATE STEPS (ranked)
@@ -148,7 +155,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
     (default crypto fallback spread 0.20%/side is very conservative; real-data runs show costs dominate tight stops).
  2. Agreed next: "Copy analysis prompt" export (plan + per-setup results + trades for any AI), plan comparison charts,
     "build a better plan". Consider exposing realistic cost presets (spot vs perpetual) in the app.
- 3. Owner verifies Kraken futures on phone; open offer: live streaming.
+ 3. Owner verifies Kraken futures and the live streams (Engine screen: Live price streaming) on the phone.
  4. Known limits: one signal per symbol per bar; one plan timeframe (setups decide on longer ones via decisionTimeframe);
     no cross-symbol (alt vs BTC) rules; no laddered entries (CCW).
 
@@ -162,7 +169,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-056). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-057). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

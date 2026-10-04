@@ -30,13 +30,23 @@ sealed interface TsxFetch {
     ) : TsxFetch
 }
 
-/** Daily TSX history with dividends (D-055). */
+/** A current (intraday) price for a TSX listing (D-056); display only. */
+data class TsxQuote(
+    val price: Double,
+    val at: Instant,
+    val previousClose: Double?,
+)
+
+/** Daily TSX history with dividends (D-055), and current prices where the source has them (D-056). */
 fun interface TsxHistoryProvider {
     fun history(
         symbol: String,
         from: LocalDate,
         to: LocalDate,
     ): TsxFetch
+
+    /** The latest trade price during the session; null when unavailable. */
+    fun latest(symbol: String): TsxQuote? = null
 }
 
 /**
@@ -87,6 +97,49 @@ class YahooTsxProvider(
         } catch (e: IOException) {
             TsxFetch.Failed("Could not reach Yahoo Finance: ${e.message ?: e.javaClass.simpleName}")
         }
+    }
+
+    override fun latest(symbol: String): TsxQuote? {
+        val url =
+            baseUrl
+                .newBuilder()
+                .addPathSegments("v8/finance/chart")
+                .addPathSegment("$symbol.TO")
+                .addQueryParameter("range", "1d")
+                .addQueryParameter("interval", "5m")
+                .build()
+        val req =
+            Request
+                .Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) StrategyForge")
+                .header("Accept", "application/json")
+                .build()
+        return try {
+            http.newCall(req).execute().use { r -> if (r.isSuccessful) r.body?.string()?.let { parseLatest(it) } else null }
+        } catch (e: IOException) {
+            null
+        }
+    }
+
+    /** The chart's meta block: regularMarketPrice at regularMarketTime, with the previous close. */
+    fun parseLatest(body: String): TsxQuote? {
+        val meta =
+            runCatching { mapper.readTree(body) }
+                .getOrNull()
+                ?.path("chart")
+                ?.path("result")
+                ?.path(0)
+                ?.path("meta") ?: return null
+        val price =
+            meta
+                .path("regularMarketPrice")
+                .takeIf { it.isNumber }
+                ?.asDouble()
+                ?.takeIf { it > 0 } ?: return null
+        val time = meta.path("regularMarketTime").takeIf { it.isNumber }?.asLong() ?: return null
+        val prev = (meta.path("previousClose").takeIf { it.isNumber } ?: meta.path("chartPreviousClose").takeIf { it.isNumber })?.asDouble()
+        return TsxQuote(price, Instant.ofEpochSecond(time), prev)
     }
 
     fun parse(body: String): TsxFetch {

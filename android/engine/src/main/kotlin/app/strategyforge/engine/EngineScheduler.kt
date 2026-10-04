@@ -2,6 +2,7 @@ package app.strategyforge.engine
 
 import app.strategyforge.engine.common.EngineLog
 import app.strategyforge.engine.db.str
+import app.strategyforge.engine.market.AssetClass
 import app.strategyforge.engine.market.MarketMode
 import java.time.Clock
 import java.time.Duration
@@ -30,6 +31,7 @@ class EngineScheduler(
 
     private val liveTasks: List<Triple<String, Duration, () -> Unit>> =
         listOf(
+            Triple("stream", Duration.ZERO, { streamTick() }),
             Triple("ingestion", Duration.ofSeconds(15), { engine.ingestion.refreshAll() }),
             Triple("execution", Duration.ZERO, { engine.execution.processAll() }),
             Triple("maintenance", Duration.ofSeconds(60), { engine.maintenance.runAll() }),
@@ -39,6 +41,14 @@ class EngineScheduler(
             Triple("expiry", Duration.ofSeconds(15), { engine.recommendations.expireDue() }),
             Triple("equity", Duration.ofSeconds(60), { engine.portfolios.recordPeriodicEquity() }),
         )
+
+    /** Keeps the price streams subscribed to the watched instruments and stores their fresh ticks (D-056). */
+    private fun streamTick() {
+        if (engine.streams.streams().isEmpty()) return
+        val symbols = engine.ingestion.interestSymbols()
+        engine.streams.sync(true, symbols[AssetClass.CRYPTO].orEmpty(), symbols[AssetClass.US_EQUITY].orEmpty())
+        engine.ingestion.refreshStreamed()
+    }
 
     /** Replay minutes per tick in demo mode; 0 pauses the demo clock. Persisted. */
     var demoStepMinutes: Long
@@ -68,6 +78,7 @@ class EngineScheduler(
             ran += "tsx"
         }
         if (mode == MarketMode.DEMO) {
+            runCatching { engine.streams.sync(false, emptySet(), emptySet()) }
             val step = demoStepMinutes
             if (step > 0) {
                 engine.replay.autoAdvance(Duration.ofMinutes(step))
@@ -90,8 +101,8 @@ class EngineScheduler(
         const val DEMO_STEP_KEY = "demo_step_minutes"
         const val DEFAULT_DEMO_STEP = 1L
 
-        /** How often TSX portfolio plans refresh their state (data downloads are at most every few hours). */
-        val TSX_EVERY: Duration = Duration.ofMinutes(10)
+        /** How often TSX portfolio plans refresh their state and intraday prices (daily data downloads are at most every few hours). */
+        val TSX_EVERY: Duration = Duration.ofMinutes(1)
 
         /** How often the foreground service should call [tick]. */
         val TICK_INTERVAL: Duration = Duration.ofSeconds(5)

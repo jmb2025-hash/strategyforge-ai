@@ -890,3 +890,42 @@ When a conflict is unresolved, the safest reversible option is selected.
   - The research has survivorship bias: companies taken over that Yahoo no longer serves are missing.
   - StrategyExplainer is unchanged: TSX plans are not written in the strategy language, so each plan card states its rules instead.
 - **Version:** 1.14.0 (versionCode 19).
+
+## D-056 Live price streaming and intraday TSX values
+
+- **Date:** 2026-10-04
+- **Context:** The owner asked for live profit/loss while plans run: real-time streams for crypto and US stocks, and intraday values for TSX plans. Before this, the app polled for prices:
+  - crypto from Coinbase every 15 seconds;
+  - US stocks from Twelve Data, about 15 minutes delayed on the free plan;
+  - TSX plans updated only at the daily close.
+- **Decision:**
+  - **Streams.** A new `QuoteStream` interface, with WebSocket plumbing shared between the two streams (`market/QuoteStreams.kt`). The plumbing handles subscriptions as the watched symbols change, reconnects with backoff (2 s doubling to 60 s), detects dead links with 20-second pings, and runs a silence watchdog where the feed has heartbeats. Socket callbacks never touch the database; they only update an in-memory map of the latest tick per symbol.
+    - **Crypto:** Coinbase Exchange's public feed (`wss://ws-feed.exchange.coinbase.com`, `ticker` and `heartbeat` channels, no key).
+    - **US stocks:** Alpaca's free IEX feed (`wss://stream.data.alpaca.markets/v2/iex`), real-time trades and quotes for up to 30 symbols. It needs the owner's Alpaca key ID and secret, kept in the phone's key store like the other keys (new `StreamKey`). Changing the key needs the device lock, and only a 12-character fingerprint of the key ID is ever shown or logged.
+  - **Use.** In Live mode a new scheduler task `stream` runs on every 5-second engine tick:
+    - it subscribes the streams to the watched instruments;
+    - it stores each fresh tick as the instrument's quote, under the asset class's existing provider name so verification is unchanged;
+    - it evaluates price alerts.
+
+    Holdings' value, profit/loss, stops and fills therefore follow prices within about 5 seconds.
+  - **Fallback.** A stream is used only while it is fresh: up to 30 s old for crypto and 5 min for stocks. Otherwise the 15-second polling runs as before. A polled (possibly delayed) quote older than the last streamed one is not stored and does not raise an out-of-order error. Demo mode disconnects the streams.
+  - **Strategy candles are unchanged.** Signals still come from candles: Coinbase candles for crypto, which are real-time, and Twelve Data candles for stocks, which may be delayed. Streaming changes how positions are valued and filled, not when a stock strategy signals.
+  - **TSX intraday (display only).**
+    - While a TSX plan runs, the TSX tick (now every minute) fetches current prices for the held listings from Yahoo's chart endpoint (`regularMarketPrice`). This happens at most once a minute, from 09:30 to 16:15 Toronto on weekdays, in the background.
+    - A run shows "Now (intraday)", today's change and the price time, plus each holding's current price.
+    - Dividends, rebalancing and the stored values still use closing prices, so runs keep matching the research.
+  - **TSX daily data fix.** The daily data download now stops at the last completed session (before 16:30 Toronto, yesterday). This stops a refresh during trading hours from storing today's unfinished bar and trading at a mid-day price.
+  - **Screens refresh themselves** while in the foreground: home and portfolio every 5 s, slots every 10 s, TSX screens every 30 s, and the engine screen's stream status every 5 s.
+  - **API and app.**
+    - New endpoints: `GET /v1/market-data/streams` and `PUT /v1/market-data/stocks/stream-key` (`keyId` and `secret`; null for both removes the key).
+    - TSX run responses add `liveValue`, `liveAt` and each holding's `livePrice`.
+    - The Engine screen has a "Live price streaming" section with each stream's state and errors, and Alpaca key entry.
+- **Tests:**
+  - Both stream protocols against a local WebSocket server: subscribe and unsubscribe deltas, Coinbase string prices, Alpaca's auth handshake, trades and quotes (pricing at the mid before any trade), a rejected key backing off for 10 minutes, and no key meaning no connection.
+  - The engine storing streamed quotes on each tick and falling back to polling without an out-of-order flag.
+  - TSX intraday values and the completed-session download.
+  - The Yahoo meta parser.
+  - The API keeps the Alpaca key out of every response.
+  - UI tests for the run screen's intraday value and the streaming section.
+- **Not verified here:** this environment cannot reach either WebSocket host, so the first live connection happens on the phone. The protocols follow the providers' public documentation.
+- **Version:** 1.15.0 (versionCode 20).

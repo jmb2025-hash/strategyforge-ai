@@ -69,6 +69,17 @@ internal fun monthMillis(m: String): Long =
         .toInstant()
         .toEpochMilli()
 
+private val clockTime = DateTimeFormatter.ofPattern("HH:mm", Locale.CANADA)
+
+/** An ISO instant as Toronto clock time, for intraday prices. */
+internal fun liveTime(iso: String): String =
+    runCatching {
+        java.time.Instant
+            .parse(iso)
+            .atZone(java.time.ZoneId.of("America/Toronto"))
+            .format(clockTime) + " Toronto"
+    }.getOrDefault(iso)
+
 private fun monthText(ms: Long): String =
     java.time.Instant
         .ofEpochMilli(ms)
@@ -100,6 +111,7 @@ fun TsxPlansScreen(
             nav.navigate("tsx-run/$it")
         }
     }
+    AutoRefresh(TSX_REFRESH_MS) { vm.loadRuns() }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         SectionTitle("TSX plans")
         Text(
@@ -181,8 +193,9 @@ fun TsxRunCard(
             Text("Slot ${r.slot}: ${r.planName}", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             StatusChip(if (r.status == "ACTIVE" && r.mode == "AUTONOMOUS") "ACTIVE_AUTONOMOUS" else r.status)
         }
-        LabelValue("Value", cad(r.value))
-        LabelValue("Change", pctText(if (r.startingCash > 0) 100 * (r.value / r.startingCash - 1) else null))
+        LabelValue("Value at last close", cad(r.value))
+        r.liveValue?.let { live -> LabelValue("Now (intraday)", "${cad(live)} · ${pctText(100 * (live / r.value - 1))} today", Modifier.testTag("tsx-live")) }
+        LabelValue("Change since start", pctText(if (r.startingCash > 0) 100 * ((r.liveValue ?: r.value) / r.startingCash - 1) else null))
         LabelValue("Dividends received", cad2(r.dividendsReceived))
         LabelValue("Dividends", if (r.drip) "Reinvested (DRIP)" else "Paid out as cash")
         if (r.pending != null) Banner("A rebalance is waiting for your approval.", BannerKind.WARNING)
@@ -411,6 +424,7 @@ fun MonthlyBars(
 fun TsxRunScreen(vm: TsxRunViewModel) {
     val run by vm.run.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
+    AutoRefresh(TSX_REFRESH_MS) { vm.load() }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         val r = run
         if (r == null) {
@@ -436,14 +450,23 @@ fun TsxRunDetail(
     StatusChip(if (r.status == "ACTIVE" && r.mode == "AUTONOMOUS") "ACTIVE_AUTONOMOUS" else r.status)
     ActionFeedback(action)
     SfCard {
-        LabelValue("Value", cad2(r.value))
+        r.liveValue?.let { live ->
+            LabelValue("Now (intraday)", cad2(live), Modifier.testTag("tsx-live"))
+            LabelValue("Today", "${cad2(live - r.value)} (${pctText(100 * (live / r.value - 1))})")
+            r.liveAt?.let { LabelValue("Prices from", liveTime(it)) }
+        }
+        LabelValue("Value at last close", cad2(r.value))
         LabelValue("Started with", cad2(r.startingCash) + (r.startDay?.let { " on $it" } ?: ""))
-        LabelValue("Change", pctText(if (r.startingCash > 0) 100 * (r.value / r.startingCash - 1) else null))
+        LabelValue("Change since start", pctText(if (r.startingCash > 0) 100 * ((r.liveValue ?: r.value) / r.startingCash - 1) else null))
         LabelValue("Cash", cad2(r.cash))
         LabelValue("Dividends received", cad2(r.dividendsReceived))
         LabelValue("Dividends", if (r.drip) "Reinvested (DRIP)" else "Paid out as cash")
         LabelValue("Mode", if (r.mode == "AUTONOMOUS") "Autonomous" else "Notify and approve")
-        r.lastDay?.let { LabelValue("Prices as of", it) }
+        r.lastDay?.let { LabelValue("Closing prices as of", it) }
+        Text(
+            "Intraday values are for display and may be delayed up to 15 minutes. Dividends and rebalancing use closing prices, as in the research.",
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
     r.pending?.let { p ->
         SfCard(Modifier.testTag("tsx-pending")) {
@@ -486,8 +509,11 @@ fun TsxRunDetail(
         SfCard {
             Text(h.symbol.replace('-', '.') + (h.name?.let { " · $it" } ?: ""), fontWeight = FontWeight.SemiBold)
             LabelValue("Shares", String.format(Locale.CANADA, "%,.3f", h.shares))
-            LabelValue("Price", cad2(h.price))
-            LabelValue("Value", cad2(h.value) + if (r.value > 0) String.format(Locale.CANADA, " (%.1f%%)", 100 * h.value / r.value) else "")
+            LabelValue("Last close", cad2(h.price))
+            h.livePrice?.let { p -> LabelValue("Now", "${cad2(p)} (${pctText(100 * (p / h.price - 1))})") }
+            val v = h.shares * (h.livePrice ?: h.price)
+            val total = r.liveValue ?: r.value
+            LabelValue("Value", cad2(v) + if (total > 0) String.format(Locale.CANADA, " (%.1f%%)", 100 * v / total) else "")
         }
     }
     SectionTitle("Activity")
