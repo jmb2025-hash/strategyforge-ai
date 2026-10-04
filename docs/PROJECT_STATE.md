@@ -121,6 +121,10 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - 1.13.0 (D-053) YAHOO OPEN: query1.finance.yahoo.com chart API works (no key); 36 master symbols 2015-01-02..2026-10-02,
         adjusted via adjclose (scratch stocks/yahoo, daily2). Unseen 2021-26: spy-trend-core +87% dd 18.7; index-dip +14%
         71% win. New large-cap-dip-score (31 stocks, k2, 5x19%): 2015-26 +80% dd 13.5, 64% win. SPY B&H +355% dd 34.
+- (D-054) TSX RESEARCH (docs only): Yahoo .TO data 175 listings 2014-10..2026-10; python sim docs/research/tsx/scripts.
+        P1 div growth+momentum 24 (17.0%/yr dd38.5), P2 high-yield trend 12 (11.1%, dd11.4), P3 core-satellite (14.2%, dd24),
+        P4 momentum rotation 50/50 (17.8%, dd32.6). Report artifact https://claude.ai/artifact/MBGgKnTkLGtMDb7sUnVZWq.
+        App cannot run them yet (no TSX/CAD instruments, no allocation/rebalance plan type) - awaiting owner decision.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -152,7 +156,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-054). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-055). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

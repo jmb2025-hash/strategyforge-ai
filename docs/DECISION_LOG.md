@@ -815,3 +815,37 @@ When a conflict is unresolved, the safest reversible option is selected.
   - The slot plan adds Stock 2: Large-cap dip score.
 - **Version:** 1.13.0 (versionCode 18).
 - **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.
+
+## D-054 TSX research: four rule-based portfolio plans (research only, not yet in the app)
+
+- **Date:** 2026-10-04
+- **Context:** The owner asked for 10 years of TSX data and four plans:
+  1. long-term high dividend, shown both with dividends reinvested (DRIP) and as monthly dividends plus monthly value;
+  2. short-term high dividend;
+  3. long-term diversified, any vehicle;
+  4. short-term diversified, any vehicle.
+- **Data:**
+  - Yahoo Finance `.TO` chart API: daily prices, dividends and splits for 175 TSX listings from October 2014 to October 2 2026, all quoted in CAD.
+  - Coverage: about 120 stocks across 12 sectors and 53 ETFs (equity, sector, bond and gold).
+  - Companies taken over that Yahoo no longer serves are a known survivorship bias.
+- **Method:**
+  - Python simulator (`docs/research/tsx/scripts`), C$10,000 start.
+  - Daily share tracking, ex-date dividends (DRIP or paid out), 0.07–0.10% trading costs, and conversion to cash at the last price for delisted names.
+  - Rules selected on October 2016 – December 2021, unseen on January 2022 – October 2026.
+  - Searched: about 1,000 rule variants, about 190,000 ETF mixes, random-portfolio baselines, trend overlays, and cross-asset lead-lag tests (BTC, oil, gold and USD/CAD against TSX sectors).
+- **Results** (per year / worst drop over October 2016 – October 2026):
+  - **Plan 1, Dividend Growth & Momentum 24:** 17.0% / 38.5%; unseen 15.2%; C$47,930 with DRIP; paid out: C$31,474 plus C$7,478 of dividends.
+  - **Plan 2, High-Yield Trend 12:** 11.1% / 11.4%; 95% of 12-month windows positive.
+  - **Plan 3, All-Weather Core-Satellite:** 14.2% / 24.2%.
+  - **Plan 4, Momentum Rotation 50/50:** 17.8% / 32.6%; unseen 15.1%.
+  - **Benchmarks:** XIC 12.3% / 37.2%; VDY 14.3% / 39.2%; VFV 16.1% / 27.5%.
+- **Rejected:**
+  - Raw highest-yield ranking (best on the selection years, weak afterwards).
+  - Trend overlays for long-term holders.
+  - Market-level timing.
+  - Cross-asset leads that faded after 2022.
+- **Deliverables:**
+  - Interactive report (Artifact).
+  - `docs/research/TSX_PLANS_2026-10.md`.
+  - Monthly value and dividend CSVs and current holdings for each plan.
+- **Not done:** the app cannot run these plans yet. It has no TSX instruments, CAD pricing or Canadian market calendar, and its strategy language is signal-based per symbol, with no target-weight rebalancing or DRIP. This is left for the owner to decide.
