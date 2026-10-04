@@ -134,7 +134,7 @@ class PhoneScreensUiTest {
                 onStockKey = { keys += it },
             )
         }
-        rule.onNodeWithText("Coinbase", substring = true).assertExists()
+        rule.onNodeWithText("Crypto uses real-time public prices from Coinbase", substring = true).assertExists()
         rule.onNodeWithText("free Twelve Data key", substring = true).assertExists()
         rule.onNodeWithText("Twelve Data API key").performScrollTo().performTextReplacement("td-key-1234")
         rule.onNodeWithTag("save-stock-key").performScrollTo().performClick()
