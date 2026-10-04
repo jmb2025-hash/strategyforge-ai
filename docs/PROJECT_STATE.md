@@ -131,17 +131,17 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         paid out, scheduler task "tsx" (auto refresh 6h while a run is active). API /v1/tsx/*. App: Strategies ->
         "TSX plans" screen + tsx-run/{id}; deep link strategyforge://tsxrun/{id}. Doubles for plan math (documented).
         Kotlin/Python parity P1 47,908/47,930 P2 28,729 P3 37,748/37,750 P4 51,497.
-- 1.15.0 (D-056) LIVE STREAMING: market/QuoteStreams.kt (CoinbaseQuoteStream ws-feed ticker+heartbeat, no key;
+- 1.15.0 (D-056) LIVE STREAMING: market/QuoteStreams.kt (CoinbaseQuoteStream advanced-trade-ws ticker+heartbeats, no key;
         AlpacaQuoteStream IEX, owner key pair via StreamKey/Keystore, 30 symbols), StreamHub; scheduler task "stream" every
         tick stores fresh ticks (crypto <=30s, stocks <=5min) under the class's provider name, else 15s polling; polled
         quotes older than streamed ones are skipped (no OUT_OF_ORDER). TSX intraday display (Yahoo regularMarketPrice,
         1/min 09:30-16:15 Toronto, liveValue/livePrice), TSX daily refresh ends at last completed session. Screens
-        auto-refresh (AutoRefresh). API /v1/market-data/streams, PUT /v1/market-data/stocks/stream-key. WebSocket hosts
-        are blocked in this cloud env: first live connection is verified on the phone.
+        auto-refresh (AutoRefresh). API /v1/market-data/streams, PUT /v1/market-data/stocks/stream-key. Owner unblocked
+        stream.data.alpaca.markets + advanced-trade-ws.coinbase.com here; LiveStreamsTest (SF_LIVE_STREAMS=1) passes live.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.
-- Tests: engine 248/248 (incl. market QuoteStreamTest, tsx BookTest, TsxServiceTest, YahooTsxProviderTest; LocalApiAppTest TSX + stream key), core 27/27 (incl. LevelIndicatorsTest 9, BacktestFeaturesTest 4,
+- Tests: engine 250 (248 + 2 opt-in live; incl. market QuoteStreamTest, LiveStreamsTest, tsx BookTest, TsxServiceTest, YahooTsxProviderTest; LocalApiAppTest TSX + stream key), core 27/27 (incl. LevelIndicatorsTest 9, BacktestFeaturesTest 4,
   ChartChampionsStrategyTest 2, LiveStrategyFeaturesTest 3, LocalApiAppTest D-042, ChartsUiTest ShortingSwitch).
 - futures.kraken.com and docs.kraken.com are DENIED by this cloud env network policy -> Kraken formats were
   taken from ccxt (raw.githubusercontent.com works) and doc summaries; live verification is on the phone.

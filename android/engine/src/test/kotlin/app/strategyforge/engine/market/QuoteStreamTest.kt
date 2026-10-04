@@ -83,25 +83,28 @@ class QuoteStreamTest {
         serve()
         val s = CoinbaseQuoteStream(http, Clock.systemUTC(), url())
         s.sync(setOf("BTC-USD"))
-        assertThat(next())
-            .contains("\"subscribe\"")
-            .contains("BTC-USD")
-            .contains("ticker")
-            .contains("heartbeat")
+        assertThat(next()).contains("\"subscribe\"").contains("BTC-USD").contains("\"channel\":\"ticker\"")
+        assertThat(next()).contains("\"channel\":\"heartbeats\"")
         assertThat(s.status().state).isEqualTo(StreamState.LIVE)
         val ws = serverSocket.poll(5, TimeUnit.SECONDS)!!
-        ws.send("""{"type":"ticker","product_id":"BTC-USD","price":"64123.45","best_bid":"64123.40","best_ask":"64123.50","time":"2026-10-04T14:00:00.123456Z"}""")
+        // Recorded from the live feed (2026-10-04), trimmed.
+        ws.send(
+            """{"channel":"ticker","timestamp":"2026-10-04T14:00:00.123456789Z","sequence_num":0,"events":[{"type":"snapshot","tickers":[""" +
+                """{"type":"ticker","product_id":"BTC-USD","price":"64123.45","volume_24_h":"1728.44","best_bid":"64123.40","best_ask":"64123.50"}]}]}""",
+        )
+        ws.send("""{"channel":"heartbeats","timestamp":"2026-10-04T14:00:00.5Z","sequence_num":1,"events":[{"heartbeat_counter":324095}]}""")
         waitFor { s.latest("BTC-USD", Duration.ofSeconds(30)) != null }
         val t = s.latest("BTC-USD", Duration.ofSeconds(30))!!
         assertThat(t.last).isEqualByComparingTo("64123.45")
         assertThat(t.bid).isEqualByComparingTo("64123.40")
         assertThat(t.ask).isEqualByComparingTo("64123.50")
-        assertThat(t.exchangeTs).isEqualTo(Instant.parse("2026-10-04T14:00:00.123456Z"))
+        assertThat(t.exchangeTs).isEqualTo(Instant.parse("2026-10-04T14:00:00.123456789Z"))
         assertThat(t.toQuote().feedType).isEqualTo(FeedType.REALTIME)
 
         s.sync(setOf("BTC-USD", "ETH-USD"))
         val add = next()
         assertThat(add).contains("\"subscribe\"").contains("ETH-USD").doesNotContain("BTC-USD")
+        next()
         s.sync(setOf("ETH-USD"))
         assertThat(next()).contains("\"unsubscribe\"").contains("BTC-USD")
         s.sync(emptySet())

@@ -900,7 +900,7 @@ When a conflict is unresolved, the safest reversible option is selected.
   - TSX plans updated only at the daily close.
 - **Decision:**
   - **Streams.** A new `QuoteStream` interface, with WebSocket plumbing shared between the two streams (`market/QuoteStreams.kt`). The plumbing handles subscriptions as the watched symbols change, reconnects with backoff (2 s doubling to 60 s), detects dead links with 20-second pings, and runs a silence watchdog where the feed has heartbeats. Socket callbacks never touch the database; they only update an in-memory map of the latest tick per symbol.
-    - **Crypto:** Coinbase Exchange's public feed (`wss://ws-feed.exchange.coinbase.com`, `ticker` and `heartbeat` channels, no key).
+    - **Crypto:** Coinbase Advanced Trade's public feed (`wss://advanced-trade-ws.coinbase.com`, `ticker` and `heartbeats` channels, no key). Ticks are timed by the message `timestamp`, capped at the moment the phone received them, so a phone clock a few seconds behind never makes a price look future-dated.
     - **US stocks:** Alpaca's free IEX feed (`wss://stream.data.alpaca.markets/v2/iex`), real-time trades and quotes for up to 30 symbols. It needs the owner's Alpaca key ID and secret, kept in the phone's key store like the other keys (new `StreamKey`). Changing the key needs the device lock, and only a 12-character fingerprint of the key ID is ever shown or logged.
   - **Use.** In Live mode a new scheduler task `stream` runs on every 5-second engine tick:
     - it subscribes the streams to the watched instruments;
@@ -927,5 +927,5 @@ When a conflict is unresolved, the safest reversible option is selected.
   - The Yahoo meta parser.
   - The API keeps the Alpaca key out of every response.
   - UI tests for the run screen's intraday value and the streaming section.
-- **Not verified here:** this environment cannot reach either WebSocket host, so the first live connection happens on the phone. The protocols follow the providers' public documentation.
+- **Verified live:** `LiveStreamsTest` (opt-in, `SF_LIVE_STREAMS=1`) ran against the real hosts on 2026-10-04. Coinbase streamed BTC-USD and ETH-USD ticks with bid and ask within a second of connecting. Alpaca accepted the connection and answered a made-up key with `402 auth failed`, exactly as handled. A real Alpaca key is needed to see stock ticks, which happens on the phone.
 - **Version:** 1.15.0 (versionCode 20).

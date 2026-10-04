@@ -219,15 +219,19 @@ abstract class WebSocketQuoteStream(
         error = message
     }
 
-    /** Records a price; null fields keep what the previous tick had. */
+    /**
+     * Records a price; null fields keep what the previous tick had. The time is capped at arrival, so
+     * a phone clock a few seconds behind the exchange never makes a just-received price look future-dated.
+     */
     protected fun put(
         symbol: String,
         last: BigDecimal?,
         bid: BigDecimal?,
         ask: BigDecimal?,
-        ts: Instant,
+        exchangeTime: Instant,
     ) {
         val now = clock.instant()
+        val ts = minOf(exchangeTime, now)
         val (b, a) = if (bid != null && ask != null && bid > ask) null to null else bid to ask
         ticks.compute(symbol) { _, old ->
             val price = last ?: old?.last ?: if (b != null && a != null) b.add(a).divide(BigDecimal(2)) else null
@@ -306,13 +310,14 @@ abstract class WebSocketQuoteStream(
 }
 
 /**
- * Coinbase Exchange's public WebSocket feed (D-056): the `ticker` channel pushes every trade with
- * the best bid and ask, no key needed; `heartbeat` arrives every second so silence means a dead link.
+ * Coinbase Advanced Trade's public WebSocket (D-056): the `ticker` channel pushes price, best bid
+ * and best ask for each product, no key needed; `heartbeats` arrive every second, so silence means
+ * a dead link. Messages carry the event time in `timestamp` and a list of `events[].tickers[]`.
  */
 class CoinbaseQuoteStream(
     http: OkHttpClient,
     clock: Clock,
-    private val endpoint: String = "wss://ws-feed.exchange.coinbase.com",
+    private val endpoint: String = "wss://advanced-trade-ws.coinbase.com",
 ) : WebSocketQuoteStream(http, clock) {
     override val name = "Coinbase"
     override val assetClass = AssetClass.CRYPTO
@@ -322,38 +327,43 @@ class CoinbaseQuoteStream(
 
     private fun message(
         type: String,
+        channel: String,
         symbols: Set<String>,
     ): String {
         val o = mapper.createObjectNode()
         o.put("type", type)
         val ids = o.putArray("product_ids")
         symbols.sorted().forEach { ids.add(it) }
-        o.putArray("channels").add("ticker").add("heartbeat")
+        o.put("channel", channel)
         return mapper.writeValueAsString(o)
     }
 
-    override fun subscribe(symbols: Set<String>) = listOf(message("subscribe", symbols))
+    override fun subscribe(symbols: Set<String>) = listOf(message("subscribe", "ticker", symbols), message("subscribe", "heartbeats", symbols))
 
-    override fun unsubscribe(symbols: Set<String>) = listOf(message("unsubscribe", symbols))
+    override fun unsubscribe(symbols: Set<String>) = listOf(message("unsubscribe", "ticker", symbols))
+
+    override fun onOpened(ws: WebSocket) {
+        // No handshake: the socket is ready as soon as it opens.
+        markReady(ws)
+    }
 
     override fun handle(
         ws: WebSocket,
         text: String,
     ) {
         val j = mapper.readTree(text)
-        when (j.path("type").asText()) {
-            "ticker" -> {
-                val sym = j.path("product_id").asText().takeIf { it.isNotEmpty() } ?: return
-                put(sym, j.decimal("price"), j.decimal("best_bid"), j.decimal("best_ask"), j.instant("time") ?: clock.instant())
-            }
-            "error" -> reportError("Coinbase: ${j.path("message").asText()} ${j.path("reason").asText()}".trim())
-            else -> Unit
+        if (j.path("type").asText() == "error") {
+            reportError("Coinbase: ${j.path("message").asText()}".trim())
+            return
         }
-    }
-
-    override fun onOpened(ws: WebSocket) {
-        // Coinbase needs no handshake: the socket is ready as soon as it opens.
-        markReady(ws)
+        if (j.path("channel").asText() != "ticker") return
+        val ts = j.instant("timestamp") ?: clock.instant()
+        for (e in j.path("events")) {
+            for (t in e.path("tickers")) {
+                val sym = t.path("product_id").asText().takeIf { it.isNotEmpty() } ?: continue
+                put(sym, t.decimal("price"), t.decimal("best_bid"), t.decimal("best_ask"), ts)
+            }
+        }
     }
 }
 
