@@ -142,8 +142,8 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         YahooQuoteStream wss://streamer.finance.yahoo.com/?version=2, no key, {"subscribe":[..]} repeated every 15 s,
         base64 protobuf PricingData decoded by hand (YahooPricing), regular session only, BRK.B<->BRK-B. Streams watched
         US stocks (LIVE) + TSX run holdings as SYM.TO during the TSX session (both modes); TSX live value = newer of
-        streamed/polled. streamer.finance.yahoo.com is BLOCKED here (403) - ask owner to unblock to verify live
-        (SF_LIVE_STREAMS=1 SF_LIVE_YAHOO=1).
+        streamed/polled. Owner unblocked streamer.finance.yahoo.com; live test passes (SF_LIVE_STREAMS=1
+        SF_LIVE_YAHOO=1): BTC-USD 85,440.24 vs Coinbase 85,440.25 on 2026-10-04; stock ticks need an open session.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.

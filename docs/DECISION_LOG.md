@@ -948,5 +948,5 @@ When a conflict is unresolved, the safest reversible option is selected.
   - Against a local WebSocket server, using protobuf messages built in the test: subscribe and unsubscribe JSON, the `BRK-B` mapping, bid and ask decoding, ignored pre-market ticks, delayed labelling and the 15-second resubscription.
   - The decoder skips unknown fields and rejects malformed bytes.
   - TSX: held listings are subscribed during the session in Demo mode, stay unsubscribed when the market is closed, and the streamed price drives the live value and replaces polling.
-  - `LiveStreamsTest` gains an opt-in Yahoo check (`SF_LIVE_YAHOO=1`). `streamer.finance.yahoo.com` is blocked in this cloud environment, so the first live Yahoo connection happens on the phone or after the host is unblocked here.
+  - `LiveStreamsTest` gains an opt-in Yahoo check (`SF_LIVE_YAHOO=1`). The owner unblocked `streamer.finance.yahoo.com` here. On 2026-10-04 (a Sunday) the real stream connected with no key, and BTC-USD arrived within a second: Yahoo's price was 85,440.24 and Coinbase's was 85,440.25 in the same run, which confirms the protobuf field numbers and the time unit. Stock and TSX ticks (AAPL, RY.TO) start with the next regular session.
 - **Version:** 1.16.0 (versionCode 21).
