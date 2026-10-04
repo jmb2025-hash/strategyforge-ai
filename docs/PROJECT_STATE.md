@@ -144,6 +144,9 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         US stocks (LIVE) + TSX run holdings as SYM.TO during the TSX session (both modes); TSX live value = newer of
         streamed/polled. Owner unblocked streamer.finance.yahoo.com; live test passes (SF_LIVE_STREAMS=1
         SF_LIVE_YAHOO=1): BTC-USD 85,440.24 vs Coinbase 85,440.25 on 2026-10-04; stock ticks need an open session.
+- 1.17.0 (D-058) PLANS IN PORTFOLIO MENU: Portfolio screen "Running plans" chips (slot strategies + active TSX runs).
+        Slot plan -> its portfolio + SlotPlanCard (scorecard realized, own-position unrealized, trades) and positions/orders
+        filtered to the plan; TSX plan -> TsxRunDetail inline. App-only (RunningPlan in ViewModels.kt).
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.
@@ -175,7 +178,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-058). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-059). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

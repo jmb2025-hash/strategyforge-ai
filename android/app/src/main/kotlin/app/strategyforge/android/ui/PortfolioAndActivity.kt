@@ -1,7 +1,10 @@
 package app.strategyforge.android.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +23,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +45,7 @@ import app.strategyforge.android.core.state.ActionState
 import app.strategyforge.android.core.state.RecommendationPresenter
 import app.strategyforge.android.core.state.RecommendationState
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PortfolioScreen(
     vm: PortfolioViewModel,
@@ -56,7 +61,15 @@ fun PortfolioScreen(
     val selected by vm.selected.collectAsStateWithLifecycle()
     val orders by vm.orders.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
-    AutoRefresh(LIVE_REFRESH_MS) { vm.refresh() }
+    val plans by vm.plans.collectAsStateWithLifecycle()
+    val planKey by vm.plan.collectAsStateWithLifecycle()
+    val scorecard by vm.scorecard.collectAsStateWithLifecycle()
+    val tsxRun by vm.tsxRun.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.loadPlans() }
+    AutoRefresh(LIVE_REFRESH_MS) { vm.refreshLive() }
+    AutoRefresh(PLANS_REFRESH_MS) { vm.loadPlans() }
+    val plan = plans.firstOrNull { it.key == planKey }
+    val slotPlan = plan as? RunningPlan.SlotPlan
     var name by rememberSaveable { mutableStateOf("") }
     var balance by rememberSaveable { mutableStateOf("100000") }
     var symbol by rememberSaveable { mutableStateOf("") }
@@ -65,11 +78,25 @@ fun PortfolioScreen(
     var limit by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         SectionTitle("Paper portfolios")
-        Row { portfolios.forEach { p -> FilterChip(selected = selected == p.id, onClick = { vm.select(p.id) }, label = { Text(p.name + if (p.status != "ACTIVE") " (${p.status.lowercase()})" else "") }) } }
-        if (selected == null) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            portfolios.forEach { p ->
+                FilterChip(selected = plan == null && selected == p.id, onClick = { vm.select(p.id) }, label = { Text(p.name + if (p.status != "ACTIVE") " (${p.status.lowercase()})" else "") })
+            }
+        }
+        if (plans.isNotEmpty()) {
+            SectionTitle("Running plans")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                plans.forEach { p -> FilterChip(selected = planKey == p.key, onClick = { vm.selectPlan(p.key) }, label = { Text(p.label) }, modifier = Modifier.testTag("plan-${p.key}")) }
+            }
+        }
+        if (plan is RunningPlan.TsxPlan) {
+            val r = tsxRun
+            if (r == null) Loading() else TsxRunDetail(r, action, { vm.tsxAction("approve") }, { vm.tsxAction("decline") }, { vm.tsxAction("stop") })
+        } else if (selected == null) {
             EmptyState("Create your first simulated portfolio below.", Art.PORTFOLIO)
         } else {
             ResourceContent(state, fmt, vm::reload) { s ->
+                if (slotPlan != null) SlotPlanCard(slotPlan, scorecard, s, fmt)
                 EquityCard(equity, range, vm::setRange, fmt, s.equity, s.portfolio.name)
                 AllocationCard(s, fmt)
                 val shorting = portfolios.firstOrNull { it.id == s.portfolio.id }?.shortingEnabled ?: s.portfolio.shortingEnabled
@@ -86,9 +113,11 @@ fun PortfolioScreen(
                     LabelValue("As of", fmt.dateTime(s.asOf))
                     if (s.portfolio.reconciliationStatus != "OK") Banner("Reconciliation ${s.portfolio.reconciliationStatus}: orders are blocked until it passes.", BannerKind.ERROR)
                 }
-                SectionTitle("Positions")
-                if (s.positions.isEmpty()) Text("No open positions.")
-                s.positions.forEach { p ->
+                val planSymbols = slotPlan?.symbols
+                val positions = if (planSymbols == null) s.positions else s.positions.filter { it.symbol in planSymbols }
+                SectionTitle(if (slotPlan != null) "This plan's positions" else "Positions")
+                if (positions.isEmpty()) Text("No open positions.")
+                positions.forEach { p ->
                     SfCard(Modifier.clickable { onChart(p.symbol, s.portfolio.id) }.testTag("position-${p.symbol}")) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("${p.symbol} · ${p.side}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
@@ -105,11 +134,12 @@ fun PortfolioScreen(
                     }
                 }
             }
-            SectionTitle("Orders")
+            SectionTitle(if (slotPlan != null) "This plan's orders" else "Orders")
             val o = orders
             if (o is Resource.Data) {
-                if (o.value.items.isEmpty()) Text("No orders yet.")
-                o.value.items.take(50).forEach { order ->
+                val items = if (slotPlan != null) o.value.items.filter { it.strategyId == slotPlan.strategyId } else o.value.items
+                if (items.isEmpty()) Text("No orders yet.")
+                items.take(50).forEach { order ->
                     SfCard {
                         Row {
                             Text("${order.side} ${fmt.quantity(order.quantity)} ${order.symbol}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
@@ -140,11 +170,14 @@ fun PortfolioScreen(
                 enabled = symbol.isNotBlank() && qty.isNotBlank(),
             ) { Text("Submit paper order") }
         }
-        SectionTitle("Create portfolio")
-        Field("Name", name, { name = it })
-        Field("Starting balance (USD)", balance, { balance = it }, number = true)
-        OutlinedButton(onClick = { vm.createPortfolio(name, balance) }, enabled = name.isNotBlank()) { Text("Create") }
-        ActionFeedback(action)
+        if (plan == null) {
+            SectionTitle("Create portfolio")
+            Field("Name", name, { name = it })
+            Field("Starting balance (USD)", balance, { balance = it }, number = true)
+            OutlinedButton(onClick = { vm.createPortfolio(name, balance) }, enabled = name.isNotBlank()) { Text("Create") }
+        }
+        // The TSX plan view shows its own action feedback.
+        if (plan !is RunningPlan.TsxPlan) ActionFeedback(action)
     }
     if (confirmShorting) {
         val id = selected
@@ -152,6 +185,61 @@ fun PortfolioScreen(
             confirmShorting = false
             if (id != null) session?.reauthenticate(pw, totp) { vm.setShorting(id, true) } ?: vm.setShorting(id, true)
         }
+    }
+}
+
+/** How often the Portfolio screen re-reads which plans are running. */
+private const val PLANS_REFRESH_MS = 30_000L
+
+/**
+ * A running crypto or stock plan shown as a portfolio (D-058): which slot it runs in, how it trades,
+ * its results so far and the portfolio it trades in. Totals below are the whole portfolio's, so they
+ * include any other plan sharing it.
+ */
+@Composable
+fun SlotPlanCard(
+    p: RunningPlan.SlotPlan,
+    score: app.strategyforge.android.core.model.Scorecard?,
+    summary: PortfolioSummary,
+    fmt: Formatters,
+) {
+    val a = p.slot.activation
+    val symbols = p.symbols
+    val unrealized =
+        summary.positions
+            .filter { it.symbol in symbols }
+            .mapNotNull { it.unrealizedPnl?.toBigDecimalOrNull() }
+            .fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+    SfCard(Modifier.testTag("slot-plan")) {
+        Text(p.slot.strategy?.name ?: "", style = MaterialTheme.typography.titleMedium)
+        Text(
+            (if (p.slot.assetClass == "CRYPTO") "Crypto" else "Stock") + " slot ${p.slot.number} · " +
+                (if (a?.mode == "AUTONOMOUS") "Autonomous" else "Notifications") + " · trades in ${summary.portfolio.name}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        a?.allocationPercent?.let { LabelValue("Share of the portfolio", "$it%") }
+        val live = score?.live
+        if (live != null) {
+            PnlValue("Realized (closed trades)", live.realizedPnl, fmt)
+            PnlValue("Unrealized (open positions)", unrealized.toPlainString(), fmt)
+            PnlValue(
+                "Total profit/loss",
+                live.realizedPnl
+                    .toBigDecimalOrNull()
+                    ?.add(unrealized)
+                    ?.toPlainString(),
+                fmt,
+            )
+            LabelValue("Closed trades", if (live.closedTrades == 0) "None yet" else "${live.closedTrades} (${live.wins} won, ${live.losses} lost)")
+            live.winRatePercent?.let { LabelValue("Win rate", fmt.percent(it)) }
+            LabelValue("Days running", live.activeDays)
+        } else {
+            PnlValue("Unrealized (open positions)", unrealized.toPlainString(), fmt)
+        }
+        Text(
+            "Equity, cash and the chart below are the whole ${summary.portfolio.name} portfolio's; positions and orders are this plan's.",
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

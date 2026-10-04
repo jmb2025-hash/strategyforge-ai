@@ -950,3 +950,18 @@ When a conflict is unresolved, the safest reversible option is selected.
   - TSX: held listings are subscribed during the session in Demo mode, stay unsubscribed when the market is closed, and the streamed price drives the live value and replaces polling.
   - `LiveStreamsTest` gains an opt-in Yahoo check (`SF_LIVE_YAHOO=1`). The owner unblocked `streamer.finance.yahoo.com` here. On 2026-10-04 (a Sunday) the real stream connected with no key, and BTC-USD arrived within a second: Yahoo's price was 85,440.24 and Coinbase's was 85,440.25 in the same run, which confirms the protobuf field numbers and the time unit. Stock and TSX ticks (AAPL, RY.TO) start with the next regular session.
 - **Version:** 1.16.0 (versionCode 21).
+
+## D-058 Running plans listed in the Portfolio menu
+
+- **Date:** 2026-10-04
+- **Context:** The owner wants each running strategy plan in the Portfolio menu, viewable as if it were one of their portfolios.
+- **Decision:** The Portfolio screen keeps its "Paper portfolios" chips and adds a "Running plans" row, refreshed every 30 s. It lists every strategy in a crypto or stock slot (for example "Crypto 1 · Chart Champions v3") and every active TSX plan (for example "TSX 2 · …").
+  - **Selecting a crypto or stock plan** opens the portfolio it trades in, with:
+    - a plan card: the slot, the mode, the share of the portfolio, realized profit/loss from closed trades (the strategy's scorecard), unrealized profit/loss of its own open positions, the total, closed trades with wins and losses, win rate and days running;
+    - the positions and orders filtered to that plan (its slot holdings in that portfolio, and orders tagged with its strategy);
+    - the portfolio's equity, cash and chart, labelled as the whole portfolio's because two plans can share one.
+  - **Selecting a TSX plan** shows the TSX run view (D-055 and D-056): value at the last close, the intraday value now, today's change, holdings, a rebalance waiting for approval with Approve and Decline, value and dividend charts, activity, and Stop.
+  - **Updates:** both views refresh every 5 s while open, so they follow the streamed prices. The create-portfolio form is hidden while a plan is selected. A plan that stops drops off the list.
+- **Scope:** app only; it reuses the existing `/v1/slots`, `/v1/strategies/{id}/scorecard`, `/v1/orders` and `/v1/tsx/runs` endpoints.
+- **Tests:** `PlanPortfolioUiTest` checks the plan label and portfolio, and that the plan card counts only the plan's own position (+$30.00 unrealized, +$150.50 total with $120.50 realized) and shows "3 (2 won, 1 lost)".
+- **Version:** 1.17.0 (versionCode 22).

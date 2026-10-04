@@ -551,6 +551,23 @@ class PortfolioViewModel
         /** The selected portfolio's equity curve for [range] (D-038). */
         val equity: StateFlow<EquityChart?> = _equity.asStateFlow()
 
+        private val _plans = MutableStateFlow<List<RunningPlan>>(emptyList())
+
+        /** The running strategy plans, listed in the Portfolio menu like portfolios (D-058). */
+        val plans: StateFlow<List<RunningPlan>> = _plans.asStateFlow()
+        private val _plan = MutableStateFlow<String?>(null)
+
+        /** The selected running plan's key, or null when a paper portfolio is shown. */
+        val plan: StateFlow<String?> = _plan.asStateFlow()
+        private val _scorecard = MutableStateFlow<Scorecard?>(null)
+
+        /** The selected slot plan's results (closed trades, realized profit/loss). */
+        val scorecard: StateFlow<Scorecard?> = _scorecard.asStateFlow()
+        private val _tsxRun = MutableStateFlow<app.strategyforge.android.core.model.TsxRun?>(null)
+
+        /** The selected TSX plan with its holdings, values and activity. */
+        val tsxRun: StateFlow<app.strategyforge.android.core.model.TsxRun?> = _tsxRun.asStateFlow()
+
         override fun source(): Flow<Resource<PortfolioSummary>> {
             val id = _selected.value
             return if (id == null) kotlinx.coroutines.flow.flowOf(Resource.Loading) else repo.portfolioSummary(id)
@@ -569,11 +586,88 @@ class PortfolioViewModel
                 }
             }
             reload()
+            loadPlans()
         }
 
         fun select(id: String) {
+            _plan.value = null
             _selected.value = id
             reload()
+        }
+
+        /** Re-reads the running plans: strategies in crypto and stock slots, and active TSX plans. */
+        fun loadPlans() {
+            viewModelScope.launch {
+                val slots =
+                    runCatching { repo.slots() }
+                        .getOrNull()
+                        .orEmpty()
+                        .filter { it.strategy != null && it.activation != null }
+                        .map { RunningPlan.SlotPlan(it) }
+                val tsx =
+                    runCatching { repo.tsxRuns() }
+                        .getOrNull()
+                        .orEmpty()
+                        .filter { it.status == "ACTIVE" }
+                        .map { RunningPlan.TsxPlan(it) }
+                _plans.value = slots + tsx
+                // A selected plan that stopped falls back to its portfolio (or the default view).
+                if (_plan.value != null && _plans.value.none { it.key == _plan.value }) _plan.value = null
+            }
+        }
+
+        fun selectPlan(key: String) {
+            val p = _plans.value.firstOrNull { it.key == key } ?: return
+            _plan.value = key
+            when (p) {
+                is RunningPlan.SlotPlan -> {
+                    _scorecard.value = null
+                    _selected.value = p.portfolioId
+                    reload()
+                    loadScorecard(p.strategyId)
+                }
+                is RunningPlan.TsxPlan -> {
+                    _tsxRun.value = null
+                    loadTsx(p.run.id)
+                }
+            }
+        }
+
+        private fun loadScorecard(strategyId: String) {
+            viewModelScope.launch { runCatching { repo.scorecard(strategyId) }.onSuccess { if ((selectedPlan() as? RunningPlan.SlotPlan)?.strategyId == strategyId) _scorecard.value = it } }
+        }
+
+        private fun loadTsx(id: String) {
+            viewModelScope.launch { runCatching { repo.tsxRun(id) }.onSuccess { if ((selectedPlan() as? RunningPlan.TsxPlan)?.run?.id == id) _tsxRun.value = it } }
+        }
+
+        private fun selectedPlan(): RunningPlan? = _plans.value.firstOrNull { it.key == _plan.value }
+
+        /** Called while the screen is open: live values move with streamed prices (D-056). */
+        fun refreshLive() {
+            when (val p = selectedPlan()) {
+                is RunningPlan.TsxPlan -> loadTsx(p.run.id)
+                is RunningPlan.SlotPlan -> {
+                    refresh()
+                    loadScorecard(p.strategyId)
+                }
+                null -> refresh()
+            }
+        }
+
+        /** Approve, decline or stop the selected TSX plan. */
+        fun tsxAction(what: String) {
+            val p = selectedPlan() as? RunningPlan.TsxPlan ?: return
+            act(
+                when (what) {
+                    "approve" -> "Rebalance done at the latest closes"
+                    "decline" -> "Rebalance declined"
+                    else -> "Plan stopped"
+                },
+            ) {
+                _tsxRun.value = repo.tsxRunAction(p.run.id, what)
+                if (what == "stop") loadPlans()
+            }
         }
 
         fun setRange(r: String) {
@@ -614,6 +708,37 @@ class PortfolioViewModel
 
         fun cancel(orderId: String) = act("Order cancelled") { repo.cancelOrder(orderId) }
     }
+
+/** A running strategy plan as the Portfolio menu lists it (D-058). */
+sealed interface RunningPlan {
+    val key: String
+
+    /** Short chip label, for example "Crypto 1 · Chart Champions v3". */
+    val label: String
+
+    data class SlotPlan(
+        val slot: Slot,
+    ) : RunningPlan {
+        override val key get() = "slot:${slot.assetClass}:${slot.number}"
+        override val label get() = (if (slot.assetClass == "CRYPTO") "Crypto " else "Stock ") + "${slot.number} · ${slot.strategy?.name ?: ""}"
+        val strategyId: String get() = slot.strategy?.id ?: ""
+        val portfolioId: String get() = slot.activation?.portfolioId ?: ""
+
+        /** Symbols the plan holds in its portfolio. */
+        val symbols: Set<String> get() =
+            slot.holdings
+                .filter { it.portfolioId == null || it.portfolioId == portfolioId }
+                .map { it.symbol }
+                .toSet()
+    }
+
+    data class TsxPlan(
+        val run: app.strategyforge.android.core.model.TsxRun,
+    ) : RunningPlan {
+        override val key get() = "tsx:${run.id}"
+        override val label get() = "TSX ${run.slot} · ${run.planName}"
+    }
+}
 
 @HiltViewModel
 class RecommendationsViewModel
