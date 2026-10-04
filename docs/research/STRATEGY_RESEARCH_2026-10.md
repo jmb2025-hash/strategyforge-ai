@@ -6,7 +6,7 @@ All results are backtests in the app's own engine (the same code that runs your 
 
 - **Crypto:** Bitstamp BTC/USD 1-minute candles, January 2018 to October 3 2026 (4.6 million rows), aggregated to daily bars.
 - **Stocks:** daily bars for SPY, QQQ, IWM, AAPL, IBM, BAC, AIG and GOOG from QuantConnect's public sample data, adjusted for splits and dividends, 1998 to March 31 2021.
-- **Not yet:** 2021–2026 stock data. This environment's network policy blocks the stock-data providers (Yahoo, Stooq, Twelve Data, Nasdaq Data Link, Alpha Vantage, Tiingo). Once one is allowed, every stock result below gets a second unseen test on April 2021 to October 2026.
+- **Stocks, 2015 to October 2 2026:** Yahoo Finance daily bars (split- and dividend-adjusted) for all 36 stock symbols the app can trade, downloaded once access was allowed (October 4 2026). Every stock rule was then run unchanged on 2021–2026, which played no part in choosing it.
 
 ## What was tested on stocks
 
@@ -41,6 +41,27 @@ Trend cores (SMA and EMA from 20 to 200 days, long-only or long and short, and E
 - **Rules that also short below the average** looked best in 2018–2022, then collapsed in 2023–2026: EMA-100 long and short went from +50% a year to +11%.
 - **The 100-day long-only core:** 2018–2022 +531%, 2023–Oct 2026 +231%, whole span +1,985% ($10,000 to $208,500), worst drop 37%. BTC itself: +530%, with an 81% worst drop.
 
+## Second unseen test: stocks 2021 – October 2026 (Yahoo data)
+
+| Plan | 2015–2020 | 2021 – Oct 2026 (unseen) | 2015 – Oct 2026 |
+|---|---|---|---|
+| S&P 500 trend core | +43%, worst drop 19%, 16 trades, 31% won | +87%, worst drop 19%, 16 trades, 50% won | +166%, worst drop 19%, 31 trades, 39% won |
+| Index dip score | +4%, worst drop 6%, 63 trades, 70% won | +14%, worst drop 4%, 78 trades, 71% won | +18%, worst drop 6%, 141 trades, 70% won |
+| Large-cap dip score (new: 31 stocks, up to 5 positions) | +45%, worst drop 12%, 506 trades, 66% won | +25%, worst drop 13%, 539 trades, 62% won | +80%, worst drop 14%, 1045 trades, 64% won |
+| SPY buy and hold | +105%, worst drop 34% | +125%, worst drop 24% | +355%, worst drop 34% |
+
+| Stock plan | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| S&P 500 trend core | -6.3% | +10.3% | +19.5% | -4.0% | +13.5% | +6.4% | +28.2% | -13.8% | +11.5% | +23.8% | +9.4% | +8.9% |
+| Index dip score | +1.3% | +1.7% | +1.7% | -3.6% | -0.8% | +3.0% | +5.4% | +1.1% | +0.3% | +3.3% | +0.2% | +1.3% |
+| Large-cap dip score | +0.2% | +2.9% | +6.6% | -6.3% | +10.5% | +24.4% | +16.3% | -8.0% | -0.0% | +7.4% | +3.0% | +5.9% |
+| SPY buy and hold | +1% | +14% | +21% | -5% | +31% | +17% | +31% | -19% | +27% | +26% | +18% | +14% |
+
+**Reading it honestly:**
+- **The patterns held on data they had never seen.** Both dip scores kept winning 6–7 trades in 10, and the trend core kept its smaller drops.
+- **They did not beat simply holding the index in this bull decade.** The trend core gave up about half the return in exchange for cutting the worst drop from 34% to 19%. The dip scores are steady but sit in cash much of the time.
+- **More exposure is the lever for the dip score.** Spreading it over 31 stocks with up to 5 positions raised the return from +19% to +80% over 2015–2026, with a 13.5% worst drop.
+
 ## Results by year (app engine, $10,000 fresh each year)
 
 | Crypto plan | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
@@ -65,10 +86,11 @@ Give every slot its own paper portfolio with its starting cash. The activation s
 | Crypto 1 | BTC trend core | Main return engine: rides bull markets, cash in bear markets | 2018–Oct 2026: +1985%, worst drop 37%, 57 trades, 23% won |
 | Crypto 2 | BTC daily trend dip and rip | High win rate; trades both directions with the trend | 2018–Oct 2026: +270%, worst drop 22%, 160 trades, 73% won |
 | Crypto 3 | Chart Champions v3 | Your Chart Champions research, kept for comparison | 2018–Oct 2026: profitable in 4 of 9 years |
-| Stock 1 | S&P 500 trend core | Main stock holding with a bear-market exit | 1998–Mar 2021: +224%, worst drop 27%, 77 trades, 26% won |
-| Stock 2 | Index dip score | High win rate on SPY, QQQ and IWM dips | 1998–Mar 2021: +33%, worst drop 12%, 247 trades, 73% won |
+| Stock 1 | S&P 500 trend core | Main stock holding with a bear-market exit | 1998–Mar 2021: +224%, worst drop 27%; 2015–Oct 2026: +166%, worst drop 19% |
+| Stock 2 | Large-cap dip score | High win rate across 31 large stocks, about 60% invested | 2015–Oct 2026: +80%, worst drop 14%, 1045 trades, 64% won |
+| Stock 3 | Index dip score | High win rate on SPY, QQQ and IWM dips; small but steady | 1998–Mar 2021: +33%, 73% won; 2015–Oct 2026: +19%, worst drop 6%, 70% won |
 
 **Notes**
 - **Win rate and return pull against each other.** The trend cores make most of the money but lose on most trades; the dip plans win most trades but are in the market only a small part of the time. Running both kinds side by side is the point of the separate slots.
 - **Live data.** Stock plans need live stock data in the app (a Twelve Data key, entered in the app's settings).
-- **Next check.** When stock data access is open here, I will re-run both stock plans on April 2021 – October 2026 before you rely on them.
+- **Done:** the stock plans were re-run on 2021 – October 2026 once data access was allowed (above).

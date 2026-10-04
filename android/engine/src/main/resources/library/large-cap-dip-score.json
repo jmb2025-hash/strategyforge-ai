@@ -1,130 +1,158 @@
 {
-  "id": "index-dip-score",
-  "name": "Index dip score",
-  "summary": "Buys SPY, QQQ or IWM after a sharp dip, when at least 2 of 4 oversold signals agree, while the fund is above its 50-day average; sells on the bounce. About 7 in 10 trades win; invested about a tenth of the time, so returns are small.",
+  "id": "large-cap-dip-score",
+  "name": "Large-cap dip score",
+  "summary": "The dip score across 31 large US stocks with up to 5 positions: the same oversold-confluence rule as the index version, invested about 60% of the time. About 2 in 3 trades win.",
   "backtest": "Real daily history from Yahoo Finance (split- and dividend-adjusted), January 2015 to October 2, 2026, $10,000 start for each period, the app's default stock costs (0.1% spread, 2 bps slippage). For comparison, buying and holding SPY made +355% over 2015-2026 with a 34% worst drop.",
   "results": [
     {
       "period": "2015 to Oct 2026",
-      "returnPercent": "18.5",
-      "maxDrawdownPercent": "5.9",
-      "trades": 141,
-      "winRatePercent": "70"
+      "returnPercent": "80.3",
+      "maxDrawdownPercent": "13.5",
+      "trades": 1045,
+      "winRatePercent": "64"
     },
     {
       "period": "2015-2020",
-      "returnPercent": "3.7",
-      "maxDrawdownPercent": "5.9",
-      "trades": 63,
-      "winRatePercent": "70"
+      "returnPercent": "45.3",
+      "maxDrawdownPercent": "12.4",
+      "trades": 506,
+      "winRatePercent": "66"
     },
     {
       "period": "2021 to Oct 2026 (never used to choose the rule)",
-      "returnPercent": "14.0",
-      "maxDrawdownPercent": "3.5",
-      "trades": 78,
-      "winRatePercent": "71"
+      "returnPercent": "25.1",
+      "maxDrawdownPercent": "12.9",
+      "trades": 539,
+      "winRatePercent": "62"
     },
     {
       "period": "2015",
-      "returnPercent": "1.3",
-      "maxDrawdownPercent": "1.9",
-      "trades": 9,
-      "winRatePercent": "78"
+      "returnPercent": "0.2",
+      "maxDrawdownPercent": "10.1",
+      "trades": 60,
+      "winRatePercent": "68"
     },
     {
       "period": "2016",
-      "returnPercent": "1.7",
-      "maxDrawdownPercent": "1.3",
-      "trades": 10,
-      "winRatePercent": "70"
+      "returnPercent": "2.9",
+      "maxDrawdownPercent": "9.1",
+      "trades": 80,
+      "winRatePercent": "55"
     },
     {
       "period": "2017",
-      "returnPercent": "1.7",
-      "maxDrawdownPercent": "0.5",
-      "trades": 12,
-      "winRatePercent": "83"
+      "returnPercent": "6.6",
+      "maxDrawdownPercent": "5.8",
+      "trades": 108,
+      "winRatePercent": "64"
     },
     {
       "period": "2018",
-      "returnPercent": "-3.6",
-      "maxDrawdownPercent": "5.9",
-      "trades": 10,
-      "winRatePercent": "40"
+      "returnPercent": "-6.3",
+      "maxDrawdownPercent": "12.5",
+      "trades": 84,
+      "winRatePercent": "57"
     },
     {
       "period": "2019",
-      "returnPercent": "-0.8",
-      "maxDrawdownPercent": "2.4",
-      "trades": 5,
-      "winRatePercent": "40"
+      "returnPercent": "10.5",
+      "maxDrawdownPercent": "6.8",
+      "trades": 83,
+      "winRatePercent": "75"
     },
     {
       "period": "2020",
-      "returnPercent": "3.0",
-      "maxDrawdownPercent": "2.5",
-      "trades": 14,
-      "winRatePercent": "79"
+      "returnPercent": "24.4",
+      "maxDrawdownPercent": "6.3",
+      "trades": 89,
+      "winRatePercent": "71"
     },
     {
       "period": "2021",
-      "returnPercent": "5.4",
-      "maxDrawdownPercent": "3.5",
-      "trades": 18,
-      "winRatePercent": "78"
+      "returnPercent": "16.3",
+      "maxDrawdownPercent": "3.9",
+      "trades": 117,
+      "winRatePercent": "68"
     },
     {
       "period": "2022",
-      "returnPercent": "1.1",
-      "maxDrawdownPercent": "3.6",
-      "trades": 8,
-      "winRatePercent": "63"
+      "returnPercent": "-8.0",
+      "maxDrawdownPercent": "13.1",
+      "trades": 62,
+      "winRatePercent": "58"
     },
     {
       "period": "2023",
-      "returnPercent": "0.3",
-      "maxDrawdownPercent": "1.7",
-      "trades": 10,
-      "winRatePercent": "60"
+      "returnPercent": "-0.0",
+      "maxDrawdownPercent": "8.1",
+      "trades": 89,
+      "winRatePercent": "58"
     },
     {
       "period": "2024",
-      "returnPercent": "3.3",
-      "maxDrawdownPercent": "2.3",
-      "trades": 18,
-      "winRatePercent": "72"
+      "returnPercent": "7.4",
+      "maxDrawdownPercent": "7.3",
+      "trades": 107,
+      "winRatePercent": "64"
     },
     {
       "period": "2025",
-      "returnPercent": "0.2",
-      "maxDrawdownPercent": "2.9",
-      "trades": 15,
-      "winRatePercent": "67"
+      "returnPercent": "3.0",
+      "maxDrawdownPercent": "4.8",
+      "trades": 89,
+      "winRatePercent": "60"
     },
     {
       "period": "2026 to Oct 2",
-      "returnPercent": "1.3",
-      "maxDrawdownPercent": "1.8",
-      "trades": 7,
-      "winRatePercent": "57"
+      "returnPercent": "5.9",
+      "maxDrawdownPercent": "5.2",
+      "trades": 72,
+      "winRatePercent": "60"
     }
   ],
   "plan": {
     "schemaVersion": "1.0",
     "metadata": {
-      "name": "Index dip score",
+      "name": "Large-cap dip score",
       "assetClass": "US_EQUITY",
       "timeframe": "1d",
       "createdBy": "IMPORTED",
       "direction": "LONG_ONLY",
-      "description": "A new composite found in real daily history of SPY, QQQ and IWM 1998 to March 2021 (chosen on 1998-2012, confirmed unchanged on 2013-2021; also profitable on large stocks such as AAPL, BAC and GOOG). While a fund closes above its 50-day average, buy it when at least 2 of 4 oversold signals agree: the 2-day RSI under 10, the close in the bottom 20% of the day's range, the close under the lower Bollinger band (20, 2), and a 10-day closing low. Sell when the close is back above the 5-day average, after 20 days at most, or at a 15% stop. Up to 3 positions at about a third of equity each. About 7 in 10 trades win; it is invested only about a tenth of the time."
+      "description": "The dip score spread over 31 large US stocks, found in real daily data (1998-2021 for the rule, 2015-2026 for this universe). While a stock closes above its 50-day average, buy it when at least 2 of 4 oversold signals agree: the 2-day RSI under 10, the close in the bottom 20% of the day's range, the close under the lower Bollinger band (20, 2), and a 10-day closing low. Sell when the close is back above the 5-day average, after 20 days at most, or at a 15% stop. Up to 5 positions at about 19% of equity each. About 2 in 3 trades win."
     },
     "universe": {
       "symbols": [
-        "SPY",
-        "QQQ",
-        "IWM"
+        "AAPL",
+        "ADBE",
+        "AMD",
+        "AMZN",
+        "AVGO",
+        "BAC",
+        "BRK.B",
+        "COST",
+        "CRM",
+        "CSCO",
+        "DIS",
+        "GOOGL",
+        "HD",
+        "INTC",
+        "JNJ",
+        "JPM",
+        "KO",
+        "LLY",
+        "MA",
+        "META",
+        "MSFT",
+        "NFLX",
+        "NVDA",
+        "ORCL",
+        "PEP",
+        "PG",
+        "TSLA",
+        "UNH",
+        "V",
+        "WMT",
+        "XOM"
       ]
     },
     "dataRequirements": {
@@ -220,14 +248,14 @@
     },
     "positionSizing": {
       "method": "PERCENT_OF_EQUITY",
-      "value": 32
+      "value": 19
     },
     "orderInstructions": {
       "orderType": "MARKET",
       "timeInForce": "GTC"
     },
     "riskLimits": {
-      "maximumOpenPositions": 3,
+      "maximumOpenPositions": 5,
       "maximumDailyTrades": 5,
       "maximumDailyLossPercent": 10,
       "maximumDrawdownPercent": 40,

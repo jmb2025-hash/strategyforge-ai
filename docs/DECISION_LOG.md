@@ -790,3 +790,28 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Pending.** Re-test the stock plans on April 2021 – October 2026 once a stock-data host is allowed.
 - **Version:** 1.12.0 (versionCode 17).
 - **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.
+
+## D-053 Stock data 2015–2026 from Yahoo Finance: second unseen test and the large-cap dip score
+
+- **Date:** 2026-10-04
+- **Context:** The owner allowed query1/query2.finance.yahoo.com, fc.yahoo.com and stooq.com. Yahoo's chart endpoint works without a key; Stooq now needs a browser.
+- **Data:**
+  - Daily bars from January 2 2015 to October 2 2026 for all 36 stock symbols in the instrument master (BRK-B is stored as BRK.B).
+  - Split- and dividend-adjusted with Yahoo's adjusted close.
+  - Kept in the research scratch area, not committed.
+- **Findings:** the plans of D-052 were run unchanged on 2021 – Oct 2026, which played no part in choosing them. Results at $10,000 with the app's costs:
+
+  | Plan | 2021 – Oct 2026 | 2015 – Oct 2026 |
+  |---|---|---|
+  | S&P 500 trend core | +87.1%, max drawdown 18.7% | +166%, max drawdown 19.1% |
+  | Index dip score | +14.0%, max drawdown 3.5%, 71% won | +18.5% |
+  | SPY buy and hold | +125%, max drawdown 24% | +355%, max drawdown 34% |
+
+  - **Large-cap dip score (new).** The same rule (2 of 4 signals) across the 31 large stocks, up to 5 positions at 19%. Chosen among four variants (2 or 3 signals; 5 or 10 positions) on 2015–2020 at +45%. Then 2021–2026 +25.1%; 2015–2026 +80.3%, max drawdown 13.5%, 1,045 trades, 64% won.
+  - The patterns held out of sample but did not beat buy and hold in this bull decade. The trend core trades return for smaller drawdowns.
+- **Decision:**
+  - The library adds `large-cap-dip-score`.
+  - The stock entries now show 2015 – Oct 2026 results by year, with the 2021–2026 span marked as never used to choose the rule, plus a buy-and-hold comparison.
+  - The slot plan adds Stock 2: Large-cap dip score.
+- **Version:** 1.13.0 (versionCode 18).
+- **Requirements affected:** FR-040 to FR-047, FR-060 to FR-066.

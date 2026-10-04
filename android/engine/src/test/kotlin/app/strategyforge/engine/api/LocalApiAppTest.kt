@@ -473,10 +473,10 @@ class LocalApiAppTest {
         start()
         runBlocking {
             val lib = repo.library()
-            assertThat(lib.map { it.id }).containsExactly("btc-trend-core", "btc-daily-trend-dip-rip", "chart-champions-v3", "index-dip-score", "spy-trend-core")
+            assertThat(lib.map { it.id }).containsExactly("btc-trend-core", "btc-daily-trend-dip-rip", "chart-champions-v3", "spy-trend-core", "index-dip-score", "large-cap-dip-score")
             assertThat(lib.filter { it.assetClass == "CRYPTO" }).allMatch { it.results.size == 12 }
-            assertThat(lib.filter { it.assetClass == "US_EQUITY" }.map { it.id }).containsExactly("index-dip-score", "spy-trend-core")
-            assertThat(lib.filter { it.assetClass == "US_EQUITY" }).allMatch { it.results.size == 27 }
+            assertThat(lib.filter { it.assetClass == "US_EQUITY" }.map { it.id }).containsExactly("spy-trend-core", "index-dip-score", "large-cap-dip-score")
+            assertThat(lib.filter { it.assetClass == "US_EQUITY" }).allMatch { it.results.size == 15 }
             assertThat(lib).allMatch { it.strategyId == null }
             lib.forEach { p ->
                 val r = repo.addLibraryPlan(p.id)
@@ -485,8 +485,8 @@ class LocalApiAppTest {
                         ?.issues
                         .orEmpty()
                         .filter { it.severity == "ERROR" }
-                // The demo replay data has no IWM; with live stock data the plan validates.
-                if (p.id == "index-dip-score") {
+                // The demo replay data has only a few stock symbols; with live stock data these plans validate.
+                if (p.id == "index-dip-score" || p.id == "large-cap-dip-score") {
                     assertThat(errors.map { it.code }.toSet()).`as`(errors.toString()).isSubsetOf(setOf("NO_MARKET_DATA"))
                 } else {
                     assertThat(r.strategy.status).`as`("${p.id}: ${r.validation?.issues}").isEqualTo("VALIDATED")

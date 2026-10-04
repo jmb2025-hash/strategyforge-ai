@@ -1,166 +1,47 @@
 {
   "id": "spy-trend-core",
   "name": "S&P 500 trend core",
-  "summary": "Holds SPY while it closes above the 200-day average and waits in cash below it. Sidestepped most of the 2000-2002 and 2008 bear markets in real data 1998-2021.",
-  "backtest": "Real daily history (QuantConnect's public split- and dividend-adjusted data) to March 2021, $10,000 start for each period, the app's default stock costs (0.1% spread, 2 bps slippage). 2021-2026 still to be checked.",
+  "summary": "Holds SPY while it closes above the 200-day average and waits in cash below it. Found on 1998-2012 data; it avoided most of 2000-2002, 2008 and 2022. It trails buy-and-hold in strong bull markets in exchange for smaller drops.",
+  "backtest": "Real daily history from Yahoo Finance (split- and dividend-adjusted), January 2015 to October 2, 2026, $10,000 start for each period, the app's default stock costs (0.1% spread, 2 bps slippage). For comparison, buying and holding SPY made +355% over 2015-2026 with a 34% worst drop.",
   "results": [
     {
-      "period": "1998 to Mar 2021",
-      "returnPercent": "224.4",
-      "maxDrawdownPercent": "26.7",
-      "trades": 77,
-      "winRatePercent": "26"
-    },
-    {
-      "period": "1998-2012 (selection)",
-      "returnPercent": "48.4",
-      "maxDrawdownPercent": "26.7",
-      "trades": 60,
-      "winRatePercent": "23"
-    },
-    {
-      "period": "2013 to Mar 2021 (unseen)",
-      "returnPercent": "113.6",
-      "maxDrawdownPercent": "18.7",
-      "trades": 18,
+      "period": "2015 to Oct 2026",
+      "returnPercent": "166.3",
+      "maxDrawdownPercent": "19.1",
+      "trades": 31,
       "winRatePercent": "39"
     },
     {
-      "period": "1998",
-      "returnPercent": "10.8",
-      "maxDrawdownPercent": "4.0",
-      "trades": 2,
+      "period": "2015-2020",
+      "returnPercent": "43.4",
+      "maxDrawdownPercent": "18.7",
+      "trades": 16,
+      "winRatePercent": "31"
+    },
+    {
+      "period": "2021 to Oct 2026 (never used to choose the rule)",
+      "returnPercent": "87.1",
+      "maxDrawdownPercent": "18.7",
+      "trades": 16,
       "winRatePercent": "50"
-    },
-    {
-      "period": "1999",
-      "returnPercent": "8.9",
-      "maxDrawdownPercent": "13.2",
-      "trades": 4,
-      "winRatePercent": "50"
-    },
-    {
-      "period": "2000",
-      "returnPercent": "-11.2",
-      "maxDrawdownPercent": "14.3",
-      "trades": 8,
-      "winRatePercent": "13"
-    },
-    {
-      "period": "2001",
-      "returnPercent": "-0.5",
-      "maxDrawdownPercent": "0.5",
-      "trades": 1,
-      "winRatePercent": "0"
-    },
-    {
-      "period": "2002",
-      "returnPercent": "-4.0",
-      "maxDrawdownPercent": "4.4",
-      "trades": 3,
-      "winRatePercent": "0"
-    },
-    {
-      "period": "2003",
-      "returnPercent": "18.0",
-      "maxDrawdownPercent": "6.3",
-      "trades": 4,
-      "winRatePercent": "25"
-    },
-    {
-      "period": "2004",
-      "returnPercent": "2.8",
-      "maxDrawdownPercent": "8.0",
-      "trades": 8,
-      "winRatePercent": "25"
-    },
-    {
-      "period": "2005",
-      "returnPercent": "-1.3",
-      "maxDrawdownPercent": "8.1",
-      "trades": 8,
-      "winRatePercent": "25"
-    },
-    {
-      "period": "2006",
-      "returnPercent": "8.2",
-      "maxDrawdownPercent": "8.3",
-      "trades": 5,
-      "winRatePercent": "40"
-    },
-    {
-      "period": "2007",
-      "returnPercent": "-4.5",
-      "maxDrawdownPercent": "13.8",
-      "trades": 8,
-      "winRatePercent": "25"
-    },
-    {
-      "period": "2008",
-      "returnPercent": "-0.8",
-      "maxDrawdownPercent": "0.9",
-      "trades": 1,
-      "winRatePercent": "0"
-    },
-    {
-      "period": "2009",
-      "returnPercent": "19.9",
-      "maxDrawdownPercent": "6.7",
-      "trades": 1,
-      "winRatePercent": "100"
-    },
-    {
-      "period": "2010",
-      "returnPercent": "-7.8",
-      "maxDrawdownPercent": "23.6",
-      "trades": 7,
-      "winRatePercent": "14"
-    },
-    {
-      "period": "2011",
-      "returnPercent": "-7.7",
-      "maxDrawdownPercent": "14.3",
-      "trades": 7,
-      "winRatePercent": "0"
-    },
-    {
-      "period": "2012",
-      "returnPercent": "11.2",
-      "maxDrawdownPercent": "9.2",
-      "trades": 2,
-      "winRatePercent": "100"
-    },
-    {
-      "period": "2013",
-      "returnPercent": "27.4",
-      "maxDrawdownPercent": "5.3",
-      "trades": 1,
-      "winRatePercent": "100"
-    },
-    {
-      "period": "2014",
-      "returnPercent": "11.5",
-      "maxDrawdownPercent": "6.3",
-      "trades": 2,
-      "winRatePercent": "100"
     },
     {
       "period": "2015",
-      "returnPercent": "-6.6",
-      "maxDrawdownPercent": "10.8",
-      "trades": 5,
+      "returnPercent": "-6.3",
+      "maxDrawdownPercent": "7.8",
+      "trades": 4,
       "winRatePercent": "0"
     },
     {
       "period": "2016",
-      "returnPercent": "10.4",
+      "returnPercent": "10.3",
       "maxDrawdownPercent": "5.2",
       "trades": 2,
       "winRatePercent": "100"
     },
     {
       "period": "2017",
-      "returnPercent": "19.2",
+      "returnPercent": "19.5",
       "maxDrawdownPercent": "2.5",
       "trades": 1,
       "winRatePercent": "100"
@@ -168,30 +49,65 @@
     {
       "period": "2018",
       "returnPercent": "-4.0",
-      "maxDrawdownPercent": "12.2",
+      "maxDrawdownPercent": "12.3",
       "trades": 5,
       "winRatePercent": "20"
     },
     {
       "period": "2019",
-      "returnPercent": "13.3",
+      "returnPercent": "13.5",
       "maxDrawdownPercent": "6.1",
       "trades": 3,
       "winRatePercent": "67"
     },
     {
       "period": "2020",
-      "returnPercent": "6.6",
-      "maxDrawdownPercent": "18.1",
+      "returnPercent": "6.4",
+      "maxDrawdownPercent": "18.3",
       "trades": 4,
       "winRatePercent": "25"
     },
     {
-      "period": "2021 to Mar 31",
-      "returnPercent": "7.3",
-      "maxDrawdownPercent": "3.7",
+      "period": "2021",
+      "returnPercent": "28.2",
+      "maxDrawdownPercent": "4.8",
       "trades": 1,
       "winRatePercent": "100"
+    },
+    {
+      "period": "2022",
+      "returnPercent": "-13.8",
+      "maxDrawdownPercent": "13.8",
+      "trades": 8,
+      "winRatePercent": "25"
+    },
+    {
+      "period": "2023",
+      "returnPercent": "11.5",
+      "maxDrawdownPercent": "8.5",
+      "trades": 5,
+      "winRatePercent": "60"
+    },
+    {
+      "period": "2024",
+      "returnPercent": "23.8",
+      "maxDrawdownPercent": "7.8",
+      "trades": 1,
+      "winRatePercent": "100"
+    },
+    {
+      "period": "2025",
+      "returnPercent": "9.4",
+      "maxDrawdownPercent": "10.2",
+      "trades": 3,
+      "winRatePercent": "33"
+    },
+    {
+      "period": "2026 to Oct 2",
+      "returnPercent": "8.9",
+      "maxDrawdownPercent": "6.2",
+      "trades": 2,
+      "winRatePercent": "50"
     }
   ],
   "plan": {

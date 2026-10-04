@@ -1,10 +1,10 @@
 # StrategyForge AI — Project State Manifesto
 
-Save point: **2026-10-03T11:30Z** · version **1.12.0** (versionCode 17) · branch `claude/strategyforge-v1-delivery-vgf1ah`
+Save point: **2026-10-03T11:30Z** · version **1.13.0** (versionCode 18) · branch `claude/strategyforge-v1-delivery-vgf1ah`
 
 ```text
 === STRATEGYFORGE AI — PROJECT STATE MANIFESTO ===
-SAVE POINT: 2026-10-03T11:30Z | v1.12.0 (versionCode 17) | engine 225 (6 opt-in real-data skipped), core 27/27
+SAVE POINT: 2026-10-03T11:30Z | v1.13.0 (versionCode 18) | engine 225 (6 opt-in real-data skipped), core 27/27
 BRANCH: claude/strategyforge-v1-delivery-vgf1ah (push: git push -u origin <branch>; NO PR unless asked)
 APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest (StrategyForge.apk, CI-published)
 
@@ -117,7 +117,10 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         goog). Harness: stock sweep SF_STOCK_DIR (+SF_FIRST/LAST/SPLIT_YEAR). Library now: btc-trend-core (close>SMA100
         hold; +1985% 2018-Oct26, dd 37), btc-daily-trend-dip-rip, chart-champions-v3, index-dip-score (SPY/QQQ/IWM,
         >=2 of 4 oversold signals above SMA50, exit >SMA5; +33% 1998-2021, 73% win), spy-trend-core (SMA200; +224%).
-        Report + slot plan: docs/research/STRATEGY_RESEARCH_2026-10.md. TODO: re-test stocks on 2021-04..2026-10.
+        Report + slot plan: docs/research/STRATEGY_RESEARCH_2026-10.md.
+- 1.13.0 (D-053) YAHOO OPEN: query1.finance.yahoo.com chart API works (no key); 36 master symbols 2015-01-02..2026-10-02,
+        adjusted via adjclose (scratch stocks/yahoo, daily2). Unseen 2021-26: spy-trend-core +87% dd 18.7; index-dip +14%
+        71% win. New large-cap-dip-score (31 stocks, k2, 5x19%): 2015-26 +80% dd 13.5, 64% win. SPY B&H +355% dd 34.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean at 9a44046.
@@ -149,7 +152,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-053). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-054). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).
