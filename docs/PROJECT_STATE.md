@@ -138,6 +138,12 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         1/min 09:30-16:15 Toronto, liveValue/livePrice), TSX daily refresh ends at last completed session. Screens
         auto-refresh (AutoRefresh). API /v1/market-data/streams, PUT /v1/market-data/stocks/stream-key. Owner unblocked
         stream.data.alpaca.markets + advanced-trade-ws.coinbase.com here; LiveStreamsTest (SF_LIVE_STREAMS=1) passes live.
+- 1.16.0 (D-057) YAHOO STREAM: owner cannot use Alpaca -> removed (AlpacaQuoteStream, StreamKey, stream-key API/UI).
+        YahooQuoteStream wss://streamer.finance.yahoo.com/?version=2, no key, {"subscribe":[..]} repeated every 15 s,
+        base64 protobuf PricingData decoded by hand (YahooPricing), regular session only, BRK.B<->BRK-B. Streams watched
+        US stocks (LIVE) + TSX run holdings as SYM.TO during the TSX session (both modes); TSX live value = newer of
+        streamed/polled. streamer.finance.yahoo.com is BLOCKED here (403) - ask owner to unblock to verify live
+        (SF_LIVE_STREAMS=1 SF_LIVE_YAHOO=1).
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.
@@ -147,7 +153,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   taken from ccxt (raw.githubusercontent.com works) and doc summaries; live verification is on the phone.
 - Open decisions awaiting user:
   a) (done in 1.7.0) Kraken Futures for OI / funding / delta-CVD.
-  b) (done in 1.15.0) Live streaming (Coinbase websocket + Alpaca IEX); owner must add Alpaca keys for stocks.
+  b) (done in 1.15.0/1.16.0) Live streaming: Coinbase (crypto) + Yahoo Finance (US stocks, TSX holdings), no keys.
 - Known approximations: volume profile and CVD derived from candles (not tick data).
 
 4. NEXT IMMEDIATE STEPS (ranked)
@@ -169,7 +175,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
   "Claude-Session: https://claude.ai/code/session_01V9zLb6Ee2kHxCcxDqzS2ae". No model IDs in code/commits.
 - Every user-facing update ships a new APK via CI to release tag phone-latest. CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-057). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-058). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

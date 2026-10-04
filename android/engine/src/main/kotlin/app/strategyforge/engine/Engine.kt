@@ -106,8 +106,8 @@ class Engine(
     tsxProvider: () -> app.strategyforge.engine.tsx.TsxHistoryProvider? = { null },
     /** Live crypto price stream (Coinbase WebSocket in the app, D-056). */
     cryptoStream: () -> app.strategyforge.engine.market.QuoteStream? = { null },
-    /** Builds the live US stock stream around the owner's stored key pair (Alpaca IEX in the app, D-056). */
-    stockStream: ((keys: () -> Pair<String, String>?) -> app.strategyforge.engine.market.QuoteStream)? = null,
+    /** Live US stock and TSX price stream (Yahoo Finance's streamer in the app, D-056). */
+    stockStream: () -> app.strategyforge.engine.market.QuoteStream? = { null },
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -124,13 +124,9 @@ class Engine(
     private val equities: MarketDataProvider? by lazy { equityProvider?.invoke(equityKey::get) }
     val sources = MarketSources(marketClock, replayProvider, { fixtures.dataset.replayStart }, cryptoProvider, { equities?.takeIf { equityKey.configured() } })
 
-    val streamKey =
-        app.strategyforge.engine.market
-            .StreamKey(secrets, auth, audit)
-    private val stocksStream: app.strategyforge.engine.market.QuoteStream? by lazy { stockStream?.invoke(streamKey::get) }
     val streams =
         app.strategyforge.engine.market
-            .StreamHub(cryptoStream, { stocksStream })
+            .StreamHub(cryptoStream, stockStream)
 
     /** The US equity source even before a key is stored (for the key test screen). */
     fun equitySource(): MarketDataProvider? = equities
@@ -220,7 +216,7 @@ class Engine(
     // ------------------------------------------------------------------ TSX portfolio plans (D-055)
     val tsx =
         app.strategyforge.engine.tsx
-            .TsxService(db, notifications, audit, wall, tsxProvider, background, engineThread)
+            .TsxService(db, notifications, audit, wall, tsxProvider, background, engineThread, { s -> streams.tsxTick(s) })
 
     // ------------------------------------------------------------------ operations
     val diagnosticsContributors = CopyOnWriteArrayList<DiagnosticsContributor>(listOf(ReconciliationDiagnostics(db)))

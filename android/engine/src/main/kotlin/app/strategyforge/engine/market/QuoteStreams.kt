@@ -23,8 +23,9 @@ data class StreamTick(
     val last: BigDecimal,
     val exchangeTs: Instant,
     val receivedAt: Instant,
+    val feedType: FeedType = FeedType.REALTIME,
 ) {
-    fun toQuote(): QuoteData = QuoteData(bid, ask, last, null, null, exchangeTs, FeedType.REALTIME)
+    fun toQuote(): QuoteData = QuoteData(bid, ask, last, null, null, exchangeTs, feedType)
 }
 
 enum class StreamState { OFF, CONNECTING, LIVE, ERROR }
@@ -99,6 +100,10 @@ abstract class WebSocketQuoteStream(
     /** Silence after which a live connection is assumed dead and replaced; null: no watchdog. */
     protected open val silenceLimit: Duration? = null
 
+    /** Some feeds drop subscriptions that are not repeated; null: subscribe once. */
+    protected open val resubscribeEvery: Duration? = null
+    private var resubscribedAt: Instant? = null
+
     /** Called when the socket opens; protocols without a handshake call [markReady] here. */
     protected open fun onOpened(ws: WebSocket) {}
 
@@ -140,6 +145,11 @@ abstract class WebSocketQuoteStream(
             if (remove.isNotEmpty()) unsubscribe(remove).forEach { s.send(it) }
             if (add.isNotEmpty()) subscribe(add).forEach { s.send(it) }
             subscribed = symbols
+            val again = resubscribeEvery
+            if (again != null && resubscribedAt?.let { Duration.between(it, now) >= again } != false) {
+                if (add.isEmpty()) subscribe(symbols).forEach { s.send(it) }
+                resubscribedAt = now
+            }
         }
     }
 
@@ -229,6 +239,7 @@ abstract class WebSocketQuoteStream(
         bid: BigDecimal?,
         ask: BigDecimal?,
         exchangeTime: Instant,
+        feedType: FeedType = FeedType.REALTIME,
     ) {
         val now = clock.instant()
         val ts = minOf(exchangeTime, now)
@@ -245,12 +256,13 @@ abstract class WebSocketQuoteStream(
                     price,
                     maxOf(ts, old?.exchangeTs ?: ts),
                     now,
+                    feedType,
                 )
             }
         }
     }
 
-    /** Numbers arrive as JSON numbers (Alpaca) or strings (Coinbase). */
+    /** Numbers arrive as JSON numbers or strings (Coinbase). */
     protected fun JsonNode.decimal(field: String): BigDecimal? =
         get(field)?.let { n ->
             when {
@@ -368,32 +380,35 @@ class CoinbaseQuoteStream(
 }
 
 /**
- * Alpaca's market-data stream on the free IEX feed (D-056): real-time trades and quotes for US
- * stocks and ETFs from the IEX exchange, with the owner's Alpaca key pair. The free plan allows
- * 30 symbols and one connection.
+ * Yahoo Finance's streaming endpoint (D-056), the one its web pages use: no key, US stocks and ETFs
+ * and TSX listings (`.TO`). It is unofficial and may change without notice; the engine falls back
+ * to polling whenever it is silent. Subscriptions are JSON (`{"subscribe":[...]}`) and must be
+ * repeated every 15 s; each price arrives as `{"type":"pricing","message":<base64 protobuf>}`
+ * (yfinance's `PricingData`). Only regular-session prices are used: pre- and post-market ticks
+ * would move stops on thin trading.
  */
-class AlpacaQuoteStream(
+class YahooQuoteStream(
     http: OkHttpClient,
     clock: Clock,
-    private val keys: () -> Pair<String, String>?,
-    private val endpoint: String = "wss://stream.data.alpaca.markets/v2/iex",
+    private val endpoint: String = "wss://streamer.finance.yahoo.com/?version=2",
 ) : WebSocketQuoteStream(http, clock) {
-    override val name = "Alpaca IEX"
+    override val name = "Yahoo Finance"
     override val assetClass = AssetClass.US_EQUITY
+    override val resubscribeEvery: Duration = Duration.ofSeconds(15)
+
+    /** Yahoo symbol to the engine's symbol (US class shares use a dash at Yahoo: BRK.B is BRK-B). */
+    private val aliases = ConcurrentHashMap<String, String>()
 
     override fun url() = endpoint
 
-    override fun ready(): Boolean = keys() != null
+    private fun yahoo(symbol: String) = (if (symbol.endsWith(".TO")) symbol else symbol.replace('.', '-')).also { aliases[it] = symbol }
 
     private fun message(
         action: String,
         symbols: Set<String>,
     ): String {
         val o = mapper.createObjectNode()
-        o.put("action", action)
-        val list = symbols.sorted()
-        o.putArray("trades").also { a -> list.forEach { a.add(it) } }
-        o.putArray("quotes").also { a -> list.forEach { a.add(it) } }
+        o.putArray(action).also { a -> symbols.sorted().forEach { a.add(yahoo(it)) } }
         return mapper.writeValueAsString(o)
     }
 
@@ -401,45 +416,117 @@ class AlpacaQuoteStream(
 
     override fun unsubscribe(symbols: Set<String>) = listOf(message("unsubscribe", symbols))
 
+    override fun onOpened(ws: WebSocket) {
+        markReady(ws)
+    }
+
     override fun handle(
         ws: WebSocket,
         text: String,
     ) {
-        val root = mapper.readTree(text)
-        val items = if (root.isArray) root.toList() else listOf(root)
-        for (m in items) {
-            when (m.path("T").asText()) {
-                "success" ->
-                    when (m.path("msg").asText()) {
-                        "connected" -> {
-                            val k = keys() ?: return fail(ws, "No Alpaca key")
-                            val o =
-                                mapper
-                                    .createObjectNode()
-                                    .put("action", "auth")
-                                    .put("key", k.first)
-                                    .put("secret", k.second)
-                            ws.send(mapper.writeValueAsString(o))
-                        }
-                        "authenticated" -> markReady(ws)
-                    }
-                "error" -> {
-                    val code = m.path("code").asInt()
-                    val msg = "Alpaca: ${m.path("msg").asText()} ($code)"
-                    when (code) {
-                        // Bad key or plan: retrying soon cannot help.
-                        401, 402, 403, 409 -> fail(ws, msg, Duration.ofMinutes(10))
-                        406 -> fail(ws, "$msg. Another app or device is using this Alpaca key's stream.", Duration.ofMinutes(2))
-                        else -> reportError(msg)
+        val payload =
+            if (text.trimStart().startsWith("{")) {
+                mapper
+                    .readTree(text)
+                    .path("message")
+                    .asText()
+                    .takeIf { it.isNotEmpty() } ?: return
+            } else {
+                text.trim()
+            }
+        val p =
+            YahooPricing.decode(
+                java.util.Base64
+                    .getDecoder()
+                    .decode(payload),
+            ) ?: return
+        if (p.marketHours != YahooPricing.REGULAR_MARKET) return
+        val symbol = aliases[p.id] ?: p.id
+        val scale = maxOf(2, p.priceHint ?: 2)
+
+        fun dec(v: Float?) = v?.takeIf { it > 0f }?.let { BigDecimal(it.toDouble()).setScale(scale, java.math.RoundingMode.HALF_UP) }
+        val at = p.time ?: clock.instant()
+        val delayed = Duration.between(at, clock.instant()) > Duration.ofMinutes(10)
+        put(symbol, dec(p.price), dec(p.bid), dec(p.ask), at, if (delayed) FeedType.DELAYED else FeedType.REALTIME)
+    }
+}
+
+/** The fields of Yahoo's `PricingData` protobuf the engine uses, read without a protobuf library. */
+data class YahooPricing(
+    val id: String,
+    val price: Float?,
+    val time: Instant?,
+    val marketHours: Int,
+    val bid: Float?,
+    val ask: Float?,
+    val priceHint: Int?,
+) {
+    companion object {
+        const val REGULAR_MARKET = 1
+
+        /** Decodes the message; null when it has no symbol or is malformed. */
+        fun decode(bytes: ByteArray): YahooPricing? =
+            runCatching {
+                var i = 0
+                var id: String? = null
+                var price: Float? = null
+                var time: Instant? = null
+                var hours = 0
+                var bid: Float? = null
+                var ask: Float? = null
+                var hint: Int? = null
+
+                fun varint(): Long {
+                    var shift = 0
+                    var r = 0L
+                    while (true) {
+                        val b = bytes[i++].toInt() and 0xff
+                        r = r or ((b and 0x7f).toLong() shl shift)
+                        if (b and 0x80 == 0) return r
+                        shift += 7
+                        require(shift < 64) { "varint too long" }
                     }
                 }
-                "t" -> put(sym(m), m.decimal("p"), null, null, m.instant("t") ?: clock.instant())
-                "q" -> put(sym(m), null, m.decimal("bp")?.takeIf { it.signum() > 0 }, m.decimal("ap")?.takeIf { it.signum() > 0 }, m.instant("t") ?: clock.instant())
-            }
-        }
-    }
 
-    private fun sym(m: JsonNode) = m.path("S").asText()
+                fun zigzag(v: Long) = (v ushr 1) xor -(v and 1)
+
+                fun fixed32(): Int {
+                    val v = (bytes[i].toInt() and 0xff) or ((bytes[i + 1].toInt() and 0xff) shl 8) or ((bytes[i + 2].toInt() and 0xff) shl 16) or ((bytes[i + 3].toInt() and 0xff) shl 24)
+                    i += 4
+                    return v
+                }
+                while (i < bytes.size) {
+                    val key = varint()
+                    val field = (key ushr 3).toInt()
+                    when ((key and 7).toInt()) {
+                        0 -> {
+                            val v = varint()
+                            when (field) {
+                                3 -> zigzag(v).let { t -> time = if (t < 100_000_000_000L) Instant.ofEpochSecond(t) else Instant.ofEpochMilli(t) }
+                                7 -> hours = v.toInt()
+                                27 -> hint = zigzag(v).toInt()
+                            }
+                        }
+                        1 -> i += 8
+                        2 -> {
+                            val len = varint().toInt()
+                            if (field == 1) id = String(bytes, i, len, Charsets.UTF_8)
+                            i += len
+                        }
+                        5 -> {
+                            val f = Float.fromBits(fixed32())
+                            when (field) {
+                                2 -> price = f
+                                23 -> bid = f
+                                25 -> ask = f
+                            }
+                        }
+                        else -> error("Unsupported wire type")
+                    }
+                }
+                id?.takeIf { it.isNotEmpty() }?.let { YahooPricing(it, price, time, hours, bid, ask, hint) }
+            }.getOrNull()
+    }
 }
 
 /**
@@ -455,14 +542,20 @@ class StreamHub(
 
     private fun forClass(a: AssetClass): QuoteStream? = if (a == AssetClass.CRYPTO) crypto() else stocks()
 
+    /** [tsxSymbols] (TSX plan holdings, without `.TO`) stream in both modes; the rest only in LIVE mode. */
     fun sync(
         live: Boolean,
         cryptoSymbols: Set<String>,
         stockSymbols: Set<String>,
+        tsxSymbols: Set<String> = emptySet(),
     ) {
         crypto()?.sync(if (live) cryptoSymbols else emptySet())
-        stocks()?.sync(if (live) stockSymbols.sorted().take(STOCK_SYMBOL_LIMIT).toSet() else emptySet())
+        val stocks = (if (live) stockSymbols.sorted().take(STOCK_SYMBOL_LIMIT) else emptyList()) + tsxSymbols.sorted().take(STOCK_SYMBOL_LIMIT).map { "$it.TO" }
+        stocks()?.sync(stocks.toSet())
     }
+
+    /** A fresh streamed price for a TSX listing (display only, D-056). */
+    fun tsxTick(symbol: String): StreamTick? = stocks()?.latest("$symbol.TO", STOCK_MAX_AGE)
 
     /** The streamed quote for [instrument] when its latest tick is fresh enough to use. */
     fun quote(instrument: Instrument): QuoteData? =
@@ -475,8 +568,8 @@ class StreamHub(
     fun reset() = streams().forEach { it.reset() }
 
     companion object {
-        /** Alpaca's free plan streams up to 30 symbols; the rest keep polling. */
-        const val STOCK_SYMBOL_LIMIT = 30
+        /** At most this many stock and this many TSX symbols are streamed; the rest keep polling. */
+        const val STOCK_SYMBOL_LIMIT = 60
         val CRYPTO_MAX_AGE: Duration = Duration.ofSeconds(30)
         val STOCK_MAX_AGE: Duration = Duration.ofMinutes(5)
     }

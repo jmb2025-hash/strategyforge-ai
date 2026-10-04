@@ -714,28 +714,10 @@ class Repository(
             StockData.serializer(),
         )
 
-    /** The live price streams and whether the Alpaca key for stock streaming is stored (D-056). */
+    /** The live price streams and their state (D-056). */
     suspend fun streams(): app.strategyforge.android.core.model.StreamsInfo =
         api.get(
             "/v1/market-data/streams",
-            app.strategyforge.android.core.model.StreamsInfo
-                .serializer(),
-        )
-
-    /** Stores the Alpaca key pair for real-time stock prices; both null removes it. */
-    suspend fun setStreamKey(
-        keyId: String?,
-        secret: String?,
-    ): app.strategyforge.android.core.model.StreamsInfo =
-        api.decode(
-            api
-                .put(
-                    "/v1/market-data/stocks/stream-key",
-                    buildJsonObject {
-                        put("keyId", keyId?.trim()?.takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
-                        put("secret", secret?.trim()?.takeIf { it.isNotEmpty() }?.let { JsonPrimitive(it) } ?: JsonNull)
-                    },
-                ).body,
             app.strategyforge.android.core.model.StreamsInfo
                 .serializer(),
         )

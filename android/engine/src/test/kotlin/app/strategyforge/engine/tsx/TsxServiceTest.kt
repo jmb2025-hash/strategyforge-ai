@@ -149,4 +149,52 @@ class TsxServiceTest {
         assertThat(e.tsx.sessionOpen()).isFalse()
         assertThat(e.tsx.refreshIntraday()).isFalse()
     }
+
+    @Test
+    fun `during the session the held listings stream, in demo mode too, and price the live value`() {
+        val synced = mutableListOf<Set<String>>()
+        val stream =
+            object : app.strategyforge.engine.market.QuoteStream {
+                override val name = "Fake"
+                override val assetClass = app.strategyforge.engine.market.AssetClass.US_EQUITY
+
+                override fun sync(symbols: Set<String>) {
+                    synced += symbols
+                }
+
+                override fun latest(
+                    symbol: String,
+                    maxAge: java.time.Duration,
+                ) = symbol.removeSuffix(".TO").takeIf { symbol.endsWith(".TO") }?.let { s ->
+                    app.strategyforge.engine.market
+                        .StreamTick(s, null, null, java.math.BigDecimal(SyntheticTsx.close(s, LocalDate.parse("2026-08-03")) * 1.05), clock.instant(), clock.instant())
+                }
+
+                override fun status() =
+                    app.strategyforge.engine.market
+                        .StreamStatus(name, assetClass, app.strategyforge.engine.market.StreamState.LIVE, 0, 0, null, null, null, 0)
+
+                override fun reset() {}
+            }
+        val e =
+            Engine(
+                JdbcSqlBackend(DriverManager.getConnection("jdbc:sqlite::memory:")),
+                clock,
+                fixtureReader = { rel -> TestEngine::class.java.getResource("/replay/$rel")!!.readText() },
+                tsxProvider = { SyntheticTsx.provider },
+                stockStream = { stream },
+            ).also { it.tsx.pauseMs = 0 }
+        e.tsx.refresh()
+        val run = e.tsx.create("tsx-high-yield-trend", null, 10_000.0, true, TsxMode.AUTONOMOUS)
+        val s = app.strategyforge.engine.EngineScheduler(e)
+        s.tick()
+        assertThat(synced.last()).`as`("market closed: nothing to stream").isEmpty()
+        clock.advanceSeconds(18 * 3_600)
+        s.tick()
+        assertThat(synced.last()).containsExactlyInAnyOrderElementsOf(run.holdings.map { "${it.symbol}.TO" })
+        val r = e.tsx.get(run.id)
+        assertThat(r.liveValue!!).isCloseTo(r.cash + r.holdings.sumOf { it.shares * it.price } * 1.05, within(0.01))
+        // Streamed listings need no polling.
+        assertThat(e.tsx.refreshIntraday()).isFalse()
+    }
 }

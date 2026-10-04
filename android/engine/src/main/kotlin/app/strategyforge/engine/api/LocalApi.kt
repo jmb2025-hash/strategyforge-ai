@@ -252,12 +252,6 @@ class LocalApi(
             stocks()
         }
         get("/v1/market-data/streams") { _, _ -> streams() }
-        put("/v1/market-data/stocks/stream-key") { r, _ ->
-            val b = obj(r)
-            engine.streamKey.set(b.str("keyId"), b.str("secret"))
-            engine.streams.reset()
-            streams()
-        }
         post("/v1/market-data/stocks/test") { _, _ ->
             if (!engine.equityKey.configured()) throw Problems.unprocessable("no-stock-key", "Add a Twelve Data key first")
             val t = engine.equitySource()?.diagnose(engine.wall.instant()) ?: throw Problems.unavailable("stocks-unavailable", "Stock data is not available in this build")
@@ -289,9 +283,6 @@ class LocalApi(
 
     private fun streams() =
         mapOf(
-            "stockKeyConfigured" to engine.streamKey.configured(),
-            "stockKeyFingerprint" to engine.streamKey.fingerprint(),
-            "stockKeyUrl" to "https://app.alpaca.markets/signup",
             "streams" to
                 engine.streams.statuses().map { s ->
                     mapOf(

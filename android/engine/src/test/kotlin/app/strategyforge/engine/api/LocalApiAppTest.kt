@@ -344,17 +344,8 @@ class LocalApiAppTest {
             assertThat(assertThrows<ApiError.Http> { runBlocking { repo.testStockData() } }.status).`as`("no stock provider in this engine").isEqualTo(503)
             assertThat(repo.setStockKey(null).configured).isFalse()
 
-            // Stock streaming key pair (Alpaca, D-056): both parts required, behind the device lock, never echoed back.
-            assertThat(repo.streams().stockKeyConfigured).isFalse()
-            host.call { engine.auth.forget() }
-            assertThat(assertThrows<ApiError.Http> { runBlocking { repo.setStreamKey("PKDONOTLEAK12345", "secret-DO-NOT-LEAK-0123456789") } }.recentAuthRequired).isTrue()
-            repo.reauthenticate("", null)
-            assertThat(assertThrows<ApiError.Http> { runBlocking { repo.setStreamKey("PKDONOTLEAK12345", null) } }.code).isEqualTo("invalid-key")
-            val streamed = repo.setStreamKey("PKDONOTLEAK12345", "secret-DO-NOT-LEAK-0123456789")
-            assertThat(streamed.stockKeyConfigured).isTrue()
-            assertThat(streamed.stockKeyFingerprint).hasSize(12)
-            assertThat(client.get("/v1/market-data/streams").body.toString()).doesNotContain("DO-NOT-LEAK").doesNotContain("DONOTLEAK")
-            assertThat(repo.setStreamKey(null, null).stockKeyConfigured).isFalse()
+            // Live price streams (D-056): none are configured in this engine.
+            assertThat(repo.streams().streams).isEmpty()
 
             // AI provider setup as the phone screen does it: Gemini preset, key into the key store.
             val gemini = repo.providerTypes().single { it.providerType == "GEMINI" }

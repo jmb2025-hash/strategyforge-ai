@@ -820,12 +820,9 @@ data class BackupVerification(
     val error: String? = null,
 )
 
-/** Live price streams (D-056): Coinbase for crypto, Alpaca IEX for US stocks with the owner's key. */
+/** Live price streams (D-056): Coinbase for crypto, Yahoo Finance for US stocks and TSX listings. */
 @Serializable
 data class StreamsInfo(
-    val stockKeyConfigured: Boolean = false,
-    val stockKeyFingerprint: String? = null,
-    val stockKeyUrl: String? = null,
     val streams: List<StreamInfo> = emptyList(),
 )
 

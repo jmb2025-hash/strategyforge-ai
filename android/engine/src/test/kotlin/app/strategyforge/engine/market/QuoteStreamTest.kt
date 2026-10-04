@@ -112,51 +112,118 @@ class QuoteStreamTest {
         assertThat(s.latest("ETH-USD", Duration.ofSeconds(30))).isNull()
     }
 
+    /** Builds a Yahoo `PricingData` message the way the streamer sends it (protobuf, base64, JSON envelope). */
+    private fun pricing(
+        id: String,
+        price: Float,
+        timeMs: Long,
+        marketHours: Int = 1,
+        bid: Float? = null,
+        ask: Float? = null,
+    ): String {
+        val out = java.io.ByteArrayOutputStream()
+
+        fun varint(v: Long) {
+            var x = v
+            while (x and 0x7fL.inv() != 0L) {
+                out.write(((x and 0x7f) or 0x80).toInt())
+                x = x ushr 7
+            }
+            out.write(x.toInt())
+        }
+
+        fun key(
+            field: Int,
+            wire: Int,
+        ) = varint(((field shl 3) or wire).toLong())
+
+        fun float(
+            field: Int,
+            v: Float,
+        ) {
+            key(field, 5)
+            val bits = v.toRawBits()
+            for (k in 0 until 4) out.write((bits ushr (8 * k)) and 0xff)
+        }
+        val idBytes = id.toByteArray()
+        key(1, 2)
+        varint(idBytes.size.toLong())
+        out.write(idBytes)
+        float(2, price)
+        key(3, 0)
+        varint((timeMs shl 1) xor (timeMs shr 63))
+        key(4, 2)
+        varint(3)
+        out.write("USD".toByteArray())
+        if (marketHours != 0) {
+            key(7, 0)
+            varint(marketHours.toLong())
+        }
+        bid?.let { float(23, it) }
+        ask?.let { float(25, it) }
+        key(27, 0)
+        varint(4)
+        val b64 =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(out.toByteArray())
+        return """{"type":"pricing","message":"$b64"}"""
+    }
+
     @Test
-    fun `alpaca authenticates with the key pair, then streams trades and quotes`() {
-        serve { it.send("""[{"T":"success","msg":"connected"}]""") }
-        val s = AlpacaQuoteStream(http, Clock.systemUTC(), { "PKTESTKEYID123" to "test-secret-value-0123456789" }, url())
-        s.sync(setOf("AAPL", "BRK.B"))
-        val auth = next()
-        assertThat(auth).contains("\"auth\"").contains("PKTESTKEYID123").contains("test-secret-value-0123456789")
-        val ws = serverSocket.poll(5, TimeUnit.SECONDS)!!
-        assertThat(s.status().state).isEqualTo(StreamState.CONNECTING)
-        ws.send("""[{"T":"success","msg":"authenticated"}]""")
-        val sub = next()
-        assertThat(sub).contains("\"subscribe\"").contains("\"trades\":[\"AAPL\",\"BRK.B\"]").contains("\"quotes\":[\"AAPL\",\"BRK.B\"]")
+    fun `yahoo subscribes without a key, decodes protobuf prices and repeats the subscription`() {
+        serve()
+        val clock = MutableClock(Instant.now())
+        val s = YahooQuoteStream(http, clock, url())
+        s.sync(setOf("AAPL", "BRK.B", "RY.TO"))
+        assertThat(next()).isEqualTo("""{"subscribe":["AAPL","BRK-B","RY.TO"]}""")
         assertThat(s.status().state).isEqualTo(StreamState.LIVE)
-        ws.send("""[{"T":"q","S":"AAPL","bp":227.1,"ap":227.14,"t":"2026-10-02T14:30:01.5Z"},{"T":"t","S":"AAPL","p":227.12,"s":100,"t":"2026-10-02T14:30:02Z"}]""")
-        waitFor { s.latest("AAPL", Duration.ofMinutes(5))?.last?.compareTo(BigDecimal("227.12")) == 0 }
-        val t = s.latest("AAPL", Duration.ofMinutes(5))!!
-        assertThat(t.bid).isEqualByComparingTo("227.1")
-        assertThat(t.ask).isEqualByComparingTo("227.14")
-        assertThat(t.exchangeTs).isEqualTo(Instant.parse("2026-10-02T14:30:02Z"))
-        // A quote alone (no trade yet) prices at the mid.
-        ws.send("""[{"T":"q","S":"BRK.B","bp":450.0,"ap":450.2,"t":"2026-10-02T14:30:03Z"}]""")
-        waitFor { s.latest("BRK.B", Duration.ofMinutes(5)) != null }
-        assertThat(s.latest("BRK.B", Duration.ofMinutes(5))!!.last).isEqualByComparingTo("450.1")
+        val ws = serverSocket.poll(5, TimeUnit.SECONDS)!!
+        val now = clock.instant().toEpochMilli()
+        ws.send(pricing("AAPL", 227.12f, now, bid = 227.1f, ask = 227.14f))
+        ws.send(pricing("BRK-B", 450.5f, now))
+        ws.send(pricing("RY.TO", 178.42f, now))
+        waitFor { s.latest("RY.TO", Duration.ofMinutes(5)) != null }
+        val a = s.latest("AAPL", Duration.ofMinutes(5))!!
+        assertThat(a.last).isEqualByComparingTo("227.12")
+        assertThat(a.bid).isEqualByComparingTo("227.10")
+        assertThat(a.ask).isEqualByComparingTo("227.14")
+        assertThat(a.exchangeTs.toEpochMilli()).isEqualTo(now)
+        assertThat(a.feedType).isEqualTo(FeedType.REALTIME)
+        assertThat(s.latest("BRK.B", Duration.ofMinutes(5))!!.last).`as`("mapped back from BRK-B").isEqualByComparingTo("450.50")
+        assertThat(s.latest("RY.TO", Duration.ofMinutes(5))!!.last).isEqualByComparingTo("178.42")
+
+        // Pre-market ticks are ignored; a price 20 minutes old is labelled delayed.
+        ws.send(pricing("AAPL", 230.0f, now, marketHours = 0))
+        ws.send(pricing("RY.TO", 179.0f, now - 20 * 60_000))
+        waitFor { s.latest("RY.TO", Duration.ofMinutes(5))!!.feedType == FeedType.DELAYED }
+        assertThat(s.latest("AAPL", Duration.ofMinutes(5))!!.last).isEqualByComparingTo("227.12")
+
+        // Yahoo drops subscriptions that are not repeated: every 15 s the full list is sent again.
+        s.sync(setOf("AAPL", "BRK.B", "RY.TO"))
+        clock.advanceSeconds(16)
+        s.sync(setOf("AAPL", "BRK.B", "RY.TO"))
+        assertThat(generateSequence { received.poll(1, TimeUnit.SECONDS) }.toList()).contains("""{"subscribe":["AAPL","BRK-B","RY.TO"]}""")
+        s.sync(setOf("AAPL"))
+        assertThat(generateSequence { received.poll(1, TimeUnit.SECONDS) }.toList()).contains("""{"unsubscribe":["BRK-B","RY.TO"]}""")
     }
 
     @Test
-    fun `a rejected alpaca key stops the stream with the reason and waits before retrying`() {
-        serve { it.send("""[{"T":"success","msg":"connected"}]""") }
-        val s = AlpacaQuoteStream(http, Clock.systemUTC(), { "PKTESTKEYID123" to "wrong-secret-value-0123456789" }, url())
-        s.sync(setOf("AAPL"))
-        next()
-        serverSocket.poll(5, TimeUnit.SECONDS)!!.send("""[{"T":"error","code":402,"msg":"auth failed"}]""")
-        waitFor { s.status().state == StreamState.ERROR }
-        assertThat(s.status().error).isEqualTo("Alpaca: auth failed (402)")
-        s.sync(setOf("AAPL"))
-        assertThat(s.status().state).`as`("no immediate retry").isEqualTo(StreamState.ERROR)
-        assertThat(server.requestCount).isEqualTo(1)
-    }
-
-    @Test
-    fun `without a key the stock stream stays off`() {
-        val s = AlpacaQuoteStream(http, Clock.systemUTC(), { null }, url())
-        s.sync(setOf("AAPL"))
-        assertThat(s.status().state).isEqualTo(StreamState.OFF)
-        assertThat(server.requestCount).isZero()
+    fun `the protobuf reader ignores fields it does not use and rejects garbage`() {
+        val msg = pricing("ENB.TO", 61.25f, 1_790_971_200_000L, bid = 61.24f, ask = 61.26f)
+        val b64 = msg.substringAfter("\"message\":\"").substringBefore("\"")
+        val p =
+            YahooPricing.decode(
+                java.util.Base64
+                    .getDecoder()
+                    .decode(b64),
+            )!!
+        assertThat(p.id).isEqualTo("ENB.TO")
+        assertThat(p.price).isEqualTo(61.25f)
+        assertThat(p.time).isEqualTo(Instant.ofEpochMilli(1_790_971_200_000L))
+        assertThat(p.marketHours).isEqualTo(YahooPricing.REGULAR_MARKET)
+        assertThat(p.priceHint).isEqualTo(2)
+        assertThat(YahooPricing.decode(byteArrayOf(0x0a, 0x7f, 0x41))).isNull()
     }
 
     /** A stream the test feeds by hand. */

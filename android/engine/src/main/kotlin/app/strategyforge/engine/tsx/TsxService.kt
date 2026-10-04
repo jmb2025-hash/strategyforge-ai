@@ -88,6 +88,8 @@ class TsxService(
     private val provider: () -> TsxHistoryProvider?,
     private val background: (() -> Unit) -> Unit,
     private val engineThread: (() -> Unit) -> Unit,
+    /** A fresh streamed price for a listing, when a stream carries it (D-056). */
+    private val streamTick: (String) -> app.strategyforge.engine.market.StreamTick? = { null },
 ) {
     private val log = EngineLog.of(javaClass)
     private val mapper = JacksonCanonical.mapper
@@ -244,23 +246,30 @@ class TsxService(
         return m in (9 * 60 + 30)..(16 * 60 + 15)
     }
 
-    /** Fetches intraday prices for the listings active runs hold, at most once a minute during the session. */
+    /** The listings active runs hold. */
+    fun heldSymbols(): Set<String> =
+        db
+            .sql("select holdings from tsx_runs where status = 'ACTIVE'")
+            .list {
+                mapper
+                    .readTree(it.str("holdings"))
+                    .fieldNames()
+                    .asSequence()
+                    .toList()
+            }.flatten()
+            .toSortedSet()
+
+    /**
+     * Polls intraday prices, at most once a minute during the session, for held listings the stream
+     * is not pricing (the stream is the main source when it runs).
+     */
     fun refreshIntraday(): Boolean {
         val p = provider() ?: return false
         val now = wall.instant()
         if (intradayRunning || !sessionOpen(now)) return false
         if (intradayAt?.let { Duration.between(it, now) < INTRADAY_EVERY } == true) return false
-        val symbols =
-            db
-                .sql("select holdings from tsx_runs where status = 'ACTIVE'")
-                .list {
-                    mapper
-                        .readTree(it.str("holdings"))
-                        .fieldNames()
-                        .asSequence()
-                        .toList()
-                }.flatten()
-                .toSortedSet()
+        // Listings the stream is pricing need no polling.
+        val symbols = heldSymbols().filter { streamTick(it) == null }
         if (symbols.isEmpty()) return false
         intradayRunning = true
         intradayAt = now
@@ -377,7 +386,9 @@ class TsxService(
     ): Map<String, TsxQuote> =
         book.shares.keys
             .mapNotNull { s ->
-                intraday[s]
+                val streamed = streamTick(s)?.let { TsxQuote(it.last.toDouble(), it.exchangeTs, null) }
+                listOfNotNull(streamed, intraday[s])
+                    .maxByOrNull { it.at }
                     ?.takeIf { q ->
                         lastDay == null ||
                             q.at

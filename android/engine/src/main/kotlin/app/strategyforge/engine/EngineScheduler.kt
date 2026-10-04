@@ -42,12 +42,20 @@ class EngineScheduler(
             Triple("equity", Duration.ofSeconds(60), { engine.portfolios.recordPeriodicEquity() }),
         )
 
-    /** Keeps the price streams subscribed to the watched instruments and stores their fresh ticks (D-056). */
+    /** Stores the streams' fresh ticks for the watched instruments (D-056). */
     private fun streamTick() {
+        if (engine.streams.streams().isNotEmpty()) engine.ingestion.refreshStreamed()
+    }
+
+    /**
+     * Keeps the price streams subscribed (D-056): watched crypto and stocks in LIVE mode, and the
+     * listings running TSX plans hold during the TSX session in either mode.
+     */
+    private fun syncStreams(live: Boolean) {
         if (engine.streams.streams().isEmpty()) return
-        val symbols = engine.ingestion.interestSymbols()
-        engine.streams.sync(true, symbols[AssetClass.CRYPTO].orEmpty(), symbols[AssetClass.US_EQUITY].orEmpty())
-        engine.ingestion.refreshStreamed()
+        val symbols = if (live) engine.ingestion.interestSymbols() else emptyMap()
+        val tsx = if (engine.tsx.sessionOpen()) engine.tsx.heldSymbols() else emptySet()
+        engine.streams.sync(live, symbols[AssetClass.CRYPTO].orEmpty(), symbols[AssetClass.US_EQUITY].orEmpty(), tsx)
     }
 
     /** Replay minutes per tick in demo mode; 0 pauses the demo clock. Persisted. */
@@ -77,8 +85,8 @@ class EngineScheduler(
             lastRun["tsx"] = now
             ran += "tsx"
         }
+        runCatching { syncStreams(mode == MarketMode.LIVE) }.onFailure { log.error("Stream sync failed", it) }
         if (mode == MarketMode.DEMO) {
-            runCatching { engine.streams.sync(false, emptySet(), emptySet()) }
             val step = demoStepMinutes
             if (step > 0) {
                 engine.replay.autoAdvance(Duration.ofMinutes(step))

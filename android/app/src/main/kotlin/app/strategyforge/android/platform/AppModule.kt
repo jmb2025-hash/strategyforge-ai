@@ -63,6 +63,10 @@ object AppModule {
             app.strategyforge.engine.market
                 .CoinbaseQuoteStream(streamClient, Clock.systemUTC())
         }
+        val yahooStream by lazy {
+            app.strategyforge.engine.market
+                .YahooQuoteStream(streamClient, Clock.systemUTC())
+        }
         val aiClients by lazy { AiClients.default() }
         return EngineRuntime(
             create = { host ->
@@ -73,10 +77,7 @@ object AppModule {
                     derivativesProvider = { kraken },
                     tsxProvider = { yahooTsx },
                     cryptoStream = { coinbaseStream },
-                    stockStream = { keys ->
-                        app.strategyforge.engine.market
-                            .AlpacaQuoteStream(streamClient, Clock.systemUTC(), keys)
-                    },
+                    stockStream = { yahooStream },
                     equityProvider = { key -> TwelveDataProvider(key, Clock.systemUTC()) },
                     secrets = secrets,
                     aiClients = aiClients,

@@ -302,14 +302,6 @@ class EngineViewModel
 
         fun setStockKey(key: String?) = act(if (key == null) "Stock data key removed" else "Stock data key saved") { repo.setStockKey(key) }
 
-        fun setStreamKey(
-            keyId: String?,
-            secret: String?,
-        ) = act(if (keyId == null) "Streaming key removed" else "Streaming key saved. Stocks stream within a few seconds in Live mode.") {
-            val d = repo.setStreamKey(keyId, secret)
-            _state.update { it.copy(streams = d) }
-        }
-
         /** Re-reads the stream status (the screen polls while open). */
         fun loadStreams() {
             viewModelScope.launch { runCatching { repo.streams() }.onSuccess { d -> _state.update { it.copy(streams = d) } } }
@@ -366,7 +358,6 @@ fun EngineScreen(
             onKeepAwake = vm::setKeepAwake,
             onBattery = { requestUnrestrictedBattery(context) },
             onStockKey = vm::setStockKey,
-            onStreamKey = vm::setStreamKey,
             onTestStocks = vm::testStocks,
             onTestFutures = vm::testFutures,
             onOpenUrl = { url ->
@@ -403,7 +394,6 @@ fun EngineContent(
     onKeepAwake: (Boolean) -> Unit,
     onBattery: () -> Unit,
     onStockKey: (String?) -> Unit = {},
-    onStreamKey: (String?, String?) -> Unit = { _, _ -> },
     onTestStocks: () -> Unit = {},
     onTestFutures: () -> Unit = {},
     onOpenUrl: (String) -> Unit = {},
@@ -457,7 +447,7 @@ fun EngineContent(
         }
     }
     (stocks?.keyUrl ?: "https://twelvedata.com/account/api-keys").let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text("Get a free key: $url") } }
-    StreamsSection(state.streams, mode == "LIVE", onStreamKey, onOpenUrl)
+    StreamsSection(state.streams, mode == "LIVE")
     SectionTitle("Crypto futures data (Kraken Futures)")
     Text(
         "Strategies that use open interest, funding or delta (CVD) read them from Kraken Futures' public data (no account or key). " +
@@ -492,21 +482,20 @@ fun EngineContent(
     )
 }
 
-/** Live price streaming (D-056): status per stream and the Alpaca key for real-time stock prices. */
+/** Live price streaming (D-056): the state of each stream. Neither needs an account or key. */
 @Composable
 fun StreamsSection(
     info: app.strategyforge.android.core.model.StreamsInfo?,
     live: Boolean,
-    onStreamKey: (String?, String?) -> Unit,
-    onOpenUrl: (String) -> Unit,
 ) {
     SectionTitle("Live price streaming")
     Text(
-        "In Live mode prices are pushed to the phone as they trade, so open positions, profit/loss and stops update within seconds. " +
+        "Prices are pushed to the phone as they trade, so open positions, profit/loss and stops update within seconds. " +
+            "Crypto streams from Coinbase; US stocks and the TSX plans' holdings stream from Yahoo Finance (regular session only). " +
             "If a stream drops, the app falls back to polling and reconnects on its own.",
         style = MaterialTheme.typography.bodySmall,
     )
-    if (!live) Text("Streams run only in Live mode.", style = MaterialTheme.typography.bodySmall)
+    if (!live) Text("In Demo mode only the TSX plans' holdings stream (during TSX hours).", style = MaterialTheme.typography.bodySmall)
     info?.streams?.forEach { s ->
         val label =
             when (s.state) {
@@ -515,26 +504,11 @@ fun StreamsSection(
                 "ERROR" -> "Reconnecting"
                 else -> if (s.symbols == 0) "Idle (nothing to watch)" else "Off"
             }
-        LabelValue(if (s.assetClass == "CRYPTO") "Crypto · ${s.name}" else "US stocks · ${s.name}", label, Modifier.testTag("stream-${s.assetClass}"))
+        LabelValue(if (s.assetClass == "CRYPTO") "Crypto · ${s.name}" else "Stocks and TSX · ${s.name}", label, Modifier.testTag("stream-${s.assetClass}"))
         s.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
     }
-    Text("US stocks: real-time prices from Alpaca (free account, IEX exchange feed, up to 30 symbols)", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
-    LabelValue("Alpaca key", if (info?.stockKeyConfigured == true) "stored (…${info.stockKeyFingerprint?.takeLast(4) ?: ""})" else "not set")
-    var keyId by rememberSaveable { mutableStateOf("") }
-    var secret by rememberSaveable { mutableStateOf("") }
-    Field("Alpaca API key ID", keyId, { keyId = it }, password = true)
-    Field("Alpaca secret key", secret, { secret = it }, password = true)
-    Row {
-        TextButton(onClick = {
-            onStreamKey(keyId.trim(), secret.trim())
-            keyId = ""
-            secret = ""
-        }, enabled = keyId.isNotBlank() && secret.isNotBlank(), modifier = Modifier.testTag("save-stream-key")) { Text("Save keys") }
-        if (info?.stockKeyConfigured == true) TextButton(onClick = { onStreamKey(null, null) }) { Text("Remove") }
-    }
     Text(
-        "Use the keys from an Alpaca paper-trading account; they are only used to read prices. Without them, stocks keep the delayed Twelve Data prices.",
+        "Yahoo's stream is the one its website uses: free, but unofficial, so it can stop working if Yahoo changes it. The app then keeps the polled prices.",
         style = MaterialTheme.typography.bodySmall,
     )
-    (info?.stockKeyUrl ?: "https://app.alpaca.markets/signup").let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text("Get free keys: $url") } }
 }

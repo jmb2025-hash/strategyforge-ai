@@ -929,3 +929,24 @@ When a conflict is unresolved, the safest reversible option is selected.
   - UI tests for the run screen's intraday value and the streaming section.
 - **Verified live:** `LiveStreamsTest` (opt-in, `SF_LIVE_STREAMS=1`) ran against the real hosts on 2026-10-04. Coinbase streamed BTC-USD and ETH-USD ticks with bid and ask within a second of connecting. Alpaca accepted the connection and answered a made-up key with `402 auth failed`, exactly as handled. A real Alpaca key is needed to see stock ticks, which happens on the phone.
 - **Version:** 1.15.0 (versionCode 20).
+
+## D-057 Yahoo Finance stream replaces Alpaca for stocks and streams TSX holdings
+
+- **Date:** 2026-10-04
+- **Context:** The owner cannot use Alpaca. They asked for Yahoo Finance's stream, which yfinance and other community libraries use, instead.
+- **Decision:**
+  - **Yahoo stream.** `YahooQuoteStream` connects to `wss://streamer.finance.yahoo.com/?version=2` with no key.
+    - It subscribes with `{"subscribe":[...]}` and repeats the subscription every 15 s, as yfinance does, because the server drops subscriptions that are not repeated.
+    - Each price arrives as `{"type":"pricing","message":<base64>}`. The message is yfinance's `PricingData` protobuf, read by a small hand-written decoder (no protobuf dependency) that keeps only the symbol, price, time, market hours, bid, ask and price hint.
+    - Engine symbols map to Yahoo's (`BRK.B` becomes `BRK-B`, TSX listings keep `.TO`), and ticks map back.
+  - **Regular session only.** Pre- and post-market prices are ignored, so stops never trigger on thin extended-hours trading. A price more than 10 minutes old is labelled delayed.
+  - **US stocks** stream from Yahoo in Live mode, up to 60 watched symbols. Twelve Data stays the polled fallback and the source of strategy candles.
+  - **TSX plans.** The same socket streams the listings that running TSX plans hold, during the TSX session (09:30–16:15 Toronto), in Demo and Live mode. A run's intraday value uses the newer of the streamed and polled prices. Listings the stream prices are no longer polled. Polling (D-056) remains the fallback.
+  - **Alpaca removed:** `AlpacaQuoteStream`, the `StreamKey` key store, `PUT /v1/market-data/stocks/stream-key` and the key fields on the Engine screen. The Engine screen now only shows each stream's state. No stored Alpaca keys existed.
+- **Risk:** the stream is unofficial and may change or stop without notice. When it is silent or fails, the app falls back to the earlier polling: Twelve Data for stocks, Yahoo's chart endpoint once a minute for TSX holdings. The Engine screen shows the stream's error.
+- **Tests:**
+  - Against a local WebSocket server, using protobuf messages built in the test: subscribe and unsubscribe JSON, the `BRK-B` mapping, bid and ask decoding, ignored pre-market ticks, delayed labelling and the 15-second resubscription.
+  - The decoder skips unknown fields and rejects malformed bytes.
+  - TSX: held listings are subscribed during the session in Demo mode, stay unsubscribed when the market is closed, and the streamed price drives the live value and replaces polling.
+  - `LiveStreamsTest` gains an opt-in Yahoo check (`SF_LIVE_YAHOO=1`). `streamer.finance.yahoo.com` is blocked in this cloud environment, so the first live Yahoo connection happens on the phone or after the host is unblocked here.
+- **Version:** 1.16.0 (versionCode 21).

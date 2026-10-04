@@ -8,7 +8,7 @@ import java.time.Duration
 
 /**
  * D-056 against the real feeds (network; opt-in with SF_LIVE_STREAMS=1): Coinbase Advanced Trade
- * streams BTC-USD without a key, and Alpaca answers a made-up key with its auth error.
+ * and Yahoo Finance stream prices without a key.
  */
 @EnabledIfEnvironmentVariable(named = "SF_LIVE_STREAMS", matches = "1")
 class LiveStreamsTest {
@@ -42,12 +42,15 @@ class LiveStreamsTest {
         s.sync(emptySet())
     }
 
+    /** Yahoo is opt-in on its own (SF_LIVE_YAHOO=1): its host may be blocked where Coinbase is not. Crypto streams around the clock. */
     @Test
-    fun `alpaca rejects a made-up key with its auth error`() {
-        val s = AlpacaQuoteStream(http, Clock.systemUTC(), { "PKFAKEKEY0000000" to "fake-secret-0000000000000000" })
-        s.sync(setOf("AAPL"))
-        assertThat(waitFor(20) { s.status().state == StreamState.ERROR }).isTrue()
-        println("Alpaca status: ${s.status()}")
-        assertThat(s.status().error).isEqualTo("Alpaca: auth failed (402)")
+    @EnabledIfEnvironmentVariable(named = "SF_LIVE_YAHOO", matches = "1")
+    fun `yahoo streams live prices without a key`() {
+        val s = YahooQuoteStream(http, Clock.systemUTC())
+        s.sync(setOf("BTC-USD", "AAPL", "RY.TO"))
+        val got = waitFor(30) { s.latest("BTC-USD", Duration.ofMinutes(5)) != null }
+        println("Yahoo status: ${s.status()}; BTC-USD ${s.latest("BTC-USD", Duration.ofMinutes(5))}; AAPL ${s.latest("AAPL", Duration.ofMinutes(5))}")
+        assertThat(got).`as`("a tick within 30 s").isTrue()
+        s.sync(emptySet())
     }
 }
