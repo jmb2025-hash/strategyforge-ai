@@ -90,6 +90,11 @@ sealed interface Route {
         val id: String,
     ) : Route
 
+    /** A TSX portfolio plan run (D-055). */
+    data class TsxRun(
+        val id: String,
+    ) : Route
+
     data object Inbox : Route
 
     data object Diagnostics : Route
@@ -130,6 +135,7 @@ object DeepLinks {
             "portfolios", "portfolio" -> Route.Portfolio(id)
             "notifications", "notification" -> Route.Notification(id)
             "research", "researchsession" -> Route.Research(id)
+            "tsxrun", "tsx-runs" -> Route.TsxRun(id)
             else -> null
         }
     }
@@ -142,6 +148,7 @@ object DeepLinks {
             is Route.Portfolio -> "strategyforge://portfolios/${route.id}"
             is Route.Notification -> "strategyforge://notifications/${route.id}"
             is Route.Research -> "strategyforge://research/${route.id}"
+            is Route.TsxRun -> "strategyforge://tsxrun/${route.id}"
             Route.Inbox -> "strategyforge://inbox"
             Route.Diagnostics -> "strategyforge://diagnostics"
             Route.Emergency -> "strategyforge://emergency"

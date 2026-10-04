@@ -49,7 +49,7 @@ class EngineRuntimeTest {
     fun `demo ticks advance replay time and every tick is safe to repeat`() {
         val before = runtime.host.call { runtime.engine.marketClock.now() }
         val report = runtime.tick()!!
-        assertThat(report.ran).containsExactly("replay+1m")
+        assertThat(report.ran).containsExactly("tsx", "replay+1m")
         assertThat(runtime.host.call { runtime.engine.marketClock.now() }).isAfter(before)
     }
 

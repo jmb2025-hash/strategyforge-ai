@@ -51,6 +51,10 @@ object AppModule {
         val secrets = KeystoreSecretStore(context)
         val coinbase by lazy { CoinbaseProvider(Clock.systemUTC()) }
         val kraken by lazy { KrakenFuturesProvider(Clock.systemUTC()) }
+        val yahooTsx by lazy {
+            app.strategyforge.engine.tsx
+                .YahooTsxProvider()
+        }
         val aiClients by lazy { AiClients.default() }
         return EngineRuntime(
             create = { host ->
@@ -59,6 +63,7 @@ object AppModule {
                     fixtureReader = { rel -> context.assets.open("replay/$rel").use { String(it.readBytes(), Charsets.UTF_8) } },
                     cryptoProvider = { coinbase },
                     derivativesProvider = { kraken },
+                    tsxProvider = { yahooTsx },
                     equityProvider = { key -> TwelveDataProvider(key, Clock.systemUTC()) },
                     secrets = secrets,
                     aiClients = aiClients,

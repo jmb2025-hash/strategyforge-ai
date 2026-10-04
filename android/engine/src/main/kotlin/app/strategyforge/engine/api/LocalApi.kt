@@ -54,6 +54,10 @@ import app.strategyforge.engine.strategy.StrategyStatus
 import app.strategyforge.engine.strategy.StrategyVersionView
 import app.strategyforge.engine.strategy.StrategyView
 import app.strategyforge.engine.strategy.ValidationView
+import app.strategyforge.engine.tsx.TsxCatalog
+import app.strategyforge.engine.tsx.TsxMode
+import app.strategyforge.engine.tsx.TsxRunView
+import app.strategyforge.engine.tsx.TsxService
 import com.fasterxml.jackson.databind.JsonNode
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -228,6 +232,7 @@ class LocalApi(
         research()
         reportsAndExports()
         backups()
+        tsx()
     }
 
     // ------------------------------------------------------------------ access (the device lock replaces sign-in)
@@ -1186,5 +1191,106 @@ class LocalApi(
 
         /** Strategy status names the app shows; kept here so a rename is caught at compile time. */
         val ACTIVE_STATUSES = setOf(StrategyStatus.ACTIVE_RECOMMENDATION.name, StrategyStatus.ACTIVE_AUTONOMOUS.name)
+    }
+
+    // ------------------------------------------------------------------ TSX portfolio plans (D-055)
+
+    private fun tsx() {
+        get("/v1/tsx/plans") { _, _ ->
+            mapOf(
+                "plans" to jackson(TsxCatalog.planNodes.path("plans")),
+                "benchmarks" to jackson(TsxCatalog.benchmarks),
+                "slots" to TsxService.SLOTS,
+                "names" to TsxCatalog.listings.associate { it.symbol to it.name },
+            )
+        }
+        get("/v1/tsx/data") { _, _ -> tsxStatus() }
+        post("/v1/tsx/data/refresh", 202) { _, _ -> mapOf("started" to engine.tsx.refresh(), "status" to tsxStatus()) }
+        post("/v1/tsx/plans/{id}/backtest", 202) { r, g ->
+            val b = obj(r)
+            val from = b.str("from")?.let { day(it, "from") } ?: TsxService.DATA_START
+            val to = b.str("to")?.let { day(it, "to") } ?: java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+            val id = engine.tsx.backtest(g[0], from, to, b.dec("startingCash")?.toDouble() ?: 10_000.0)
+            jackson(engine.tsx.backtestView(id))
+        }
+        get("/v1/tsx/backtests") { r, _ -> engine.tsx.backtests(r.query["planId"]).map { jackson(it) } }
+        get("/v1/tsx/backtests/{id}") { _, g -> jackson(engine.tsx.backtestView(uuid(g[0]))) }
+        get("/v1/tsx/runs") { _, _ -> engine.tsx.list().map { tsxRun(it, detail = false) } }
+        post("/v1/tsx/runs", 201) { r, _ ->
+            val b = obj(r)
+            val mode = b.str("mode")?.let { m -> TsxMode.entries.firstOrNull { it.name == m } ?: throw Problems.badRequest("invalid-mode", "mode must be NOTIFY or AUTONOMOUS") } ?: TsxMode.NOTIFY
+            tsxRun(engine.tsx.create(b.req("planId"), b.int("slot"), b.dec("startingCash")?.toDouble() ?: 10_000.0, b.bool("drip") ?: true, mode), detail = true)
+        }
+        get("/v1/tsx/runs/{id}") { _, g -> tsxRun(engine.tsx.get(uuid(g[0])), detail = true) }
+        post("/v1/tsx/runs/{id}/approve") { _, g -> tsxRun(engine.tsx.approve(uuid(g[0])), detail = true) }
+        post("/v1/tsx/runs/{id}/decline") { _, g -> tsxRun(engine.tsx.decline(uuid(g[0])), detail = true) }
+        post("/v1/tsx/runs/{id}/stop") { _, g -> tsxRun(engine.tsx.stop(uuid(g[0])), detail = true) }
+    }
+
+    private fun day(
+        s: String,
+        field: String,
+    ): java.time.LocalDate = runCatching { java.time.LocalDate.parse(s.take(10)) }.getOrElse { throw Problems.badRequest("invalid-date", "$field must be a date (yyyy-MM-dd)") }
+
+    private fun tsxStatus() =
+        engine.tsx.status().let { s ->
+            mapOf(
+                "listings" to s.listings,
+                "cached" to s.cached,
+                "latestDay" to s.latestDay?.toString(),
+                "lastRefreshAt" to s.lastRefreshAt?.toString(),
+                "refreshing" to s.refreshing,
+                "done" to s.done,
+                "total" to s.total,
+                "failed" to s.failed,
+                "error" to s.error,
+            )
+        }
+
+    private fun tsxRun(
+        v: TsxRunView,
+        detail: Boolean,
+    ): Map<String, Any?> {
+        val base =
+            mapOf(
+                "id" to v.id.toString(),
+                "planId" to v.planId,
+                "planName" to v.planName,
+                "slot" to v.slot,
+                "mode" to v.mode.name,
+                "drip" to v.drip,
+                "startingCash" to v.startingCash,
+                "cash" to v.cash,
+                "value" to v.value,
+                "dividendsReceived" to v.dividendsReceived,
+                "status" to v.status,
+                "startDay" to v.startDay?.toString(),
+                "lastDay" to v.lastDay?.toString(),
+                "pendingDay" to v.pendingDay?.toString(),
+                "pending" to
+                    v.pending
+                        ?.entries
+                        ?.sortedByDescending { it.value }
+                        ?.map { mapOf("symbol" to it.key, "name" to TsxCatalog.listing(it.key)?.name, "weight" to it.value) },
+                "holdings" to
+                    v.holdings.map { h ->
+                        mapOf("symbol" to h.symbol, "name" to TsxCatalog.listing(h.symbol)?.name, "shares" to h.shares, "price" to h.price, "value" to h.shares * h.price)
+                    },
+                "createdAt" to v.createdAt.toString(),
+            )
+        if (!detail) return base
+        val months =
+            app.strategyforge.engine.tsx.PlanSimulator
+                .monthEnds(engine.tsx.values(v.id))
+        return base +
+            mapOf(
+                "values" to engine.tsx.values(v.id).map { mapOf("day" to it.day.toString(), "value" to it.value) },
+                "monthlyValues" to months.map { mapOf("month" to "%04d-%02d".format(it.day.year, it.day.monthValue), "value" to it.value) },
+                "monthlyDividends" to engine.tsx.monthlyDividends(v.id).map { (m, a) -> mapOf("month" to m, "amount" to a) },
+                "events" to
+                    engine.tsx.events(v.id, 300).map { e ->
+                        mapOf("day" to e.day.toString(), "kind" to e.kind, "symbol" to e.symbol, "shares" to e.shares, "price" to e.price, "amount" to e.amount)
+                    },
+            )
     }
 }

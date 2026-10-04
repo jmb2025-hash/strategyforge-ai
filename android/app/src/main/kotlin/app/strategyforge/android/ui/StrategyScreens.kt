@@ -72,6 +72,7 @@ fun StrategiesScreen(
             OutlinedButton(onClick = { nav.navigate("research") }) { Text("AI research") }
         }
         OutlinedButton(onClick = { nav.navigate("scorecards") }, modifier = Modifier.testTag("compare")) { Text("Compare results / build a better plan") }
+        OutlinedButton(onClick = { nav.navigate("tsx") }, modifier = Modifier.testTag("tsx-plans")) { Text("TSX plans (Canada, C$)") }
         LibrarySection(library, onAdd = vm::addFromLibrary, onOpen = { nav.navigate("strategy/$it") })
         if (showImport) {
             ImportStrategyPanel(

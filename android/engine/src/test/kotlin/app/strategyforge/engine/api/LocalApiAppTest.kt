@@ -55,15 +55,20 @@ class LocalApiAppTest {
 
     private val ai = MockWebServer().also { it.start() }
 
-    private fun start() {
+    private fun start(
+        wall: java.time.Clock = java.time.Clock.systemUTC(),
+        tsx: app.strategyforge.engine.tsx.TsxHistoryProvider? = null,
+    ) {
         engine =
             host.call {
                 Engine(
                     JdbcSqlBackend(DriverManager.getConnection("jdbc:sqlite::memory:")),
+                    wall,
                     fixtureReader = { rel -> TestEngine::class.java.getResource("/replay/$rel")!!.readText() },
                     allowLocalProviderHttp = true,
                     backupDir = { backups },
-                )
+                    tsxProvider = { tsx },
+                ).also { it.tsx.pauseMs = 0 }
             }
         val api = host.call { LocalApi(engine) }
         val http = OkHttpClient.Builder().addInterceptor(LocalApiInterceptor(host, api::handle)).build()
@@ -666,6 +671,51 @@ class LocalApiAppTest {
             assertThat(invalid.status).isEqualTo(400)
             val gone = assertThrows<ApiError.Http> { runBlocking { client.get("/v1/auth/me") } }
             assertThat(gone.status).isEqualTo(404)
+        }
+    }
+
+    @Test
+    fun `TSX plans run end to end through the app's repository`() {
+        start(
+            app.strategyforge.engine.support
+                .MutableClock(java.time.Instant.parse("2026-08-03T21:00:00Z")),
+            app.strategyforge.engine.tsx.SyntheticTsx.provider,
+        )
+        runBlocking {
+            val catalog = repo.tsxCatalog()
+            assertThat(catalog.plans.map { it.id }).contains("tsx-dividend-growth-momentum", "tsx-momentum-rotation")
+            assertThat(
+                catalog.plans
+                    .first()
+                    .research.valueDrip,
+            ).hasSize(
+                catalog.plans
+                    .first()
+                    .research.months.size,
+            )
+            assertThat(catalog.benchmarks.keys).contains("XIC", "VDY")
+            assertThat(catalog.names["RY"]).isNotBlank()
+            assertThat(repo.tsxData().latestDay).isNull()
+            val refresh = repo.refreshTsxData()
+            assertThat(refresh.started).isTrue()
+            assertThat(repo.tsxData().latestDay).isEqualTo("2026-08-03")
+            val run = repo.startTsxRun("tsx-dividend-growth-momentum", null, "10000", drip = true, autonomous = false)
+            assertThat(run.slot).isEqualTo(1)
+            assertThat(run.pending).isNotEmpty()
+            val approved = repo.tsxRunAction(run.id, "approve")
+            assertThat(approved.pending).isNull()
+            assertThat(approved.holdings).isNotEmpty()
+            assertThat(approved.holdings.first().name).isNotBlank()
+            assertThat(approved.events.map { it.kind }).contains("BUY")
+            assertThat(repo.tsxRuns().single().id).isEqualTo(run.id)
+            val bt = repo.startTsxBacktest("tsx-momentum-rotation", "2024-01-01", "10000")
+            val done = repo.tsxBacktest(bt.id)
+            assertThat(done.status).isEqualTo("COMPLETED")
+            assertThat(done.result!!.months).isNotEmpty()
+            assertThat(done.result!!.valuePaidOut).hasSize(done.result!!.months.size)
+            assertThat(repo.tsxRunAction(run.id, "stop").status).isEqualTo("STOPPED")
+            val err = assertThrows<ApiError.Http> { repo.tsxRunAction(run.id, "approve") }
+            assertThat(err.code).isEqualTo("nothing-pending")
         }
     }
 }

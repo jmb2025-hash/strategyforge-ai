@@ -849,3 +849,44 @@ When a conflict is unresolved, the safest reversible option is selected.
   - `docs/research/TSX_PLANS_2026-10.md`.
   - Monthly value and dividend CSVs and current holdings for each plan.
 - **Not done:** the app cannot run these plans yet. It has no TSX instruments, CAD pricing or Canadian market calendar, and its strategy language is signal-based per symbol, with no target-weight rebalancing or DRIP. This is left for the owner to decide.
+
+## D-055 TSX portfolio plans in the app
+
+- **Date:** 2026-10-04
+- **Context:** The owner approved building the four D-054 TSX plans into the app: TSX listings in C$ with current TSX prices, and a portfolio-style plan type with target weights, scheduled rebalancing and DRIP.
+- **Decision:**
+  - **Separate subsystem.** TSX plans run as their own subsystem (`engine/tsx`), not through the order, ledger and strategy-language engine. That engine trades per-symbol signals in USD; these plans hold a basket at target weights, re-weight on a schedule and pay dividends. Keeping them apart leaves the existing paper engine and its tests untouched.
+  - **Ten TSX slots,** in addition to the 10 crypto and 10 stock slots. Each run has its own C$ starting cash (C$100 to C$10M, default C$10,000), a DRIP or paid-out choice, and a mode:
+    - **Notify:** a rebalance is proposed, raises a notification and waits for Approve or Decline.
+    - **Autonomous:** the rebalance is applied on schedule.
+  - **Data.**
+    - Source: Yahoo Finance's public `.TO` chart endpoint (no key), downloaded on demand from the TSX plans screen.
+    - Updates: automatic every 6 hours while a TSX plan is running. The scheduler task `tsx` checks every 10 minutes.
+    - Storage: daily close, adjusted close and dividends from October 2014 for the 173 bundled listings (`resources/tsx/universe.json`), in table `tsx_history` (migration 10).
+    - Plans refuse to start on data more than 10 days old.
+  - **Execution.** Trades happen at the day's close, with the plan's cost (0.10%, or 0.07% for the momentum rotation plan). Ex-date dividends are moved to the next trading day if the ex-date is not one. With DRIP they buy the payer at the close; otherwise they are recorded as income. A listing with no prices for more than 10 trading days becomes cash at its last price, recorded as "taken over or delisted".
+  - **Plans and research.** The four plans, their rules and their research series ship in `resources/tsx/plans.json`. The research series are monthly values with DRIP and paid out, monthly dividends, and years, compared with XIC and VDY. The app shows them as three views: DRIP growth against the index funds, an income view (monthly value with dividends paid out plus monthly dividend bars and dividends per year), and returns by year.
+  - **Backtests on the phone.** A plan can be backtested on the phone's own downloaded data, and the result shows both dividend views.
+  - **Plain numbers.** Plan math uses doubles, not the BigDecimal money type. These are research-grade portfolio simulations with fractional shares and no ledger. Values are rounded to cents when stored.
+  - **Parity with the research.** The Kotlin engine reproduces the Python research on the research data (opt-in `TsxResearchParityTest`, `SF_TSX_RAW`):
+
+    | Plan | Kotlin | Python |
+    |---|---|---|
+    | Plan 1 | 47,908 | 47,930 |
+    | Plan 2 | 28,729 | 28,729 |
+    | Plan 3 | 37,748 | 37,750 |
+    | Plan 4 | 51,497 | 51,497 |
+
+  - **API:** `/v1/tsx/plans`, `/v1/tsx/data` (+`/refresh`), `/v1/tsx/plans/{id}/backtest`, `/v1/tsx/backtests[/{id}]`, `/v1/tsx/runs[/{id}]`, and `/v1/tsx/runs/{id}/approve|decline|stop`. Notifications deep-link to `strategyforge://tsxrun/{id}`.
+  - **App:** Strategies has a "TSX plans (Canada, C$)" button. That screen shows the data status and download, the running TSX slots ("n of 10"), and a card per plan with its research views, rules and holdings, plus Run in a TSX slot and Backtest on my data. The run screen shows value, holdings, the rebalance waiting for approval, value and monthly dividend charts, activity, and Stop (confirmation required).
+- **Tests:**
+  - Book: target weights and costs, DRIP compared with paid out, and delisting.
+  - The Yahoo parser.
+  - The service on synthetic data: refresh, stale data, notify then approve, autonomous runs over 60 days with both dividend modes, the slot limits and the backtest.
+  - The app's own Repository end to end through the local API.
+  - A Robolectric UI test for the run screen and the data card.
+- **Caveats:**
+  - Yahoo's endpoint is unofficial and may be delayed or change; failures are shown and retried.
+  - The research has survivorship bias: companies taken over that Yahoo no longer serves are missing.
+  - StrategyExplainer is unchanged: TSX plans are not written in the strategy language, so each plan card states its rules instead.
+- **Version:** 1.14.0 (versionCode 19).

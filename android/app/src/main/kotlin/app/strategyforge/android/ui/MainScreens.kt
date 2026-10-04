@@ -87,6 +87,7 @@ fun routeFor(r: Route): String =
         is Route.Strategy -> "strategy/${r.id}"
         is Route.Portfolio -> "portfolio?id=${r.id}"
         is Route.Research -> "research/${r.id}"
+        is Route.TsxRun -> "tsx-run/${r.id}"
         is Route.Order, is Route.Notification, Route.Inbox -> "activity"
         Route.Diagnostics -> "diagnostics"
         Route.Emergency -> "emergency"
@@ -191,6 +192,8 @@ fun MainShell(
                 StrategyDetailScreen(hiltViewModel(), fmt, session, onChart = { sym, sid, tf -> nav.navigate("chart/${Uri.encode(sym)}?strategyId=$sid&timeframe=$tf") })
             }
             composable("scorecards") { ScorecardsScreen(hiltViewModel(), fmt, nav) }
+            composable("tsx") { TsxPlansScreen(hiltViewModel(), nav) }
+            composable("tsx-run/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { TsxRunScreen(hiltViewModel()) }
             composable("research") { ResearchListScreen(hiltViewModel(), fmt, nav) }
             composable("research/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { ResearchDetailScreen(hiltViewModel(), fmt, nav) }
             composable(

@@ -1,0 +1,1043 @@
+{
+ "source": "Yahoo Finance .TO listings used in the TSX research (D-054)",
+ "listings": [
+  {
+   "symbol": "RY",
+   "name": "Royal Bank of Canada",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TD",
+   "name": "The Toronto-Dominion Bank",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BNS",
+   "name": "The Bank of Nova Scotia",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BMO",
+   "name": "Bank of Montreal",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CM",
+   "name": "Canadian Imperial Bank of Commerce",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "NA",
+   "name": "National Bank of Canada",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "EQB",
+   "name": "EQB Inc.",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "LB",
+   "name": "Laurentian Bank of Canada",
+   "sector": "bank",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "MFC",
+   "name": "Manulife Financial Corporation",
+   "sector": "insur",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "SLF",
+   "name": "Sun Life Financial Inc.",
+   "sector": "insur",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "GWO",
+   "name": "Great-West Lifeco Inc.",
+   "sector": "insur",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "POW",
+   "name": "Power Corporation of Canada",
+   "sector": "insur",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "IFC",
+   "name": "Intact Financial Corporation",
+   "sector": "insur",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "IAG",
+   "name": "iA Financial Corporation Inc.",
+   "sector": "insur",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "FFH",
+   "name": "Fairfax Financial Holdings Limited",
+   "sector": "insur",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BN",
+   "name": "Brookfield Corporation",
+   "sector": "finoth",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BAM",
+   "name": "Brookfield Asset Management Ltd.",
+   "sector": "finoth",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "IGM",
+   "name": "IGM Financial Inc.",
+   "sector": "finoth",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "X",
+   "name": "TMX Group Limited",
+   "sector": "finoth",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ONEX",
+   "name": "Onex Corporation",
+   "sector": "finoth",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "GSY",
+   "name": "goeasy Ltd.",
+   "sector": "finoth",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ENB",
+   "name": "Enbridge Inc.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TRP",
+   "name": "TC Energy Corporation",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "PPL",
+   "name": "Pembina Pipeline Corporation",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "KEY",
+   "name": "Keyera Corp.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "GEI",
+   "name": "Gibson Energy Inc.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "FTS",
+   "name": "Fortis Inc.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "EMA",
+   "name": "Emera Incorporated",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "H",
+   "name": "Hydro One Limited",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "AQN",
+   "name": "Algonquin Power & Utilities Corp.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CU",
+   "name": "Canadian Utilities Limited",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ACO-X",
+   "name": "ATCO Ltd.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CPX",
+   "name": "Capital Power Corporation",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "NPI",
+   "name": "Northland Power Inc.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TA",
+   "name": "TransAlta Corporation",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ALA",
+   "name": "AltaGas Ltd.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "SPB",
+   "name": "Superior Plus Corp.",
+   "sector": "pipe_util",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BCE",
+   "name": "BCE Inc.",
+   "sector": "telecom",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "T",
+   "name": "TELUS Corporation",
+   "sector": "telecom",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "RCI-B",
+   "name": "Rogers Communications Inc.",
+   "sector": "telecom",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "QBR-B",
+   "name": "Quebecor Inc.",
+   "sector": "telecom",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CCA",
+   "name": "Cogeco Communications Inc.",
+   "sector": "telecom",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CNQ",
+   "name": "Canadian Natural Resources Limited",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "SU",
+   "name": "Suncor Energy Inc.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CVE",
+   "name": "Cenovus Energy Inc.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "IMO",
+   "name": "Imperial Oil Limited",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TOU",
+   "name": "Tourmaline Oil Corp.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ARX",
+   "name": "ARC Resources Ltd.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "WCP",
+   "name": "Whitecap Resources Inc.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "PEY",
+   "name": "Peyto Exploration & Development Corp.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BTE",
+   "name": "Baytex Energy Corp.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BIR",
+   "name": "Birchcliff Energy Ltd.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "PXT",
+   "name": "Parex Resources Inc.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "FRU",
+   "name": "Freehold Royalties Ltd.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "PSK",
+   "name": "PrairieSky Royalty Ltd.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TPZ",
+   "name": "Topaz Energy Corp.",
+   "sector": "energy",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "REI-UN",
+   "name": "RioCan Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CAR-UN",
+   "name": "Canadian Apartment Properties Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "GRT-UN",
+   "name": "Granite Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "SRU-UN",
+   "name": "SmartCentres Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CHP-UN",
+   "name": "Choice Properties Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "HR-UN",
+   "name": "H&R Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "AP-UN",
+   "name": "Allied Properties Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "DIR-UN",
+   "name": "Dream Industrial Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BEI-UN",
+   "name": "Boardwalk Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CSH-UN",
+   "name": "Chartwell Retirement Residences",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "FCR-UN",
+   "name": "First Capital Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CRT-UN",
+   "name": "CT Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "MRG-UN",
+   "name": "Morguard North American Residential Real Estate Investment Trust",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "SGR-UN",
+   "name": "Slate Grocery REIT",
+   "sector": "reit",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CNR",
+   "name": "Canadian National Railway Company",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CP",
+   "name": "Canadian Pacific Kansas City Limited",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "WSP",
+   "name": "WSP Global Inc.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TIH",
+   "name": "Toromont Industries Ltd.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "WCN",
+   "name": "Waste Connections, Inc.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TFII",
+   "name": "TFI International Inc.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CAE",
+   "name": "CAE Inc.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "STN",
+   "name": "Stantec Inc.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BYD",
+   "name": "Boyd Group Services Inc.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "RBA",
+   "name": "RB Global, Inc.",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ATS",
+   "name": "ATS Corporation",
+   "sector": "indus",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "SHOP",
+   "name": "Shopify Inc.",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CSU",
+   "name": "Constellation Software Inc.",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "OTEX",
+   "name": "Open Text Corporation",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "DSG",
+   "name": "The Descartes Systems Group Inc.",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "GIB-A",
+   "name": "CGI Inc.",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "KXS",
+   "name": "Kinaxis Inc.",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "LSPD",
+   "name": "Lightspeed Commerce Inc.",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BB",
+   "name": "BlackBerry Limited",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "DCBO",
+   "name": "Docebo Inc.",
+   "sector": "tech",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "NTR",
+   "name": "Nutrien Ltd.",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ABX",
+   "name": "Barrick Mining Corporation",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "AEM",
+   "name": "Agnico Eagle Mines Limited",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "FNV",
+   "name": "Franco-Nevada Corporation",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "WPM",
+   "name": "Wheaton Precious Metals Corp.",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "TECK-B",
+   "name": "Teck Resources Limited",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CCO",
+   "name": "Cameco Corporation",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "FM",
+   "name": "First Quantum Minerals Ltd.",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "K",
+   "name": "Kinross Gold Corporation",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "LUN",
+   "name": "Lundin Mining Corporation",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "IVN",
+   "name": "Ivanhoe Mines Ltd.",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CS",
+   "name": "Capstone Copper Corp.",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "MX",
+   "name": "Methanex Corporation",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "WFG",
+   "name": "West Fraser Timber Co. Ltd.",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CCL-B",
+   "name": "CCL Industries Inc.",
+   "sector": "mater",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "ATD",
+   "name": "Alimentation Couche-Tard Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "L",
+   "name": "Loblaw Companies Limited",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "MRU",
+   "name": "Metro Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "DOL",
+   "name": "Dollarama Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "CTC-A",
+   "name": "Canadian Tire Corporation, Limited",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "QSR",
+   "name": "Restaurant Brands International Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "MG",
+   "name": "Magna International Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "GIL",
+   "name": "Gildan Activewear Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "SAP",
+   "name": "Saputo Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "EMP-A",
+   "name": "Empire Company Limited",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "NWC",
+   "name": "The North West Company Inc.",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "PBH",
+   "name": "Premium Brands Holdings Corporation",
+   "sector": "cons",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BIP-UN",
+   "name": "Brookfield Infrastructure Partners L.P.",
+   "sector": "infra",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BEP-UN",
+   "name": "Brookfield Renewable Partners L.P.",
+   "sector": "infra",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "BEPC",
+   "name": "Brookfield Renewable Corporation",
+   "sector": "infra",
+   "type": "EQUITY"
+  },
+  {
+   "symbol": "XIU",
+   "name": "iShares S&P/TSX 60 Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XIC",
+   "name": "iShares Core S&P/TSX Capped Composite Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZCN",
+   "name": "BMO S&P/TSX Capped Composite Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "VCN",
+   "name": "Vanguard FTSE Canada All Cap Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XEI",
+   "name": "iShares S&P/TSX Composite High Dividend Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZDV",
+   "name": "BMO Canadian Dividend ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "VDY",
+   "name": "Vanguard FTSE Canadian High Dividend Yield Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "CDZ",
+   "name": "iShares S&P/TSX Canadian Dividend Aristocrats Index ETF Common Class",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XDV",
+   "name": "iShares Canadian Select Dividend Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZWC",
+   "name": "BMO CA High Dividend Covered Call ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZEB",
+   "name": "BMO Equal Weight Banks Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XFN",
+   "name": "iShares S&P/TSX Capped Financials Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XEG",
+   "name": "iShares S&P/TSX Capped Energy Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XUT",
+   "name": "iShares S&P/TSX Capped Utilities Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZRE",
+   "name": "BMO Equal Weight REITs Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XRE",
+   "name": "iShares S&P/TSX Capped REIT Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XGD",
+   "name": "iShares S&P/TSX Global Gold Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XMA",
+   "name": "iShares S&P/TSX Capped Materials Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XIT",
+   "name": "iShares S&P/TSX Capped Information Technology Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZWB",
+   "name": "BMO Covered Call Canadian Banks ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZWU",
+   "name": "BMO Covered Call Utilities ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XSP",
+   "name": "iShares Core S&P 500 Index ETF (CAD-Hedged)",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZSP",
+   "name": "BMO S&P 500 Index ETF (CAD)",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "VFV",
+   "name": "Vanguard S&P 500 Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XUS",
+   "name": "iShares Core S&P 500 Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XEF",
+   "name": "iShares Core MSCI EAFE IMI Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XEM",
+   "name": "iShares MSCI Emerging Markets Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZQQ",
+   "name": "BMO Nasdaq 100 Equity Hedged to CAD Index ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "QQC",
+   "name": "CI Invesco NASDAQ 100 Index ETF CAD Units",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "VEQT",
+   "name": "Vanguard All-Equity ETF Portfolio",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XEQT",
+   "name": "iShares Core Equity ETF Portfolio",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "VGRO",
+   "name": "Vanguard Growth ETF Portfolio",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XGRO",
+   "name": "iShares Core Growth ETF Portfolio",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "VBAL",
+   "name": "Vanguard Balanced ETF Portfolio",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XBAL",
+   "name": "iShares Core Balanced ETF Portfolio",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZDY",
+   "name": "BMO US Dividend ETF (CAD)",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZLB",
+   "name": "BMO Low Volatility Canadian Equity ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZLU",
+   "name": "BMO Low Volatility US Equity ETF (CAD)",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "HXT",
+   "name": "Global X S&P/TSX 60 Corporate Class ETF",
+   "sector": "etf_eq",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZAG",
+   "name": "BMO Aggregate Bond Index ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XBB",
+   "name": "iShares Core Canadian Universe Bond Index ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XSB",
+   "name": "iShares Core Canadian Short Term Bond Index ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZFL",
+   "name": "BMO Long Federal Bond Index ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZST",
+   "name": "BMO Ultra Short-Term Bond ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XHY",
+   "name": "iShares U.S. High Yield Bond Index ETF (CAD-Hedged)",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZPR",
+   "name": "BMO Laddered Preferred Share Index ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "CPD",
+   "name": "iShares S&P/TSX Canadian Preferred Share Index ETF Common Class",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZHY",
+   "name": "BMO High Yield US Corporate Bond Hedged to CAD Index ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "CBO",
+   "name": "iShares 1-5 Year Laddered Corporate Bond Index ETF Common Class",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "XTR",
+   "name": "iShares Diversified Monthly Income ETF",
+   "sector": "etf_fi",
+   "type": "ETF"
+  },
+  {
+   "symbol": "CGL-C",
+   "name": "iShares Gold Bullion ETF (Non-Hedged)",
+   "sector": "etf_alt",
+   "type": "ETF"
+  },
+  {
+   "symbol": "ZGLD",
+   "name": "BMO Gold Bullion ETF (CAD Units)",
+   "sector": "etf_alt",
+   "type": "ETF"
+  },
+  {
+   "symbol": "HUG",
+   "name": "Global X Gold ETF",
+   "sector": "etf_alt",
+   "type": "ETF"
+  }
+ ]
+}

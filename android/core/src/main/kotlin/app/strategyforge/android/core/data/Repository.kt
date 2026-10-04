@@ -431,6 +431,106 @@ class Repository(
             ResearchDetail.serializer(),
         )
 
+    // ------------------------------------------------------------------ TSX portfolio plans (D-055)
+
+    suspend fun tsxCatalog(): app.strategyforge.android.core.model.TsxCatalog =
+        api.get(
+            "/v1/tsx/plans",
+            app.strategyforge.android.core.model.TsxCatalog
+                .serializer(),
+        )
+
+    suspend fun tsxData(): app.strategyforge.android.core.model.TsxDataStatus =
+        api.get(
+            "/v1/tsx/data",
+            app.strategyforge.android.core.model.TsxDataStatus
+                .serializer(),
+        )
+
+    /** Starts downloading new TSX daily history in the background. */
+    suspend fun refreshTsxData(): app.strategyforge.android.core.model.TsxRefresh =
+        api.decode(
+            api.post("/v1/tsx/data/refresh").body,
+            app.strategyforge.android.core.model.TsxRefresh
+                .serializer(),
+        )
+
+    suspend fun tsxRuns(): List<app.strategyforge.android.core.model.TsxRun> =
+        api.get(
+            "/v1/tsx/runs",
+            ListSerializer(
+                app.strategyforge.android.core.model.TsxRun
+                    .serializer(),
+            ),
+        )
+
+    suspend fun tsxRun(id: String): app.strategyforge.android.core.model.TsxRun =
+        api.get(
+            "/v1/tsx/runs/${seg(id)}",
+            app.strategyforge.android.core.model.TsxRun
+                .serializer(),
+        )
+
+    /** Starts a TSX plan in a TSX slot (null picks the first free one). */
+    suspend fun startTsxRun(
+        planId: String,
+        slot: Int?,
+        startingCash: String,
+        drip: Boolean,
+        autonomous: Boolean,
+    ): app.strategyforge.android.core.model.TsxRun =
+        api.decode(
+            api
+                .post(
+                    "/v1/tsx/runs",
+                    buildJsonObject {
+                        put("planId", planId)
+                        slot?.let { put("slot", it) }
+                        put("startingCash", startingCash)
+                        put("drip", drip)
+                        put("mode", if (autonomous) "AUTONOMOUS" else "NOTIFY")
+                    },
+                ).body,
+            app.strategyforge.android.core.model.TsxRun
+                .serializer(),
+        )
+
+    /** action is approve, decline or stop. */
+    suspend fun tsxRunAction(
+        id: String,
+        action: String,
+    ): app.strategyforge.android.core.model.TsxRun =
+        api.decode(
+            api.post("/v1/tsx/runs/${seg(id)}/${seg(action)}").body,
+            app.strategyforge.android.core.model.TsxRun
+                .serializer(),
+        )
+
+    suspend fun startTsxBacktest(
+        planId: String,
+        from: String?,
+        startingCash: String,
+    ): app.strategyforge.android.core.model.TsxBacktest =
+        api.decode(
+            api
+                .post(
+                    "/v1/tsx/plans/${seg(planId)}/backtest",
+                    buildJsonObject {
+                        from?.let { put("from", it) }
+                        put("startingCash", startingCash)
+                    },
+                ).body,
+            app.strategyforge.android.core.model.TsxBacktest
+                .serializer(),
+        )
+
+    suspend fun tsxBacktest(id: String): app.strategyforge.android.core.model.TsxBacktest =
+        api.get(
+            "/v1/tsx/backtests/${seg(id)}",
+            app.strategyforge.android.core.model.TsxBacktest
+                .serializer(),
+        )
+
     /** The crypto and stock strategy slots (D-035). */
     suspend fun slots(): List<Slot> = api.get("/v1/slots", ListSerializer(Slot.serializer()))
 

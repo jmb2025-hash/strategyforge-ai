@@ -102,6 +102,8 @@ class Engine(
     backupDir: () -> java.io.File? = { null },
     /** Live perpetual-futures context for crypto strategies (Kraken Futures in the app, D-044). */
     derivativesProvider: () -> app.strategyforge.engine.market.DerivativesProvider? = { null },
+    /** Daily TSX history with dividends for the portfolio plans (Yahoo Finance in the app, D-055). */
+    tsxProvider: () -> app.strategyforge.engine.tsx.TsxHistoryProvider? = { null },
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -202,6 +204,11 @@ class Engine(
     val aiProviders = AiProviderService(db, secrets, aiClients, audit, auth, wall, allowLocalProviderHttp)
     val aiBudget = AiBudgetService(db, audit, auth, wall)
     val research = ResearchService(db, aiProviders, aiClients, aiBudget, instruments, strategies, audit, wall, background, engineThread)
+
+    // ------------------------------------------------------------------ TSX portfolio plans (D-055)
+    val tsx =
+        app.strategyforge.engine.tsx
+            .TsxService(db, notifications, audit, wall, tsxProvider, background, engineThread)
 
     // ------------------------------------------------------------------ operations
     val diagnosticsContributors = CopyOnWriteArrayList<DiagnosticsContributor>(listOf(ReconciliationDiagnostics(db)))

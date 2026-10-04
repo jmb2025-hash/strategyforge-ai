@@ -61,6 +61,12 @@ class EngineScheduler(
         val now = wall.instant()
         val mode = engine.marketMode()
         val ran = mutableListOf<String>()
+        // TSX portfolio plans use real daily data in both modes (D-055).
+        if (lastRun["tsx"]?.let { now.isBefore(it.plus(TSX_EVERY)) } != true) {
+            runCatching { engine.tsx.tick() }.onFailure { log.error("Scheduled task tsx failed", it) }
+            lastRun["tsx"] = now
+            ran += "tsx"
+        }
         if (mode == MarketMode.DEMO) {
             val step = demoStepMinutes
             if (step > 0) {
@@ -83,6 +89,9 @@ class EngineScheduler(
     companion object {
         const val DEMO_STEP_KEY = "demo_step_minutes"
         const val DEFAULT_DEMO_STEP = 1L
+
+        /** How often TSX portfolio plans refresh their state (data downloads are at most every few hours). */
+        val TSX_EVERY: Duration = Duration.ofMinutes(10)
 
         /** How often the foreground service should call [tick]. */
         val TICK_INTERVAL: Duration = Duration.ofSeconds(5)

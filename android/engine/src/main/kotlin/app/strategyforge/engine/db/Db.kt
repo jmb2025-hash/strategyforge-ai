@@ -147,6 +147,38 @@ class Db(
                         }
                     }
                 },
+                Migration(10, "TSX portfolio plans: cached TSX history, plan runs in ten slots, their values, events and backtests") { db ->
+                    listOf(
+                        """
+                        create table if not exists tsx_history (
+                          symbol TEXT PRIMARY KEY, bars TEXT NOT NULL, dividends TEXT NOT NULL,
+                          first_day TEXT, last_day TEXT, updated_at INTEGER NOT NULL)
+                        """,
+                        """
+                        create table if not exists tsx_runs (
+                          id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, slot INTEGER NOT NULL, mode TEXT NOT NULL, drip INTEGER NOT NULL,
+                          starting_cash TEXT NOT NULL, cash TEXT NOT NULL, holdings TEXT NOT NULL, sleeve_state TEXT NOT NULL,
+                          start_day TEXT, last_day TEXT, last_period INTEGER, pending TEXT, pending_day TEXT,
+                          status TEXT NOT NULL, created_at INTEGER NOT NULL, stopped_at INTEGER)
+                        """,
+                        "create index if not exists tsx_runs_active on tsx_runs (status, slot)",
+                        """
+                        create table if not exists tsx_run_values (
+                          run_id TEXT NOT NULL, day TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (run_id, day))
+                        """,
+                        """
+                        create table if not exists tsx_run_events (
+                          id TEXT PRIMARY KEY, run_id TEXT NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL, symbol TEXT,
+                          shares TEXT, price TEXT, amount TEXT, created_at INTEGER NOT NULL)
+                        """,
+                        "create index if not exists tsx_run_events_run on tsx_run_events (run_id, day)",
+                        """
+                        create table if not exists tsx_backtests (
+                          id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, from_day TEXT NOT NULL, to_day TEXT NOT NULL, starting_cash TEXT NOT NULL,
+                          status TEXT NOT NULL, result TEXT, error TEXT, created_at INTEGER NOT NULL)
+                        """,
+                    ).forEach { db.sql(it.trimIndent()).update() }
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1
