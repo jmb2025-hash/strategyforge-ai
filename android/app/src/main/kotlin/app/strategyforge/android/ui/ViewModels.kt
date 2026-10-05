@@ -149,7 +149,53 @@ class HomeViewModel
         fun loadEquity(portfolioId: String) {
             viewModelScope.launch { runCatching { _equity.value = repo.equityChart(portfolioId, "1W") } }
         }
+
+        private val _plans = MutableStateFlow<List<PlanSnapshot>>(emptyList())
+
+        /** The running plans with their headline numbers, shown on Home (D-060). */
+        val plans: StateFlow<List<PlanSnapshot>> = _plans.asStateFlow()
+
+        fun loadPlans() {
+            viewModelScope.launch {
+                runCatching {
+                    val slots = repo.slots().filter { it.strategy != null && it.activation != null }.map { RunningPlan.SlotPlan(it) }
+                    val summaries = slots.map { it.portfolioId }.distinct().associateWith { id -> runCatching { repo.portfolioSummaryNow(id) }.getOrNull() }
+                    val slotSnaps =
+                        slots.map { p ->
+                            val score = runCatching { repo.scorecard(p.strategyId) }.getOrNull()
+                            val unrealized =
+                                summaries[p.portfolioId]
+                                    ?.positions
+                                    ?.filter { it.symbol in p.symbols }
+                                    ?.mapNotNull { it.unrealizedPnl?.toBigDecimalOrNull() }
+                                    ?.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add) ?: java.math.BigDecimal.ZERO
+                            val realized = score?.live?.realizedPnl?.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO
+                            PlanSnapshot.Slot(p, realized.add(unrealized).toPlainString(), p.symbols.size, score?.live?.closedTrades ?: 0, summaries[p.portfolioId]?.portfolio?.name)
+                        }
+                    val tsx = repo.tsxRuns().filter { it.status == "ACTIVE" }.map { PlanSnapshot.Tsx(RunningPlan.TsxPlan(it)) }
+                    _plans.value = slotSnaps + tsx
+                }
+            }
+        }
     }
+
+/** A running plan's headline numbers for the Home screen (D-060). */
+sealed interface PlanSnapshot {
+    val plan: RunningPlan
+
+    data class Slot(
+        override val plan: RunningPlan.SlotPlan,
+        /** Realized plus unrealized profit/loss in USD, as exact decimal text. */
+        val profitLoss: String,
+        val openPositions: Int,
+        val closedTrades: Int,
+        val portfolioName: String?,
+    ) : PlanSnapshot
+
+    data class Tsx(
+        override val plan: RunningPlan.TsxPlan,
+    ) : PlanSnapshot
+}
 
 @HiltViewModel
 class EmergencyViewModel
@@ -538,6 +584,9 @@ class PortfolioViewModel
         saved: SavedStateHandle,
     ) : ResourceViewModel<PortfolioSummary>() {
         private val requested: String? = saved["id"]
+
+        /** A running plan to open first (from Home), by its key. */
+        private var requestedPlan: String? = saved["plan"]
         private val _portfolios = MutableStateFlow<List<Portfolio>>(emptyList())
         val portfolios: StateFlow<List<Portfolio>> = _portfolios.asStateFlow()
         private val _selected = MutableStateFlow(requested)
@@ -611,6 +660,10 @@ class PortfolioViewModel
                         .filter { it.status == "ACTIVE" }
                         .map { RunningPlan.TsxPlan(it) }
                 _plans.value = slots + tsx
+                requestedPlan?.let { key ->
+                    requestedPlan = null
+                    selectPlan(key)
+                }
                 // A selected plan that stopped falls back to its portfolio (or the default view).
                 if (_plan.value != null && _plans.value.none { it.key == _plan.value }) _plan.value = null
             }

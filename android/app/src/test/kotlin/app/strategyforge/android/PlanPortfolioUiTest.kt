@@ -3,6 +3,7 @@ package app.strategyforge.android
 import android.app.Application
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.strategyforge.android.core.api.SfJson
 import app.strategyforge.android.core.format.Formatters
@@ -68,5 +69,25 @@ class PlanPortfolioUiTest {
         rule.onNodeWithText("+$30.00", substring = true).assertExists()
         rule.onNodeWithText("+$150.50", substring = true).assertExists()
         rule.onNodeWithText("3 (2 won, 1 lost)").assertExists()
+    }
+
+    @Test
+    fun `home shows a running plan with its profit and opens it`() {
+        var opened = 0
+        val snap =
+            app.strategyforge.android.ui.PlanSnapshot
+                .Slot(RunningPlan.SlotPlan(slot), "150.50", 1, 3, "Crypto slot 1")
+        rule.setContent {
+            SfTheme {
+                app.strategyforge.android.ui
+                    .PlanSnapshotCard(snap, Formatters(ZoneId.of("UTC"))) { opened++ }
+            }
+        }
+        rule.onNodeWithText("Crypto 1 · Chart Champions v3").assertExists()
+        rule.onNodeWithText("Autonomous · Crypto slot 1").assertExists()
+        rule.onNodeWithText("+$150.50", substring = true).assertExists()
+        rule.onNodeWithText("1 / 3").assertExists()
+        rule.onNodeWithText("Open ›").performClick()
+        assertEquals(1, opened)
     }
 }

@@ -979,3 +979,17 @@ When a conflict is unresolved, the safest reversible option is selected.
   2. Uninstall, then install the first permanently signed build.
   3. Restore the backup from the file, then re-enter the API keys.
 - **Version:** 1.17.1 (versionCode 23), the first permanently signed build. It was published after the owner added the secrets on 2026-10-05. Verified on 2026-10-05: the owner installed 1.17.2 over 1.17.1 and all data stayed.
+
+## D-060 Running plans on the Home screen
+
+- **Date:** 2026-10-05
+- **Context:** The owner wants the active plans' portfolios visible on Home, not only in the Portfolio menu (D-058).
+- **Decision:**
+  - **Placement.** Home shows a "Running plans" section below the portfolio card, with one card per running plan.
+  - **Crypto and stock plans.** Each card shows the slot label, the mode and portfolio, the total profit/loss (realized from the strategy's scorecard plus unrealized from its own open positions), and open positions against closed trades.
+  - **TSX plans.** Each card shows the value now (intraday when available, otherwise at the last close), the change since start, today's change, and whether a rebalance is waiting for approval.
+  - **Navigation.** Tapping a card opens that plan in the Portfolio screen: the route `portfolio?plan=<key>` preselects it.
+  - **Refresh.** Home re-reads the plans every 15 s, because each needs a few requests. The portfolio card still refreshes every 5 s.
+- **Scope:** app plus one core call (`Repository.portfolioSummaryNow`); no engine change.
+- **Tests:** `PlanPortfolioUiTest` checks the Home card's label, portfolio, profit/loss, positions and trades, and that tapping it opens the plan.
+- **Version:** 1.18.0 (versionCode 25). It installs over 1.17.x and keeps the app's data (D-059).

@@ -223,6 +223,9 @@ class Repository(
 
     fun portfolios(): Flow<Resource<List<Portfolio>>> = cached("portfolios", ListSerializer(Portfolio.serializer())) { api.get("/v1/portfolios").body }
 
+    /** One portfolio's summary now, without the cache (for the running plans on Home, D-060). */
+    suspend fun portfolioSummaryNow(id: String): PortfolioSummary = api.get("/v1/portfolios/${seg(id)}/summary", PortfolioSummary.serializer())
+
     fun portfolioSummary(id: String): Flow<Resource<PortfolioSummary>> = cached("portfolio:$id", PortfolioSummary.serializer()) { api.get("/v1/portfolios/${seg(id)}/summary").body }
 
     /** FR-103/FR-104: portfolio report and outcome comparison, cached like every other view. */

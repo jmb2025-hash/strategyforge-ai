@@ -197,10 +197,15 @@ fun MainShell(
             composable("research") { ResearchListScreen(hiltViewModel(), fmt, nav) }
             composable("research/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { ResearchDetailScreen(hiltViewModel(), fmt, nav) }
             composable(
-                "portfolio?id={id}",
+                "portfolio?id={id}&plan={plan}",
                 arguments =
                     listOf(
                         navArgument("id") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                        navArgument("plan") {
                             type = NavType.StringType
                             nullable = true
                             defaultValue = null
@@ -275,10 +280,13 @@ fun HomeScreen(
             ?.primary
             ?.portfolio
             ?.id
+    val plans by vm.plans.collectAsStateWithLifecycle()
     LaunchedEffect(primaryId) { primaryId?.let { vm.loadEquity(it) } }
+    LaunchedEffect(Unit) { vm.loadPlans() }
     AutoRefresh(LIVE_REFRESH_MS) { vm.refresh() }
+    AutoRefresh(HOME_PLANS_REFRESH_MS) { vm.loadPlans() }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-        ResourceContent(state, fmt, onRetry = vm::refresh) { d -> DashboardContent(d, fmt, equity, onOpen = { nav.navigate(it) }) }
+        ResourceContent(state, fmt, onRetry = vm::refresh) { d -> DashboardContent(d, fmt, equity, plans, onOpen = { nav.navigate(it) }) }
         TextButton(onClick = vm::refresh) { Text("Refresh") }
     }
 }
@@ -288,6 +296,7 @@ fun DashboardContent(
     d: Dashboard,
     fmt: Formatters,
     equity: EquityChart? = null,
+    plans: List<PlanSnapshot> = emptyList(),
     onOpen: (String) -> Unit,
 ) {
     if (d.emergency.pauseAll) Banner("Pause All is engaged: no strategies are evaluated and no orders are placed.", BannerKind.ERROR)
@@ -318,6 +327,10 @@ fun DashboardContent(
             if (!p.fullyPriced) Banner("Some positions are carried at cost because a verified price is unavailable.", BannerKind.WARNING)
             if (p.portfolio.reconciliationStatus != "OK") Banner("Reconciliation ${p.portfolio.reconciliationStatus}: trading on this portfolio is blocked.", BannerKind.ERROR)
         }
+    }
+    if (plans.isNotEmpty()) {
+        SectionTitle("Running plans")
+        plans.forEach { s -> PlanSnapshotCard(s, fmt) { onOpen("portfolio?plan=${Uri.encode(s.plan.key)}") } }
     }
     SectionTitle("Mode")
     val active = d.strategies.filter { it.status.startsWith("ACTIVE") }
@@ -442,3 +455,41 @@ fun DiagnosticsScreen(
 }
 
 val ActionState.running get() = this == ActionState.Running
+
+/** How often Home re-reads the running plans' numbers (they need several requests each). */
+private const val HOME_PLANS_REFRESH_MS = 15_000L
+
+/** One running plan on Home (D-060); tapping it opens the plan in the Portfolio screen. */
+@Composable
+fun PlanSnapshotCard(
+    s: PlanSnapshot,
+    fmt: Formatters,
+    onOpen: () -> Unit,
+) {
+    SfCard(Modifier.clickable(onClick = onOpen).testTag("home-plan-${s.plan.key}")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(s.plan.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            Text("Open ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
+        when (s) {
+            is PlanSnapshot.Slot -> {
+                val a = s.plan.slot.activation
+                Text(
+                    (if (a?.mode == "AUTONOMOUS") "Autonomous" else "Notifications") + (s.portfolioName?.let { " · $it" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                PnlValue("Profit/loss", s.profitLoss, fmt)
+                LabelValue("Open positions / closed trades", "${s.openPositions} / ${s.closedTrades}")
+            }
+            is PlanSnapshot.Tsx -> {
+                val r = s.plan.run
+                val now = r.liveValue ?: r.value
+                Text((if (r.mode == "AUTONOMOUS") "Autonomous" else "Notifications") + if (r.drip) " · DRIP" else " · dividends paid out", style = MaterialTheme.typography.bodySmall)
+                LabelValue(if (r.liveValue != null) "Value now" else "Value at last close", cad(now))
+                LabelValue("Change since start", pctText(if (r.startingCash > 0) 100 * (now / r.startingCash - 1) else null))
+                r.liveValue?.let { LabelValue("Today", pctText(100 * (it / r.value - 1))) }
+                if (r.pending != null) Banner("A rebalance is waiting for your approval.", BannerKind.WARNING)
+            }
+        }
+    }
+}
