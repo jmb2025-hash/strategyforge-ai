@@ -978,4 +978,4 @@ When a conflict is unresolved, the safest reversible option is selected.
   1. Save a backup with **More → Backups → Back up now → Save a copy**. Backups include every table, including TSX runs, but no keys.
   2. Uninstall, then install the first permanently signed build.
   3. Restore the backup from the file, then re-enter the API keys.
-- **Version:** the first permanently signed build is published once the secrets exist.
+- **Version:** 1.17.1 (versionCode 23), the first permanently signed build. It was published after the owner added the secrets on 2026-10-05.
