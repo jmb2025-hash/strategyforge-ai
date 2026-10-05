@@ -1004,3 +1004,23 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Wording.** The intro now says that 10 TSX plans can run alongside the 10 crypto and 10 stock strategies.
 - **Tests:** `StrategySlotsUiTest` checks the TSX row, the card text and the Stop confirmation.
 - **Version:** 1.18.1 (versionCode 26). It installs over 1.18.0 and keeps the app's data (D-059).
+
+## D-062 TSX trading costs set aside before investing; cash never negative
+
+- **Date:** 2026-10-05
+- **Context:** A TSX run showed "Cash C$-1.00". The plan invested the whole value, and the 0.1% trading cost was then taken from cash. The research simulator counted costs the same way, but a negative cash line confused the owner, who asked for the fee to be set aside instead.
+- **Decision:**
+  - **Set the fee aside.** `Book.rebalance` scales the targets to the largest fraction of the portfolio's value whose purchases plus costs the cash can cover, found by bisection; the result ends at zero cash or above. From all cash, C$1,000 buys C$999.00 of stock and pays C$1.00 of costs. Switching every holding (fees on both the sale and the purchase) also stays at zero or above.
+  - **Existing runs.** `Book.coverNegativeCash` brings a run that already has negative cash back to zero on its next trading day. It sells the same small fraction of every holding at the close, net of costs, and records the sales as SELL events.
+- **Effect on the research:** on the research data over 10 years:
+
+  | Plan | Before | Now |
+  |---|---|---|
+  | Plan 1 | 47,930 | 47,834 |
+  | Plan 2 | 28,729 | 28,719 |
+  | Plan 3 | 37,750 | 37,742 |
+  | Plan 4 | 51,497 | 51,458 |
+
+  The per-year returns and drawdowns are unchanged to one decimal.
+- **Tests:** `BookTest` covers cash ending between 0 and 1 cent for the first purchase, a full switch, and covering existing negative cash.
+- **Version:** 1.18.2 (versionCode 27). It installs over 1.18.1 and keeps the app's data (D-059).

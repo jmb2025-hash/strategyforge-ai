@@ -24,14 +24,26 @@ class BookTest {
         )
 
     @Test
-    fun `rebalance buys target weights at the close and charges the cost`() {
+    fun `rebalance sets the cost aside, so cash ends at zero rather than below it`() {
         val b = Book(1000.0)
         val (trades, turnover) = b.rebalance(days[0], mapOf("AAA" to 0.5, "BBB" to 0.5), data, 0.001)
-        assertThat(b.shares["AAA"]).isCloseTo(50.0, within(1e-9))
-        assertThat(b.shares["BBB"]).isCloseTo(100.0, within(1e-9))
+        // C$1,000 buys C$999.00 of stock and pays C$1.00 in costs.
+        assertThat(b.shares["AAA"]).isCloseTo(50.0 / 1.001, within(1e-6))
+        assertThat(b.shares["BBB"]).isCloseTo(100.0 / 1.001, within(1e-6))
         assertThat(trades).hasSize(2)
-        assertThat(turnover).isCloseTo(1000.0, within(1e-9))
-        assertThat(b.cash).isCloseTo(-1.0, within(1e-9))
+        assertThat(turnover).isCloseTo(1000.0 / 1.001, within(1e-6))
+        assertThat(b.cash).isBetween(0.0, 0.01)
+        assertThat(b.value()).isCloseTo(1000.0 / 1.001, within(0.01))
+    }
+
+    @Test
+    fun `a full switch pays costs on both sides and still keeps cash at zero or above`() {
+        val b = Book(1000.0).also { it.rebalance(days[0], mapOf("AAA" to 1.0), data, 0.001) }
+        b.rebalance(days[1], mapOf("BBB" to 1.0), data, 0.001)
+        assertThat(b.shares).containsOnlyKeys("BBB")
+        assertThat(b.cash).isBetween(0.0, 0.01)
+        // Two buys and one sale at 0.1%: about C$3 of costs on C$1,000.
+        assertThat(b.value()).isCloseTo(997.0, within(0.05))
     }
 
     @Test
@@ -56,5 +68,16 @@ class BookTest {
         assertThat(gone).containsExactly("BBB" to 1000.0)
         assertThat(b.shares).doesNotContainKey("BBB")
         assertThat(b.cash).isCloseTo(1000.0, within(1e-9))
+    }
+
+    @Test
+    fun `negative cash from an older run is brought back to zero by selling a sliver of each holding`() {
+        // As runs before D-062 were left: fully invested with the fee taken from cash.
+        val b = Book(-1.0, linkedMapOf("AAA" to 50.0, "BBB" to 100.0), mutableMapOf("AAA" to 10.0, "BBB" to 5.0))
+        val trades = b.coverNegativeCash(days[1], data, 0.001)
+        assertThat(trades).hasSize(2).allSatisfy { assertThat(it.shares).isNegative() }
+        assertThat(b.cash).isBetween(0.0, 0.01)
+        assertThat(b.value()).isCloseTo(999.0 - 0.001, within(0.01))
+        assertThat(Book(5.0).coverNegativeCash(days[1], data, 0.001)).isEmpty()
     }
 }

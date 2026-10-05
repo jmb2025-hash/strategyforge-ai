@@ -544,6 +544,10 @@ class TsxService(
                     }
                     lastPeriod = period
                 }
+                // Runs started before D-062 paid their first fees out of cash; bring it back to zero.
+                book.coverNegativeCash(day, data, plan.cost).forEach { t ->
+                    event(run.id, TsxEvent(day, "SELL", t.symbol, kotlin.math.abs(t.shares), t.price, kotlin.math.abs(t.shares * t.price)))
+                }
                 value(run.id, day, book.value())
             }
             db
