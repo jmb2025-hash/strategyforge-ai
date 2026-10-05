@@ -965,3 +965,17 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Scope:** app only; it reuses the existing `/v1/slots`, `/v1/strategies/{id}/scorecard`, `/v1/orders` and `/v1/tsx/runs` endpoints.
 - **Tests:** `PlanPortfolioUiTest` checks the plan label and portfolio, and that the plan card counts only the plan's own position (+$30.00 unrealized, +$150.50 total with $120.50 realized) and shows "3 (2 won, 1 lost)".
 - **Version:** 1.17.0 (versionCode 22).
+
+## D-059 Permanent signing key: updates keep the app's data
+
+- **Date:** 2026-10-05
+- **Context:** After installing 1.17.0 the owner's running plans were gone. The repository had no signing secrets, so CI signed every build with a new temporary key. Android refuses to update an app signed with a different key, and the uninstall it requires deletes the database (portfolios, plans, TSX runs, settings) and the Keystore entries (API keys). App updates themselves never reset data: database migrations run on every start. This was a signing problem, and D-031 and `docs/ANDROID.md` described it without it ever being raised with the owner.
+- **Decision:**
+  - **The key.** A permanent release key was generated: RSA 4096, PKCS12, alias `strategyforge`, valid 30 years. It went to the owner as a private file of the four repository-secret values (`SF_RELEASE_KEYSTORE_B64`, `SF_RELEASE_KEYSTORE_PASSWORD`, `SF_RELEASE_KEY_ALIAS`, `SF_RELEASE_KEY_PASSWORD`), and the session's copy was deleted. This session cannot write Actions secrets, so the owner adds them.
+  - **The guard.** The `phone-release` job publishes only when `apksigner` reports the permanent certificate's SHA-256 (`f2f721efecdb46b8055a3f267f6e7b69986586064e2b1d032046853ae72ee3ef`). A build that could not update the installed app is never published again.
+  - **Policy.** Every update installs over the previous version and keeps all data. A data-resetting release would be announced as such in advance. None is planned: schema changes ship as database migrations.
+- **One-time switch:** moving from the temporary key to the permanent one needs one last uninstall.
+  1. Save a backup with **More → Backups → Back up now → Save a copy**. Backups include every table, including TSX runs, but no keys.
+  2. Uninstall, then install the first permanently signed build.
+  3. Restore the backup from the file, then re-enter the API keys.
+- **Version:** the first permanently signed build is published once the secrets exist.

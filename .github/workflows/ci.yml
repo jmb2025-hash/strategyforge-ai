@@ -141,8 +141,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          # The owner's permanent signing certificate (public). Builds signed with any other key cannot
+          # update the installed app, so Android would make the owner uninstall it and lose its data.
+          EXPECTED_CERT_SHA256: f2f721efecdb46b8055a3f267f6e7b69986586064e2b1d032046853ae72ee3ef
         run: |
           out=android/app/build/outputs/apk
+          expected="$EXPECTED_CERT_SHA256"
+          if ! grep -qi "certificate SHA-256 digest: $expected" "$out/release/SIGNING.txt"; then
+            echo "::error::Not publishing: the APK is not signed with the permanent StrategyForge key, so it could not update the installed app without wiping its data. Add the SF_RELEASE_* repository secrets (see docs/ANDROID.md)."
+            exit 1
+          fi
           mkdir -p dist
           cp "$out/release/app-release.apk" dist/StrategyForge.apk
           cp "$out/release/SIGNING.txt" dist/SIGNING.txt
@@ -153,7 +161,7 @@ jobs:
             echo "Paper trading only: no real money, brokerage connection or order routing."
             echo
             echo "Install: open this page on the phone, download StrategyForge.apk and allow installing from your browser when Android asks."
-            echo "Signing: $(grep '^signing=' dist/SIGNING.txt | cut -d= -f2). With an ephemeral CI key, save a backup copy (More > Backups) before installing a newer build, because Android asks you to uninstall first."
+            echo "Signed with the permanent StrategyForge key: installs over the previous version and keeps all portfolios, plans and settings."
             echo
             echo "SHA-256: $(cut -d' ' -f1 dist/SHA256SUMS)"
           } > dist/NOTES.md

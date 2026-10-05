@@ -123,7 +123,7 @@ Signing material never lives in the repository.
    - `SF_RELEASE_KEY_PASSWORD`
 3. Or build locally with the same variables, using `SF_RELEASE_KEYSTORE_FILE` in place of the base64 value, then run `./gradlew :app:assembleRelease`.
 
-Without those secrets, CI signs each release build with an ephemeral key generated for that run. `SIGNING.txt` on the release page records which key was used.
+Without those secrets, CI still signs its test builds with an ephemeral key, but it **refuses to publish** a phone build unless the APK carries the owner's permanent certificate (SHA-256 `f2f721ef…2ee3ef`, checked in the `phone-release` job; D-059). A build signed with any other key could only be installed after an uninstall, which deletes all portfolios, plans and keys. `SIGNING.txt` on the release page records the certificate.
 
 ## Privacy defaults
 
