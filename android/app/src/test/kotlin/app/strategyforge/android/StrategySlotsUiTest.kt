@@ -1,12 +1,14 @@
 package app.strategyforge.android
 
 import android.app.Application
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.strategyforge.android.core.api.SfJson
 import app.strategyforge.android.core.model.Slot
@@ -91,12 +93,21 @@ class StrategySlotsUiTest {
                 """.trimIndent(),
             )
         val stopped = mutableListOf<String>()
-        rule.setContent { SfTheme { SlotsSection(slots, onOpen = {}, onStop = {}, tsxRuns = runs, onOpenTsx = {}, onStopTsx = { stopped += it }) } }
+        rule.setContent {
+            SfTheme {
+                androidx.compose.foundation.layout.Column(
+                    androidx.compose.ui.Modifier
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                ) {
+                    SlotsSection(slots, onOpen = {}, onStop = {}, tsxRuns = runs, onOpenTsx = {}, onStopTsx = { stopped += it })
+                }
+            }
+        }
         rule.onNodeWithText("TSX · 1 of 10 slots in use").assertExists()
         rule.onNodeWithText("Slot 1 · Dividend Growth & Momentum 24").assertExists()
         rule.onNodeWithText("Notifications: you approve each rebalance").assertExists()
         rule.onNodeWithText("C$996 · -0.4% since start · 1 holding").assertExists()
-        rule.onNodeWithTag("stop-TSX-1").performClick()
+        rule.onNodeWithTag("stop-TSX-1").performScrollTo().performClick()
         rule.onNodeWithText("Stop this TSX plan?").assertExists()
         rule.onAllNodesWithText("Stop").onLast().performClick()
         assertEquals(listOf("r1"), stopped)
