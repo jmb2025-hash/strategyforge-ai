@@ -75,4 +75,30 @@ class StrategySlotsUiTest {
         rule.onNodeWithTag("replace").performClick()
         assertEquals(false, decided)
     }
+
+    @Test
+    fun `D-061 running TSX plans are listed with the slots and stopping asks first`() {
+        val runs =
+            SfJson.decodeFromString(
+                ListSerializer(
+                    app.strategyforge.android.core.model.TsxRun
+                        .serializer(),
+                ),
+                """
+                [{"id":"r1","planId":"tsx-dividend-growth-momentum","planName":"Dividend Growth & Momentum 24","slot":1,"mode":"NOTIFY","drip":true,
+                  "startingCash":1000.0,"cash":0.0,"value":999.0,"liveValue":995.82,"status":"ACTIVE",
+                  "holdings":[{"symbol":"RY","shares":1.0,"price":180.0,"value":180.0}]}]
+                """.trimIndent(),
+            )
+        val stopped = mutableListOf<String>()
+        rule.setContent { SfTheme { SlotsSection(slots, onOpen = {}, onStop = {}, tsxRuns = runs, onOpenTsx = {}, onStopTsx = { stopped += it }) } }
+        rule.onNodeWithText("TSX · 1 of 10 slots in use").assertExists()
+        rule.onNodeWithText("Slot 1 · Dividend Growth & Momentum 24").assertExists()
+        rule.onNodeWithText("Notifications: you approve each rebalance").assertExists()
+        rule.onNodeWithText("C$996 · -0.4% since start · 1 holding").assertExists()
+        rule.onNodeWithTag("stop-TSX-1").performClick()
+        rule.onNodeWithText("Stop this TSX plan?").assertExists()
+        rule.onAllNodesWithText("Stop").onLast().performClick()
+        assertEquals(listOf("r1"), stopped)
+    }
 }

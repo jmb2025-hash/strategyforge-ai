@@ -993,3 +993,14 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Scope:** app plus one core call (`Repository.portfolioSummaryNow`); no engine change.
 - **Tests:** `PlanPortfolioUiTest` checks the Home card's label, portfolio, profit/loss, positions and trades, and that tapping it opens the plan.
 - **Version:** 1.18.0 (versionCode 25). It installs over 1.17.x and keeps the app's data (D-059).
+
+## D-061 TSX plans listed with the running slots on the Plans screen
+
+- **Date:** 2026-10-05
+- **Context:** The owner noticed that running TSX plans did not appear in the "Running now" slots at the top of the Plans screen. Only crypto and stock slots were listed there.
+- **Decision:**
+  - **TSX row.** "Running now" gains a "TSX · n of 10 slots in use" row, below the crypto and stock rows. Each active TSX plan gets a card showing its slot and plan name, its mode, its value now (intraday when available) with the change since start and the number of holdings, and any rebalance waiting for approval.
+  - **Actions.** Each card has **Open**, which opens the plan's page, and **Stop**, which asks for confirmation.
+  - **Wording.** The intro now says that 10 TSX plans can run alongside the 10 crypto and 10 stock strategies.
+- **Tests:** `StrategySlotsUiTest` checks the TSX row, the card text and the Stop confirmation.
+- **Version:** 1.18.1 (versionCode 26). It installs over 1.18.0 and keeps the app's data (D-059).

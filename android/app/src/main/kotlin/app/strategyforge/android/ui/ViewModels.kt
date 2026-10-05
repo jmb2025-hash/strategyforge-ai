@@ -224,9 +224,21 @@ class StrategiesViewModel
             loadSlots()
         }
 
+        private val _tsxRuns = MutableStateFlow<List<app.strategyforge.android.core.model.TsxRun>>(emptyList())
+
+        /** The TSX plans running in TSX slots, listed with the other slots (D-061). */
+        val tsxRuns: StateFlow<List<app.strategyforge.android.core.model.TsxRun>> = _tsxRuns.asStateFlow()
+
         fun loadSlots() {
             viewModelScope.launch { runCatching { _slots.value = repo.slots() } }
+            viewModelScope.launch { runCatching { _tsxRuns.value = repo.tsxRuns() } }
         }
+
+        fun stopTsx(runId: String) =
+            act("TSX plan stopped") {
+                repo.tsxRunAction(runId, "stop")
+                _tsxRuns.value = repo.tsxRuns()
+            }
 
         private val _library = MutableStateFlow<List<app.strategyforge.android.core.model.LibraryPlan>>(emptyList())
 

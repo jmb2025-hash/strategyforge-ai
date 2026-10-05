@@ -65,7 +65,15 @@ fun StrategiesScreen(
     }
     AutoRefresh(LIVE_REFRESH_MS * 2) { vm.loadSlots() }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-        SlotsSection(slots, onOpen = { nav.navigate("strategy/$it") }, onStop = vm::stop)
+        val tsxRuns by vm.tsxRuns.collectAsStateWithLifecycle()
+        SlotsSection(
+            slots,
+            onOpen = { nav.navigate("strategy/$it") },
+            onStop = vm::stop,
+            tsxRuns = tsxRuns,
+            onOpenTsx = { nav.navigate("tsx-run/$it") },
+            onStopTsx = vm::stopTsx,
+        )
         SectionTitle("Trading plans")
         Row {
             Button(onClick = { showImport = !showImport }) { Text(if (showImport) "Close import" else "Create / import") }
@@ -147,9 +155,27 @@ fun SlotsSection(
     slots: List<Slot>,
     onOpen: (String) -> Unit,
     onStop: (String) -> Unit,
+    tsxRuns: List<app.strategyforge.android.core.model.TsxRun> = emptyList(),
+    onOpenTsx: (String) -> Unit = {},
+    onStopTsx: (String) -> Unit = {},
 ) {
     var confirmStop by rememberSaveable { mutableStateOf<String?>(null) }
-    Column { SlotCards(slots, onOpen) { confirmStop = it } }
+    var confirmStopTsx by rememberSaveable { mutableStateOf<String?>(null) }
+    Column {
+        SlotCards(slots, onOpen) { confirmStop = it }
+        TsxSlotCards(tsxRuns.filter { it.status == "ACTIVE" }, onOpenTsx) { confirmStopTsx = it }
+    }
+    confirmStopTsx?.let { id ->
+        ConfirmDialog(
+            "Stop this TSX plan?",
+            "It stops following its schedule and frees its TSX slot. Its history stays on the plan's page.",
+            "Stop",
+            onDismiss = { confirmStopTsx = null },
+        ) {
+            confirmStopTsx = null
+            onStopTsx(id)
+        }
+    }
     confirmStop?.let { id ->
         ConfirmDialog(
             "Stop this strategy?",
@@ -170,7 +196,7 @@ private fun SlotCards(
     onStop: (String) -> Unit,
 ) {
     SectionTitle("Running now")
-    Text("Up to 10 crypto and 10 stock strategies can run at once, each in its own slot. Give each slot its own portfolio to compare them side by side.", style = MaterialTheme.typography.bodySmall)
+    Text("Up to 10 crypto and 10 stock strategies and 10 TSX plans can run at once, each in its own slot. Give each slot its own portfolio to compare them side by side.", style = MaterialTheme.typography.bodySmall)
     listOf("CRYPTO" to "Crypto", "US_EQUITY" to "Stocks").forEach { (ac, label) ->
         val mine = slots.filter { it.assetClass == ac }
         val used = mine.filter { it.strategy != null }
@@ -197,6 +223,43 @@ private fun SlotCards(
                     TextButton(onClick = { onOpen(s.id) }) { Text("Open") }
                     TextButton(onClick = { onStop(s.id) }, modifier = Modifier.testTag("stop-$ac-${slot.number}")) { Text("Stop") }
                 }
+            }
+        }
+    }
+}
+
+/** The TSX portfolio plans running in the ten TSX slots (D-055), listed with the other slots (D-061). */
+@Composable
+private fun TsxSlotCards(
+    runs: List<app.strategyforge.android.core.model.TsxRun>,
+    onOpen: (String) -> Unit,
+    onStop: (String) -> Unit,
+) {
+    Text("TSX · ${runs.size} of 10 slots in use", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+    if (runs.isEmpty()) {
+        SfCard(Modifier.testTag("slot-TSX")) {
+            Text("No TSX plan running. Start one from TSX plans below.", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+    runs.sortedBy { it.slot }.forEach { r ->
+        SfCard(Modifier.testTag("slot-TSX-${r.slot}")) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Slot ${r.slot} · ${r.planName}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                StatusChip(if (r.mode == "AUTONOMOUS") "ACTIVE_AUTONOMOUS" else r.status)
+            }
+            Text(
+                if (r.mode == "AUTONOMOUS") "Autonomous: rebalances on schedule (simulated)" else "Notifications: you approve each rebalance",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            val now = r.liveValue ?: r.value
+            Text(
+                "${cad(now)} · ${pctText(if (r.startingCash > 0) 100 * (now / r.startingCash - 1) else null)} since start · ${r.holdings.size} holding${if (r.holdings.size == 1) "" else "s"}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (r.pending != null) Text("A rebalance is waiting for your approval.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            Row {
+                TextButton(onClick = { onOpen(r.id) }) { Text("Open") }
+                TextButton(onClick = { onStop(r.id) }, modifier = Modifier.testTag("stop-TSX-${r.slot}")) { Text("Stop") }
             }
         }
     }
