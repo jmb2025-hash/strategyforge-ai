@@ -143,7 +143,9 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         base64 protobuf PricingData decoded by hand (YahooPricing), regular session only, BRK.B<->BRK-B. Streams watched
         US stocks (LIVE) + TSX run holdings as SYM.TO during the TSX session (both modes); TSX live value = newer of
         streamed/polled. Owner unblocked streamer.finance.yahoo.com; live test passes (SF_LIVE_STREAMS=1
-        SF_LIVE_YAHOO=1): BTC-USD 85,440.24 vs Coinbase 85,440.25 on 2026-10-04; stock ticks need an open session.
+        SF_LIVE_YAHOO=1): BTC-USD 85,440.24 vs Coinbase 85,440.25 on 2026-10-04. Market-open check 2026-10-05
+        (SF_LIVE_YAHOO_STOCKS=1): AAPL 334.68 vs chart 334.655, RY.TO 277.20 vs 277.16, REALTIME, <1 s. 1.17.2: bid/ask
+        kept only as a pair (Yahoo sends none or one side).
 - 1.17.0 (D-058) PLANS IN PORTFOLIO MENU: Portfolio screen "Running plans" chips (slot strategies + active TSX runs).
         Slot plan -> its portfolio + SlotPlanCard (scorecard realized, own-position unrealized, trades) and positions/orders
         filtered to the plan; TSX plan -> TsxRunDetail inline. App-only (RunningPlan in ViewModels.kt).

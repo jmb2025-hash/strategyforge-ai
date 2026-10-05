@@ -193,6 +193,11 @@ class QuoteStreamTest {
         assertThat(s.latest("BRK.B", Duration.ofMinutes(5))!!.last).`as`("mapped back from BRK-B").isEqualByComparingTo("450.50")
         assertThat(s.latest("RY.TO", Duration.ofMinutes(5))!!.last).isEqualByComparingTo("178.42")
 
+        // A one-sided quote (as Yahoo sends for some TSX listings) keeps no bid/ask.
+        ws.send(pricing("RY.TO", 178.5f, now, ask = 178.6f))
+        waitFor { s.latest("RY.TO", Duration.ofMinutes(5))!!.last.compareTo(BigDecimal("178.50")) == 0 }
+        assertThat(s.latest("RY.TO", Duration.ofMinutes(5))!!.ask).isNull()
+
         // Pre-market ticks are ignored; a price 20 minutes old is labelled delayed.
         ws.send(pricing("AAPL", 230.0f, now, marketHours = 0))
         ws.send(pricing("RY.TO", 179.0f, now - 20 * 60_000))

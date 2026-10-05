@@ -51,6 +51,16 @@ class LiveStreamsTest {
         val got = waitFor(30) { s.latest("BTC-USD", Duration.ofMinutes(5)) != null }
         println("Yahoo status: ${s.status()}; BTC-USD ${s.latest("BTC-USD", Duration.ofMinutes(5))}; AAPL ${s.latest("AAPL", Duration.ofMinutes(5))}")
         assertThat(got).`as`("a tick within 30 s").isTrue()
+        // During a regular session (SF_LIVE_YAHOO_STOCKS=1) US and TSX stocks must stream too.
+        if (System.getenv("SF_LIVE_YAHOO_STOCKS") == "1") {
+            assertThat(waitFor(60) { s.latest("AAPL", Duration.ofMinutes(5)) != null && s.latest("RY.TO", Duration.ofMinutes(5)) != null }).`as`("AAPL and RY.TO within 60 s").isTrue()
+            for (sym in listOf("AAPL", "RY.TO")) {
+                val t = s.latest(sym, Duration.ofMinutes(5))!!
+                println("Yahoo $sym: $t")
+                assertThat(t.last.signum()).isPositive()
+                assertThat(Duration.between(t.exchangeTs, t.receivedAt).abs()).isLessThan(Duration.ofMinutes(20))
+            }
+        }
         s.sync(emptySet())
     }
 }

@@ -243,7 +243,9 @@ abstract class WebSocketQuoteStream(
     ) {
         val now = clock.instant()
         val ts = minOf(exchangeTime, now)
-        val (b, a) = if (bid != null && ask != null && bid > ask) null to null else bid to ask
+        // Bid and ask are used only as a pair: a one-sided or crossed quote would skew simulated fills.
+        val pair = bid != null && ask != null
+        val (b, a) = if (pair && bid!! <= ask!!) bid to ask else null to null
         ticks.compute(symbol) { _, old ->
             val price = last ?: old?.last ?: if (b != null && a != null) b.add(a).divide(BigDecimal(2)) else null
             if (price == null || price.signum() <= 0) {
@@ -251,8 +253,8 @@ abstract class WebSocketQuoteStream(
             } else {
                 StreamTick(
                     symbol,
-                    b ?: old?.bid.takeIf { bid == null && ask == null },
-                    a ?: old?.ask.takeIf { bid == null && ask == null },
+                    if (pair) b else old?.bid,
+                    if (pair) a else old?.ask,
                     price,
                     maxOf(ts, old?.exchangeTs ?: ts),
                     now,
