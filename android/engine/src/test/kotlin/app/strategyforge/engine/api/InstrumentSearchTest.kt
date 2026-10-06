@@ -173,4 +173,40 @@ class InstrumentSearchTest {
             assertThat(repo.addInstrument(stock.symbol.lowercase()).added).isTrue()
         }
     }
+
+    @Test
+    fun `D-066 a dollar amount buys a fractional quantity that costs no more than the amount, and sells are capped at the holding`() {
+        start()
+        runBlocking {
+            val p = repo.createPortfolio("Small", "500")
+            // Manual orders follow the default limits (20% per trade); the owner raises them on Risk limits.
+            repo.reauthenticate("", null)
+            repo.setGlobalLimits(mapOf("maxTradePercent" to "100", "maxInstrumentPercent" to "100", "maxCryptoPercent" to "100"))
+            // All of the cash: the quantity is sized so price, buffer and costs fit in 500 USD.
+            val buy = repo.placeOrder(OrderDraft(p.id, "BTC-USD", "BUY", "MARKET", "", timeInForce = "GTC", amount = "500"))
+            assertThat(buy.rejectionReason).isNull()
+            val qty = BigDecimal(buy.quantity)
+            assertThat(qty).isGreaterThan(BigDecimal.ZERO).isLessThan(BigDecimal.ONE)
+            assertThat(qty.stripTrailingZeros().scale()).isGreaterThan(0)
+            host.call { engine.replay.advance(2, 1) }
+            val filled = repo.portfolioSummaryNow(p.id)
+            assertThat(BigDecimal(filled.cash)).isGreaterThanOrEqualTo(BigDecimal.ZERO)
+            val held = BigDecimal(filled.positions.single().quantity)
+            assertThat(held).isEqualByComparingTo(qty)
+
+            // Selling more dollars than the position is worth sells the whole position.
+            val sell = repo.placeOrder(OrderDraft(p.id, "BTC-USD", "SELL", "MARKET", "", timeInForce = "GTC", amount = "100000"))
+            assertThat(BigDecimal(sell.quantity)).isEqualByComparingTo(held)
+
+            val tiny = assertThrows<ApiError.Http> { runBlocking { repo.placeOrder(OrderDraft(p.id, "BTC-USD", "BUY", "MARKET", "", timeInForce = "GTC", amount = "0.000001")) } }
+            assertThat(tiny.code).isEqualTo("amount-too-small")
+            assertThat(tiny.field).isEqualTo("amount")
+            val zero = assertThrows<ApiError.Http> { runBlocking { repo.placeOrder(OrderDraft(p.id, "BTC-USD", "BUY", "MARKET", "", timeInForce = "GTC", amount = "0")) } }
+            assertThat(zero.field).isEqualTo("amount")
+
+            // A limit order by amount uses the limit price.
+            val limit = repo.placeOrder(OrderDraft(p.id, "SOL-USD", "BUY", "LIMIT", "", "10", timeInForce = "GTC", amount = "50"))
+            assertThat(BigDecimal(limit.quantity)).isLessThanOrEqualTo(BigDecimal("5")).isGreaterThan(BigDecimal("4.9"))
+        }
+    }
 }

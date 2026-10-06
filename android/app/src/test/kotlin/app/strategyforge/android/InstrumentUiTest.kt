@@ -143,6 +143,30 @@ class InstrumentUiTest {
     }
 
     @Test
+    fun `D-066 the amount hint estimates a fractional quantity from the last price`() {
+        assertEquals(
+            "About 0.00582709 BTC at $85,806.09, before costs.",
+            app.strategyforge.android.ui
+                .amountHint("500", "85806.09", "BTC-USD", fmt),
+        )
+        assertEquals(
+            "About 2.5 AAPL at $200.00, before costs.",
+            app.strategyforge.android.ui
+                .amountHint("500", "200", "aapl", fmt),
+        )
+        assert(
+            app.strategyforge.android.ui
+                .amountHint("", "200", "AAPL", fmt)
+                .startsWith("Fractions are allowed"),
+        )
+        assert(
+            app.strategyforge.android.ui
+                .amountHint("500", null, "AAPL", fmt)
+                .startsWith("Fractions are allowed"),
+        )
+    }
+
+    @Test
     fun `labels for search results and volumes`() {
         assertEquals("Crypto", hitKind(btc))
         assertEquals("NASDAQ · Industrials · added when you trade it", hitKind(rklb))

@@ -98,6 +98,8 @@ data class OrderDraft(
     val limitPrice: String? = null,
     val stopPrice: String? = null,
     val timeInForce: String = "DAY",
+    /** A dollar amount instead of [quantity]: the engine buys or sells that value, fractions included (D-066). */
+    val amount: String? = null,
 )
 
 /**
@@ -268,7 +270,7 @@ class Repository(
                 put("symbol", d.symbol)
                 put("side", d.side)
                 put("orderType", d.orderType)
-                put("quantity", d.quantity)
+                if (d.amount != null) put("amount", d.amount) else put("quantity", d.quantity)
                 put("timeInForce", d.timeInForce)
                 d.limitPrice?.let { put("limitPrice", it) }
                 d.stopPrice?.let { put("stopPrice", it) }

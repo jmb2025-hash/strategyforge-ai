@@ -24,6 +24,14 @@ class OrderFormTest {
     }
 
     @Test
+    fun `D-066 ordering by dollar amount checks the amount field and accepts dollar signs and commas`() {
+        assertTrue(OrderForm.problems("BTC-USD", "$1,250.50", "", byAmount = true).isEmpty())
+        assertEquals(setOf(OrderForm.AMOUNT), OrderForm.problems("BTC-USD", "0", "", byAmount = true).keys)
+        assertEquals("1250.50", OrderForm.cleanAmount(" $1,250.50 "))
+        assertEquals(OrderForm.AMOUNT, OrderForm.first(OrderForm.problems("BTC-USD", "", "x", byAmount = true)))
+    }
+
+    @Test
     fun `an engine problem naming a field becomes a failure for that field`() {
         val e = ApiError.Http(404, "unknown-symbol", "Not Found", "ZZZZ isn't a symbol", buildJsonObject { put("field", JsonPrimitive("symbol")) })
         assertEquals("symbol", e.toFailure().field)

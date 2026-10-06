@@ -1087,3 +1087,21 @@ When a conflict is unresolved, the safest reversible option is selected.
   - Core: `OrderForm` and field mapping.
   - App: `InstrumentUiTest`.
 - **Version:** 1.20.0 (versionCode 30). It installs over 1.19.1 and keeps the app's data (D-059).
+
+## D-066 Orders by dollar amount, with fractional quantities
+
+- **Date:** 2026-10-06
+- **Context:** The owner wanted to put $500 into bitcoin, but the order screen only took a quantity. They asked to enter an amount and have the app buy or sell that value, in fractions, for crypto and stocks alike, the way consumer trading apps do.
+- **Decision:**
+  - **Amount orders.** An order may carry an `amount` (USD) instead of a quantity (`OrderRequest.notional`). The engine converts it after refreshing the quote, at the same price the risk checks use: the limit price, or the current ask for buys and bid for sells (with the fallback spread when there is no bid/ask).
+    - A buy is sized so the amount also covers the price buffer and costs, so it never needs more than the amount.
+    - A sell is capped at the position held, so "sell $X" for at least the position's value sells all of it.
+    - The quantity is rounded down to the instrument's step (crypto 0.00000001, stocks 0.0001).
+  - **Errors at the field.** An amount below one step fails as `amount-too-small`, and a missing price as `no-price`, both on the amount field (D-065).
+  - **Order screen.** It offers **Amount ($)** (the default) or **Quantity**. Under the amount, an estimate shows roughly how much of the symbol it buys at the last known price.
+  - **Limits still apply.** Manual orders still follow the default limits (20% of equity per trade, 25% per symbol, 50% crypto). A larger buy is rejected with that reason by the Submit button; the owner can raise the limits on More → Risk limits (D-063).
+- **Tests:**
+  - Engine: $500 in a $500 portfolio buys a fractional BTC quantity and the cash stays non-negative; selling more dollars than held sells the whole position; amounts too small or zero fail at the amount field; a limit order uses the limit price.
+  - Core: amount form checks.
+  - App: the amount hint.
+- **Version:** 1.21.0 (versionCode 31).

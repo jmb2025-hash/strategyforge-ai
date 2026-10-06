@@ -366,10 +366,11 @@ class LocalApi(
                     b.req("symbol"),
                     enumOf<OrderSide>(b.req("side"), "side"),
                     enumOf<OrderType>(b.req("orderType"), "orderType"),
-                    b.dec("quantity") ?: throw Problems.badRequest("missing-field", "quantity is required"),
+                    b.dec("quantity") ?: if (b.dec("amount") != null) BigDecimal.ZERO else throw Problems.badRequest("missing-field", "quantity or amount is required", mapOf("field" to "quantity")),
                     b.dec("limitPrice"),
                     b.dec("stopPrice"),
                     b.str("timeInForce")?.let { enumOf<TimeInForce>(it, "timeInForce") } ?: TimeInForce.DAY,
+                    notional = b.dec("amount"),
                 )
             val result = engine.orders.create(req, OrderSource.MANUAL)
             mapOf("order" to order(result.order), "risk" to mapOf("allowed" to result.risk.allowed, "reasons" to result.risk.reasons))

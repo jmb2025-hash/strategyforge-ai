@@ -82,12 +82,17 @@ fun PortfolioScreen(
     var qty by rememberSaveable { mutableStateOf("") }
     var side by rememberSaveable { mutableStateOf("BUY") }
     var limit by rememberSaveable { mutableStateOf("") }
+    // Order by dollar amount (fractions included) or by quantity (D-066).
+    var byAmount by rememberSaveable { mutableStateOf(true) }
+    var amount by rememberSaveable { mutableStateOf("") }
+    // Last known price of the picked symbol, for the estimate under the amount.
+    var pickedPrice by rememberSaveable { mutableStateOf<String?>(null) }
     val suggestions by vm.suggestions.collectAsStateWithLifecycle()
     // Problems found before sending, per field; engine problems arrive in [action] with their field (D-065).
     var formErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     // Counts submits, so pressing Submit again scrolls to the same problem again.
     var attempts by remember { mutableStateOf(0) }
-    val targets = rememberFieldTargets(OrderForm.SYMBOL, OrderForm.QUANTITY, OrderForm.LIMIT, "submit")
+    val targets = rememberFieldTargets(OrderForm.SYMBOL, OrderForm.AMOUNT, OrderForm.QUANTITY, OrderForm.LIMIT, "submit")
     val failedField = (action as? ActionState.Failed)?.field?.takeIf { it in targets }
     val fieldErrors = if (failedField != null) formErrors + (failedField to (action as ActionState.Failed).message) else formErrors
     LaunchedEffect(attempts, action) {
@@ -98,9 +103,10 @@ fun PortfolioScreen(
         prefill?.let { (s, sym) ->
             side = s
             symbol = sym
+            pickedPrice = null
             vm.clearSuggestions()
             formErrors = emptyMap()
-            targets.getValue(OrderForm.QUANTITY).show()
+            targets.getValue(if (byAmount) OrderForm.AMOUNT else OrderForm.QUANTITY).show()
             onPrefillUsed()
         }
     }
@@ -190,6 +196,7 @@ fun PortfolioScreen(
                 symbol,
                 {
                     symbol = it
+                    pickedPrice = null
                     formErrors = formErrors - OrderForm.SYMBOL
                     if (failedField == OrderForm.SYMBOL) vm.clearAction()
                     vm.searchSymbols(it)
@@ -197,6 +204,7 @@ fun PortfolioScreen(
                 suggestions,
                 { h ->
                     symbol = h.symbol
+                    pickedPrice = h.lastPrice
                     formErrors = formErrors - OrderForm.SYMBOL
                     vm.clearSuggestions()
                 },
@@ -208,17 +216,41 @@ fun PortfolioScreen(
             if (symbol.isNotBlank() && suggestions.isEmpty()) {
                 TextButton(onClick = { onInfo(symbol.trim().uppercase(), selected) }, modifier = Modifier.testTag("symbol-info")) { Text("About ${symbol.trim().uppercase()} ›") }
             }
-            Field(
-                "Quantity",
-                qty,
-                {
-                    qty = it
-                    formErrors = formErrors - OrderForm.QUANTITY
-                },
-                targets.getValue(OrderForm.QUANTITY).modifier.testTag("quantity-field"),
-                number = true,
-                error = fieldErrors[OrderForm.QUANTITY],
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = byAmount, onClick = { byAmount = true }, label = { Text("Amount ($)") }, modifier = Modifier.testTag("by-amount"))
+                FilterChip(selected = !byAmount, onClick = { byAmount = false }, label = { Text("Quantity") }, modifier = Modifier.testTag("by-quantity"))
+            }
+            if (byAmount) {
+                Field(
+                    if (side == "SELL" || side == "SELL_SHORT") "Amount to sell (USD)" else "Amount to spend (USD)",
+                    amount,
+                    {
+                        amount = it
+                        formErrors = formErrors - OrderForm.AMOUNT
+                    },
+                    targets.getValue(OrderForm.AMOUNT).modifier.testTag("amount-field"),
+                    number = true,
+                    error = fieldErrors[OrderForm.AMOUNT],
+                )
+                Text(
+                    amountHint(OrderForm.cleanAmount(amount), limit.ifBlank { pickedPrice }, symbol, fmt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("amount-hint"),
+                )
+            } else {
+                Field(
+                    "Quantity (fractions allowed, for example 0.005)",
+                    qty,
+                    {
+                        qty = it
+                        formErrors = formErrors - OrderForm.QUANTITY
+                    },
+                    targets.getValue(OrderForm.QUANTITY).modifier.testTag("quantity-field"),
+                    number = true,
+                    error = fieldErrors[OrderForm.QUANTITY],
+                )
+            }
             Field(
                 "Limit price (blank for market)",
                 limit,
@@ -232,11 +264,22 @@ fun PortfolioScreen(
             )
             Button(
                 onClick = {
-                    formErrors = OrderForm.problems(symbol, qty, limit)
+                    formErrors = OrderForm.problems(symbol, if (byAmount) amount else qty, limit, byAmount)
                     attempts++
                     val id = selected
                     if (formErrors.isEmpty() && id != null) {
-                        vm.placeOrder(OrderDraft(id, symbol.trim().uppercase(), side, if (limit.isBlank()) "MARKET" else "LIMIT", qty.trim(), limit.trim().ifBlank { null }, timeInForce = "DAY"))
+                        vm.placeOrder(
+                            OrderDraft(
+                                id,
+                                symbol.trim().uppercase(),
+                                side,
+                                if (limit.isBlank()) "MARKET" else "LIMIT",
+                                if (byAmount) "" else qty.trim(),
+                                limit.trim().ifBlank { null },
+                                timeInForce = "DAY",
+                                amount = if (byAmount) OrderForm.cleanAmount(amount) else null,
+                            ),
+                        )
                     }
                 },
                 modifier = targets.getValue("submit").modifier.testTag("submit-order"),
@@ -510,4 +553,21 @@ fun AllocationCard(
         Text("Allocation", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 10.dp))
         DonutChart(slices, "Positions", s.positions.size.toString())
     }
+}
+
+/**
+ * Under the amount field (D-066): roughly how much of the symbol the amount buys at its last known
+ * price. The exact quantity is worked out from the live price, net of costs, when the order is placed.
+ */
+fun amountHint(
+    amount: String,
+    price: String?,
+    symbol: String,
+    fmt: Formatters,
+): String {
+    val a = amount.toBigDecimalOrNull()
+    val p = price?.toBigDecimalOrNull()
+    if (a == null || a.signum() <= 0 || p == null || p.signum() <= 0) return "Fractions are allowed: the app works out the quantity from the live price, after costs."
+    val q = a.divide(p, 8, java.math.RoundingMode.DOWN).stripTrailingZeros().toPlainString()
+    return "About $q ${symbol.trim().uppercase().removeSuffix("-USD")} at ${fmt.money(p.toPlainString())}, before costs."
 }

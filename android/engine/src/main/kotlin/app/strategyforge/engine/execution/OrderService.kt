@@ -85,6 +85,11 @@ data class OrderRequest(
     val limitPrice: BigDecimal? = null,
     val stopPrice: BigDecimal? = null,
     val timeInForce: TimeInForce = TimeInForce.DAY,
+    /**
+     * A dollar amount instead of a quantity (D-066): the engine works out the fractional quantity
+     * from the current price. A buy's amount includes its costs, so it never spends more than this.
+     */
+    val notional: BigDecimal? = null,
 )
 
 /** Links recorded on strategy-originated orders (FR-085). */
@@ -131,11 +136,12 @@ class OrderService(
     ): OrderResult = db.tx { createInTx(req, source, links) }
 
     private fun createInTx(
-        req: OrderRequest,
+        asked: OrderRequest,
         source: OrderSource,
         links: OrderLinks,
     ): OrderResult {
-        validateShape(req)
+        validateShape(asked)
+        var req = asked
         val portfolio = lockPortfolio(req.portfolioId)
         val instrument =
             instruments.findBySymbol(req.symbol) ?: throw app.strategyforge.engine.market.InstrumentLookup
@@ -143,6 +149,7 @@ class OrderService(
         val now = marketClock.now()
         // Refresh on demand so the decision uses the freshest verifiable quote; failures simply leave it unverified.
         runCatching { market.refreshQuote(instrument) }
+        asked.notional?.let { amount -> req = asked.copy(quantity = quantityFor(asked, amount, portfolio, instrument), notional = null) }
         val (snapshot, _) = market.captureSnapshot(instrument, portfolio.costModel.executionMaxQuoteAgeSeconds)
         val id = UUID.randomUUID()
         val wall = clock.instant()
@@ -361,7 +368,53 @@ class OrderService(
             else -> MarketCalendar.nextSession(now)?.close ?: now.plus(Duration.ofHours(24))
         }
 
+    /**
+     * The quantity a dollar [amount] buys or sells (D-066), at the price the risk checks will use:
+     * the limit price, or the current ask (buys) or bid (sells). A buy is sized so the amount covers
+     * its costs too; a sell is capped at the position held. Rounded down to the instrument's step.
+     */
+    private fun quantityFor(
+        req: OrderRequest,
+        amount: BigDecimal,
+        portfolio: Portfolio,
+        instrument: Instrument,
+    ): BigDecimal {
+        val field = mapOf("field" to "amount")
+        val q = market.latestQuote(instrument.id)
+        val price =
+            when {
+                req.orderType == OrderType.LIMIT || req.orderType == OrderType.STOP_LIMIT -> req.limitPrice
+                q == null -> req.stopPrice
+                else -> {
+                    val touch = Pricing.touch(QuoteInput(q.bid, q.ask, q.last), req.side.buys, instrument.assetClass, portfolio.costModel).first
+                    if (req.orderType == OrderType.STOP && req.stopPrice != null) (if (req.side.buys) touch.max(req.stopPrice) else touch.min(req.stopPrice)) else touch
+                }
+            } ?: throw Problems.unprocessable("no-price", "There is no current price for ${instrument.symbol} yet, so the amount cannot be turned into a quantity. Try again in a moment.", field)
+        var qty = amount.divide(price, Decimals.MC)
+        if (req.side == OrderSide.BUY || req.side == OrderSide.BUY_TO_COVER) {
+            val cost = Pricing.buyReservation(portfolio.costModel, qty, price)
+            if (cost > amount) qty = qty.multiply(amount).divide(cost, Decimals.MC)
+        }
+        if (req.side == OrderSide.SELL) {
+            val held = ledger.position(portfolio.id, instrument.id).quantity
+            if (held.signum() > 0 && qty > held) qty = held
+        }
+        qty = Decimals.floorToStep(qty, instrument.quantityIncrement)
+        if (qty.signum() <= 0 || qty < instrument.minQuantity) {
+            throw Problems.badRequest(
+                "amount-too-small",
+                "${Decimals.report(amount).toPlainString()} USD buys less than the smallest ${instrument.symbol} quantity (${instrument.minQuantity.stripTrailingZeros().toPlainString()} at about ${Decimals.report(price).toPlainString()} USD). Enter a larger amount.",
+                field,
+            )
+        }
+        return qty
+    }
+
     private fun validateShape(req: OrderRequest) {
+        if (req.notional != null) {
+            if (req.notional.signum() <= 0) throw Problems.badRequest("invalid-amount", "Amount must be more than zero", mapOf("field" to "amount"))
+            return validateShape(req.copy(quantity = BigDecimal.ONE, notional = null))
+        }
         if (req.quantity.signum() <= 0) throw Problems.badRequest("invalid-quantity", "Quantity must be more than zero", mapOf("field" to "quantity"))
         when (req.orderType) {
             OrderType.MARKET -> if (req.limitPrice != null || req.stopPrice != null) throw Problems.badRequest("invalid-order", "MARKET orders take no limit or stop price")

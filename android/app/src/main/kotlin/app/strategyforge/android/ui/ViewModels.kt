@@ -800,7 +800,7 @@ class PortfolioViewModel
          * submit button with its reason rather than reported as submitted.
          */
         fun placeOrder(d: OrderDraft) =
-            act("Paper order placed: ${d.side.lowercase().replace('_', ' ')} ${d.quantity} ${d.symbol.uppercase()}") {
+            act("Paper order placed: ${d.side.lowercase().replace('_', ' ')} " + (d.amount?.let { "$$it of" } ?: d.quantity) + " ${d.symbol.uppercase()}") {
                 val instrument = repo.addInstrument(d.symbol)
                 val order = repo.placeOrder(d.copy(symbol = instrument.symbol))
                 if (order.status == "REJECTED") {
