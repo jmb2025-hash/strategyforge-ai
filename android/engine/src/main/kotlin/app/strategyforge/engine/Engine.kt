@@ -185,7 +185,7 @@ class Engine(
         riskProfiles.definitions = strategies
     }
 
-    val activations = ActivationService(db, strategies, backtests, portfolios, riskProfiles, audit, wall, auth)
+    val activations = ActivationService(db, strategies, backtests, portfolios, riskProfiles, audit, wall, auth).also { runCatching { it.migrateFingerprints() } }
     val recommendations = RecommendationService(db, orders, market, instruments, notifications, audit, wall, marketClock)
     val dispatcher = SignalDispatcher(db, activations, risk, recommendations, orders, portfolios, notifications, events)
     val signals = SignalQueries(db)

@@ -432,7 +432,7 @@ fun EmergencyContent(
         } else {
             LabelValue("Pause All", if (st.pauseAll) "Engaged" else "Off")
             LabelValue("Prevent New Positions", if (st.preventNewPositions) "Engaged" else "Off")
-            LabelValue("Last change", fmt.dateTime(st.updatedAt))
+            LabelValue("Last change", fmt.dateTime(st.updatedAt, never = "Never"))
             st.reason?.let { LabelValue("Reason", it) }
             Button(
                 onClick = { presenter.pauseAll(!st.pauseAll) },

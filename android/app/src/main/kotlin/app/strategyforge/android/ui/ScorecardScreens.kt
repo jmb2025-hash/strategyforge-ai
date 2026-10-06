@@ -107,6 +107,10 @@ fun ScorecardCard(
     SfCard(Modifier.testTag("scorecard").let { m -> onOpen?.let { m.clickable(onClick = it) } ?: m }) {
         Text((rank?.let { "$it. " } ?: "") + c.strategy.name, fontWeight = FontWeight.SemiBold)
         StatusChip(c.strategy.status)
+        // Why a plan stopped (paused, suspended), so the owner knows what to do (D-071).
+        if (c.strategy.status != "ACTIVE_AUTONOMOUS" && c.strategy.status != "ACTIVE_RECOMMENDATION") {
+            c.strategy.statusReason?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("status-reason")) }
+        }
         val l = c.live
         Text("Paper trading", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
         if (l.pnlSeries.size >= 2) {

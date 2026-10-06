@@ -178,4 +178,37 @@ class LiveStrategyFeaturesTest {
                 .status.name,
         ).isEqualTo("ACTIVE_AUTONOMOUS")
     }
+
+    @Test
+    fun `D-071 editing default limits a plan does not use leaves it running, while a change it does use still pauses it`() {
+        val id = e.eligible(base("BTC keeps running"))
+        e.activate(id, p, ActivationMode.AUTONOMOUS)
+        e.auth.confirmed()
+        // Per trade, per symbol and crypto are replaced by the plan's own limits (D-063).
+        var g = e.riskProfiles.global()
+        e.riskProfiles.upsert(
+            "GLOBAL",
+            null,
+            g.limits.copy(
+                maxTradePercentOfEquity = BigDecimal("100"),
+                maxInstrumentAllocationPercent = BigDecimal("100"),
+                maxAssetClassAllocationPercent = g.limits.maxAssetClassAllocationPercent.orEmpty() + ("CRYPTO" to BigDecimal("100")),
+            ),
+            g.version,
+        )
+        assertThat(
+            e.strategies
+                .get(id)
+                .status.name,
+        ).isEqualTo("ACTIVE_AUTONOMOUS")
+        // The data-quality limit is not, so tightening it is material.
+        g = e.riskProfiles.global()
+        e.riskProfiles.upsert("GLOBAL", null, g.limits.copy(maxQuoteAgeSeconds = 30), g.version)
+        assertThat(
+            e.strategies
+                .get(id)
+                .status.name,
+        ).isEqualTo("PAUSED")
+        assertThat(e.strategies.get(id).statusReason).contains("risk profile changed")
+    }
 }

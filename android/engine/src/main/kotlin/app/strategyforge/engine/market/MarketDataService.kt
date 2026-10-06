@@ -506,7 +506,9 @@ class MarketDataService(
 
     companion object {
         const val QUOTE_KEY = "quote"
-        val SKEW_TOLERANCE: Duration = Duration.ofSeconds(5)
+
+        /** How far ahead of the phone's clock a quote or bar may be dated: phone clocks drift by seconds (D-071). */
+        val SKEW_TOLERANCE: Duration = Duration.ofSeconds(60)
         val FLAG_STATUSES = setOf(DataStatus.OUT_OF_ORDER, DataStatus.MALFORMED, DataStatus.CLOCK_SKEW, DataStatus.PROVIDER_ERROR)
     }
 }

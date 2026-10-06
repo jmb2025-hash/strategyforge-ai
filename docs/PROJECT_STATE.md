@@ -177,6 +177,10 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         Engine(exportBackup) -> app DownloadsBackups (MediaStore Download/StrategyForge/, prunes own auto files). Scheduler
         "auto-backup" check every 15 min in both modes. /v1/backups/auto (GET/PUT, POST run). Backups screen card; Home
         empty state "Restore from a backup".
+- 1.22.1 (D-070) backups: keep newest 3 total in app (any kind) and 3 daily copies in Downloads.
+- 1.22.2 (D-071) FINGERPRINT = planBase(global, plan) not raw global (+ startup re-stamp of legacy fingerprints), so
+        editing overridden global limits no longer pauses plans; SKEW_TOLERANCE 60 s; ScorecardCard shows statusReason;
+        Formatters.dateTime treats epoch as never ("Never" on Emergency last change).
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.
@@ -209,7 +213,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - Every user-facing update ships a new APK via CI to release tag phone-latest, signed with the owner's PERMANENT key
   (D-059: phone-release refuses any other certificate; updates install over the old app and keep all data). CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-071). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-072). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

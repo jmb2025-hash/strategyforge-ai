@@ -214,14 +214,36 @@ class ActivationService(
      * Everything material to an autonomy authorization: strategy version hash, portfolio and its
      * cost model and shorting flag, allocation, and every applicable risk profile (FR-072).
      */
+    /**
+     * Everything material to an autonomous authorization (FR-072). For the global profile only the
+     * limits the plan actually runs under count (D-071): the plan's own sizing and loss limits replace
+     * the global ones ([RiskProfileService.planBase], D-063), so editing those global defaults does not
+     * change what the plan may do and does not pause it.
+     */
     fun fingerprint(
         strategyId: UUID,
         versionId: UUID,
         portfolioId: UUID,
         allocation: BigDecimal,
+    ): String = fingerprintWith(strategyId, versionId, portfolioId, allocation, legacy = false)
+
+    private fun fingerprintWith(
+        strategyId: UUID,
+        versionId: UUID,
+        portfolioId: UUID,
+        allocation: BigDecimal,
+        legacy: Boolean,
     ): String {
         val v = strategies.version(versionId)
         val p = portfolios.get(portfolioId)
+        val g = profiles.global().limits
+        val base =
+            if (legacy) {
+                g
+            } else {
+                val def = strategies.definition(versionId)
+                RiskProfileService.planBase(g, def.risk, def.assetClass)
+            }
         val material =
             listOf(
                 "strategy=$strategyId",
@@ -231,11 +253,31 @@ class ActivationService(
                 "shorting=${p.shortingEnabled}",
                 "costModel=${p.costModel}",
                 "allocation=${allocation.stripTrailingZeros().toPlainString()}",
-                "global=${profiles.global().limits}",
+                (if (legacy) "global=" else "planBase=") + base,
                 "portfolioProfile=${profiles.limitsFor("PORTFOLIO", portfolioId)}",
                 "strategyProfile=${profiles.limitsFor("STRATEGY", strategyId)}",
             ).joinToString("|")
         return Hashing.sha256Hex(material)
+    }
+
+    /**
+     * Carries running autonomous plans over to the D-071 fingerprint: an activation whose stored
+     * fingerprint matches the earlier formula is unchanged in substance, so it is re-stamped instead
+     * of being paused on its next trade. Anything that no longer matches is left to pause as before.
+     */
+    fun migrateFingerprints() {
+        activeAll().filter { it.mode == ActivationMode.AUTONOMOUS && it.fingerprint != null }.forEach { a ->
+            runCatching {
+                val now = fingerprint(a.strategyId, a.versionId, a.portfolioId, a.allocationPercent)
+                if (now != a.fingerprint && fingerprintWith(a.strategyId, a.versionId, a.portfolioId, a.allocationPercent, legacy = true) == a.fingerprint) {
+                    db
+                        .sql("update strategy_activations set fingerprint = :f where id = :id")
+                        .param("f", now)
+                        .param("id", a.id)
+                        .update()
+                }
+            }
+        }
     }
 
     private fun map(rs: Row) =

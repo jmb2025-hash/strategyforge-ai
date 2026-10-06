@@ -1149,3 +1149,22 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **In Downloads,** the job deletes only daily copies it made itself. Files saved by hand, or left by an earlier install, are left alone, because Android does not let the app see them.
 - **Tests:** after ten days only three backups remain, the newest three, and an older manual backup is gone.
 - **Version:** 1.22.1 (versionCode 34).
+
+## D-071 Editing default limits no longer pauses plans that don't use them; clock tolerance; pause reason shown
+
+- **Date:** 2026-10-06
+- **Context:** The owner's newest backup (2026-10-06 04:06 UTC) showed why BTC trend core kept pausing: "Autonomous mode paused until re-authorized: global risk profile changed".
+  - **The limit edits.** The owner raised the default limits for manual orders at 03:23 and 03:28 UTC, as D-066 suggested, and each edit paused the running plan. The autonomy fingerprint (FR-072) hashed the whole global profile. Since D-063, however, a plan's own orders replace the global per-trade, per-symbol, asset-class, daily-loss, drawdown, open-positions and losing-streak limits with the plan's (`planBase`), so those edits did not change what the plan may do.
+  - **Clock skew.** The backup also showed Coinbase quotes rejected as dated about 10 s ahead of the phone's clock, because the tolerance was 5 s.
+  - **Missing reason.** The plan's results card showed "Paused" without saying why.
+  - **The 1969 date.** The Emergency screen showed "Last change: Dec 31, 1969", because the never-changed state is stored as 1970-01-01T00:00:00Z.
+- **Decision:**
+  - **Fingerprint uses the plan's limits.** The fingerprint now hashes `planBase(global, plan limits, asset class)` (the limits the plan runs under) instead of the raw global profile. Global limits the plan still uses, such as data quality, rates and quote age, still pause it when changed.
+  - **Running plans carried over.** At start, the engine re-stamps a running autonomous plan when its stored fingerprint matches the earlier formula, so the new formula alone does not pause it.
+  - **Clock tolerance.** It is now 60 s for quotes and bars. A quote two minutes in the future is still rejected.
+  - **Pause reason shown.** The results card shows the reason whenever a plan is not running.
+  - **Never-changed dates.** A time of 1970-01-01T00:00:00Z shows as "—", or "Never" for the emergency last change.
+- **Tests:**
+  - Engine: raising per-trade, per-symbol and crypto limits leaves a running plan active, while tightening the quote-age limit pauses it.
+  - Core: dates stored as "never".
+- **Version:** 1.22.2 (versionCode 35).

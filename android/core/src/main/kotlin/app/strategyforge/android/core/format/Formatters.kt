@@ -65,8 +65,12 @@ class Formatters(
         }
     }
 
-    fun dateTime(iso: String?): String {
-        val instant = parse(iso) ?: return "—"
+    /** "—" when there is no time; the engine stores "never happened" as 1970-01-01T00:00:00Z (D-071). */
+    fun dateTime(
+        iso: String?,
+        never: String = "—",
+    ): String {
+        val instant = parse(iso)?.takeIf { it != Instant.EPOCH } ?: return never
         return DateTimeFormatter
             .ofLocalizedDateTime(FormatStyle.MEDIUM)
             .withLocale(locale)
