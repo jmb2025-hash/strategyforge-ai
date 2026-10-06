@@ -10,6 +10,7 @@ import app.strategyforge.engine.support.Strategies.activate
 import app.strategyforge.engine.support.Strategies.eligible
 import app.strategyforge.engine.support.TestEngine
 import app.strategyforge.engine.support.advance
+import app.strategyforge.engine.support.order
 import app.strategyforge.engine.support.portfolio
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -99,13 +100,44 @@ class LiveStrategyFeaturesTest {
 
     @Test
     fun `risk-percent sizing is reduced to fit the risk profile's per-trade limit`() {
-        // 1% risk with a 2% stop asks for half of equity; the global profile allows 20% per trade.
+        // 1% risk with a 2% stop asks for half of equity; the portfolio's own profile allows 20% per trade.
+        // (A running plan's own limits replace the global ones, D-063; a portfolio profile still tightens them.)
+        e.riskProfiles.upsert(
+            "PORTFOLIO",
+            p,
+            app.strategyforge.engine.risk
+                .RiskLimits(maxTradePercentOfEquity = BigDecimal(20)),
+            null,
+        )
         val id = e.eligible(base("BTC risk", extra = mapOf("positionSizing" to mapOf("method" to "RISK_PERCENT", "value" to 1)), exit = mapOf("stopLossPercent" to 2)))
         e.activate(id, p, ActivationMode.AUTONOMOUS)
         e.advance(3)
         val buy = orders().first { it.side == OrderSide.BUY }
         assertThat(buy.status).`as`(buy.rejectionReason ?: "").isEqualTo(OrderStatus.FILLED)
         val notional = buy.quantity.multiply(buy.averageFillPrice!!).setScale(2, RoundingMode.HALF_EVEN)
-        assertThat(notional).isBetween(BigDecimal(19_000), BigDecimal(20_100))
+        assertThat(notional).isBetween(BigDecimal(19_000), BigDecimal(20_000))
+    }
+
+    @Test
+    fun `D-063 a running plan trades under its own sizing limits while manual orders keep the global ones`() {
+        // Like BTC trend core: 95% of equity in one coin, which the global profile (20% per trade,
+        // 25% per instrument, 50% crypto) would reject on every signal.
+        @Suppress("UNCHECKED_CAST")
+        val content =
+            base("BTC all-in", extra = mapOf("positionSizing" to mapOf("method" to "PERCENT_OF_EQUITY", "value" to 95))).let { s ->
+                s + ("riskLimits" to (s["riskLimits"] as Map<String, Any?>) + ("maximumPositionPercent" to 100) + ("maximumDrawdownPercent" to 60))
+            }
+        val id = e.eligible(content)
+        e.activate(id, p, ActivationMode.AUTONOMOUS, allocation = "100")
+        e.advance(3)
+        val buy = orders().first { it.side == OrderSide.BUY }
+        assertThat(buy.status).`as`(buy.rejectionReason ?: "").isEqualTo(OrderStatus.FILLED)
+        val notional = buy.quantity.multiply(buy.averageFillPrice!!)
+        assertThat(notional).isGreaterThan(BigDecimal(90_000))
+        // The same size placed by hand in another portfolio is still held to the global 20% per trade.
+        val other = e.portfolio(balance = "100000")
+        val manual = e.order(other, "BTC-USD", "BUY", buy.quantity.toPlainString())
+        assertThat(manual.order.status).isEqualTo(OrderStatus.REJECTED)
+        assertThat(manual.order.rejectionReason).contains("TRADE_VALUE")
     }
 }

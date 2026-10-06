@@ -257,6 +257,7 @@ fun MainShell(
                     ),
             ) { ReportsScreen(hiltViewModel(), fmt) }
             composable("settings") { SettingsScreen(hiltViewModel(), fmt, session) }
+            composable("risk-limits") { RiskLimitsScreen(hiltViewModel(), session) }
             composable("ai-providers") { AiProvidersScreen(hiltViewModel(), session) }
             composable("engine") { EngineScreen(hiltViewModel(), fmt, session) }
             composable("budget") { BudgetScreen(hiltViewModel(), fmt, session) }

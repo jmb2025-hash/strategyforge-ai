@@ -55,7 +55,7 @@ class DefaultRiskContextFactory(
                     .param("s", sid)
                     .firstOrNull { it.decOrNull("allocation_percent") }
             }
-        val levels = mutableListOf<Pair<RiskLevel, RiskLimits>>(RiskLevel.GLOBAL to profiles.global().limits)
+        val levels = mutableListOf(profiles.baseFor(p.id, intent.strategyId))
         profiles.limitsFor("PORTFOLIO", p.id)?.let { levels += RiskLevel.PORTFOLIO to it }
         intent.strategyId?.let { sid -> profiles.limitsFor("STRATEGY", sid)?.let { levels += RiskLevel.STRATEGY to it } }
         if (strategyDef != null) {

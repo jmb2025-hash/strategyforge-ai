@@ -92,8 +92,8 @@ class BacktestServiceTest {
         assertThat(b.metrics!!["riskBlockedEntries"].asInt()).isGreaterThan(0)
         val applied = b.params["riskProfile"]
         assertThat(BigDecimal(applied["maxTradeValue"].asText())).isEqualByComparingTo("1000")
-        // The global profile (25 open positions) is stricter than the requested 50.
-        assertThat(applied["maxOpenPositions"].asInt()).isEqualTo(25)
+        // The plan's own open-position cap (3) replaces the global 25 (D-063) and is stricter than the requested 50.
+        assertThat(applied["maxOpenPositions"].asInt()).isEqualTo(3)
         val invalid = runCatching { run(id, "2026-02-01T00:00:00Z", "2026-06-20T00:00:00Z", RiskLimits(maxTradeValue = BigDecimal("-1"))) }.exceptionOrNull() as EngineException
         assertThat(invalid.status).isEqualTo(400)
     }

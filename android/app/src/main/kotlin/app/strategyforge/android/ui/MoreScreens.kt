@@ -42,6 +42,7 @@ fun MoreScreen(
             "reports" to "Reports",
             "exports" to "Exports (CSV / JSON)",
             "backups" to "Backups",
+            "risk-limits" to "Risk limits",
             "settings" to "Settings and privacy",
             "diagnostics" to "Diagnostics",
             "emergency" to "Emergency controls",

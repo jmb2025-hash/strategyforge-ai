@@ -44,7 +44,56 @@ class RiskProfileService(
 ) {
     fun global(): RiskProfileView = find("GLOBAL", null) ?: error("Global risk profile missing")
 
+    /** Reads a strategy version's definition; set by the engine once strategies exist (D-063). */
+    @Volatile var definitions: StrategyDefinitionLookup? = null
+
+    /**
+     * The base limits for an order (D-063): the global profile, except for a running plan's own orders
+     * in the portfolio it runs in, where the plan's declared sizing and loss limits replace the
+     * global ones (see [planBase]). Returns the level to report and the limits.
+     */
+    fun baseFor(
+        portfolioId: UUID?,
+        strategyId: UUID?,
+    ): Pair<RiskLevel, RiskLimits> {
+        val g = global().limits
+        if (portfolioId == null || strategyId == null) return RiskLevel.GLOBAL to g
+        val version =
+            db
+                .sql("select version_id from strategy_activations where strategy_id = :s and portfolio_id = :p and status = 'ACTIVE'")
+                .param("s", strategyId)
+                .param("p", portfolioId)
+                .firstOrNull { it.uuidOrNull("version_id") } ?: return RiskLevel.GLOBAL to g
+        val def = runCatching { definitions?.definition(version) }.getOrNull() ?: return RiskLevel.GLOBAL to g
+        return RiskLevel.STRATEGY to planBase(g, def.risk, def.assetClass)
+    }
+
     companion object {
+        private val HUNDRED = BigDecimal(100)
+
+        /**
+         * The global limits with a plan's own sizing and loss limits in place of the global ones
+         * (D-063): its largest position (trade size and single-instrument share), its whole asset class,
+         * its daily loss, drawdown, open-position and losing-streak caps. Data-quality, rate and
+         * emergency limits stay global.
+         */
+        fun planBase(
+            global: RiskLimits,
+            plan: app.strategyforge.engine.strategy.StrategyRiskLimits,
+            assetClass: app.strategyforge.engine.market.AssetClass,
+        ): RiskLimits {
+            val position = plan.maximumPositionPercent ?: HUNDRED
+            return global.copy(
+                maxTradePercentOfEquity = position,
+                maxInstrumentAllocationPercent = position,
+                maxAssetClassAllocationPercent = global.maxAssetClassAllocationPercent.orEmpty() + (assetClass.name to HUNDRED),
+                maxDailyLossPercent = plan.maximumDailyLossPercent,
+                maxDrawdownPercent = plan.maximumDrawdownPercent ?: global.maxDrawdownPercent,
+                maxOpenPositions = plan.maximumOpenPositions,
+                maxConsecutiveLosses = plan.maximumConsecutiveLosses ?: global.maxConsecutiveLosses,
+            )
+        }
+
         /** Flattens merged limits back into a profile (used to record exactly what a backtest applied). */
         fun toLimits(e: EffectiveLimits) =
             RiskLimits(
@@ -93,7 +142,7 @@ class RiskProfileService(
         portfolioId: UUID?,
         strategyId: UUID?,
     ): EffectiveLimits {
-        val levels = mutableListOf(RiskLevel.GLOBAL to global().limits)
+        val levels = mutableListOf(baseFor(portfolioId, strategyId))
         portfolioId?.let { id -> limitsFor("PORTFOLIO", id)?.let { levels += RiskLevel.PORTFOLIO to it } }
         strategyId?.let { id -> limitsFor("STRATEGY", id)?.let { levels += RiskLevel.STRATEGY to it } }
         return EffectiveLimits.merge(levels)

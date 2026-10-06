@@ -717,6 +717,30 @@ class Repository(
             StockData.serializer(),
         )
 
+    /** The global risk limits and each running plan's limits (D-063). */
+    suspend fun riskLimits(): app.strategyforge.android.core.model.RiskLimitsInfo =
+        api.get(
+            "/v1/risk/limits",
+            app.strategyforge.android.core.model.RiskLimitsInfo
+                .serializer(),
+        )
+
+    /** Changes the global defaults; loosening one needs a recent device unlock. Blank values are left unchanged. */
+    suspend fun setGlobalLimits(values: Map<String, String>): app.strategyforge.android.core.model.RiskLimitsInfo =
+        api.decode(
+            api
+                .put(
+                    "/v1/risk/limits/global",
+                    buildJsonObject {
+                        values.filterValues { it.isNotBlank() }.forEach { (k, v) ->
+                            if (k == "maxOpenPositions") v.trim().toIntOrNull()?.let { put(k, it) } else put(k, v.trim())
+                        }
+                    },
+                ).body,
+            app.strategyforge.android.core.model.RiskLimitsInfo
+                .serializer(),
+        )
+
     /** The live price streams and their state (D-056). */
     suspend fun streams(): app.strategyforge.android.core.model.StreamsInfo =
         api.get(

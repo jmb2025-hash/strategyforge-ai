@@ -233,6 +233,7 @@ class LocalApi(
         reportsAndExports()
         backups()
         tsx()
+        riskLimits()
     }
 
     // ------------------------------------------------------------------ access (the device lock replaces sign-in)
@@ -1320,5 +1321,69 @@ class LocalApi(
                         mapOf("day" to e.day.toString(), "kind" to e.kind, "symbol" to e.symbol, "shares" to e.shares, "price" to e.price, "amount" to e.amount)
                     },
             )
+    }
+
+    // ------------------------------------------------------------------ risk limits (D-063)
+
+    private fun riskLimits() {
+        get("/v1/risk/limits") { _, _ -> riskLimitsView() }
+        put("/v1/risk/limits/global") { r, _ ->
+            val b = obj(r)
+            val g = engine.riskProfiles.global()
+            val l = g.limits
+            val assets = l.maxAssetClassAllocationPercent.orEmpty().toMutableMap()
+            b.dec("maxCryptoPercent")?.let { assets["CRYPTO"] = it }
+            b.dec("maxStocksPercent")?.let { assets["US_EQUITY"] = it }
+            val updated =
+                l.copy(
+                    maxTradePercentOfEquity = b.dec("maxTradePercent") ?: l.maxTradePercentOfEquity,
+                    maxInstrumentAllocationPercent = b.dec("maxInstrumentPercent") ?: l.maxInstrumentAllocationPercent,
+                    maxAssetClassAllocationPercent = assets,
+                    maxDailyLossPercent = b.dec("maxDailyLossPercent") ?: l.maxDailyLossPercent,
+                    maxDrawdownPercent = b.dec("maxDrawdownPercent") ?: l.maxDrawdownPercent,
+                    maxOpenPositions = b.int("maxOpenPositions") ?: l.maxOpenPositions,
+                )
+            engine.riskProfiles.upsert("GLOBAL", null, updated, g.version)
+            riskLimitsView()
+        }
+    }
+
+    private fun limitsMap(l: app.strategyforge.engine.risk.RiskLimits) =
+        mapOf(
+            "maxTradePercent" to l.maxTradePercentOfEquity?.toPlainString(),
+            "maxInstrumentPercent" to l.maxInstrumentAllocationPercent?.toPlainString(),
+            "maxCryptoPercent" to l.maxAssetClassAllocationPercent?.get("CRYPTO")?.toPlainString(),
+            "maxStocksPercent" to l.maxAssetClassAllocationPercent?.get("US_EQUITY")?.toPlainString(),
+            "maxDailyLossPercent" to l.maxDailyLossPercent?.toPlainString(),
+            "maxDrawdownPercent" to l.maxDrawdownPercent?.toPlainString(),
+            "maxOpenPositions" to l.maxOpenPositions,
+        )
+
+    private fun riskLimitsView(): Map<String, Any?> {
+        val plans =
+            engine.slots.slots().filter { it.strategy != null && it.activation != null }.map { s ->
+                val a = s.activation!!
+                val eff =
+                    app.strategyforge.engine.risk.RiskProfileService
+                        .toLimits(engine.riskProfiles.effectiveFor(a.portfolioId, a.strategyId))
+                val def = runCatching { engine.strategies.definition(a.versionId) }.getOrNull()
+                val sizing = def?.sizing
+                // A plan sized as a share of equity is blocked when that share exceeds what its limits allow.
+                val cap = listOfNotNull(eff.maxTradePercentOfEquity, eff.maxInstrumentAllocationPercent, a.allocationPercent).minOrNull()
+                val blocked = sizing?.method == app.strategyforge.engine.strategy.SizingMethod.PERCENT_OF_EQUITY && cap != null && sizing.value > cap
+                mapOf(
+                    "strategyId" to a.strategyId.toString(),
+                    "name" to s.strategy!!.name,
+                    "assetClass" to s.assetClass.name,
+                    "slot" to s.number,
+                    "portfolio" to runCatching { engine.portfolios.get(a.portfolioId).name }.getOrNull(),
+                    "allocationPercent" to a.allocationPercent.toPlainString(),
+                    "sizing" to sizing?.let { "${it.method.name} ${it.value.toPlainString()}" },
+                    "limits" to limitsMap(eff),
+                    "warning" to if (blocked) "Its entries use ${sizing!!.value.toPlainString()}% of the portfolio but its limits allow ${cap!!.toPlainString()}%, so they will be rejected." else null,
+                )
+            }
+        val g = engine.riskProfiles.global()
+        return mapOf("global" to limitsMap(g.limits), "globalVersion" to g.version, "plans" to plans)
     }
 }

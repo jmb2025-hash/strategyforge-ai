@@ -344,9 +344,11 @@ class EvaluationService(
         // No new entries once today's losing trades reach the strategy's cap (D-042).
         def.risk.maximumDailyLosingTrades?.let { cap -> if (losingTradesToday(a) >= cap) return null }
         val portfolio = portfolios.get(a.portfolioId)
-        val equity = portfolios.summary(a.portfolioId).equity
+        val summary = portfolios.summary(a.portfolioId)
+        val equity = summary.equity
         val limits = runCatching { riskLimits(a.portfolioId, a.strategyId) }.getOrNull()
-        val tradeCap = listOfNotNull(limits?.maxTradePercentOfEquity, limits?.maxInstrumentAllocationPercent).minOrNull()
+        // The activation's share of the portfolio caps a single entry too (D-063).
+        val tradeCap = listOfNotNull(limits?.maxTradePercentOfEquity, limits?.maxInstrumentAllocationPercent, limits?.maxStrategyAllocationPercent, a.allocationPercent).minOrNull()
         for (setup in setups) {
             if (here.any { it.setupId == setup.id }) continue
             setup.maximumOpenPositions?.let { cap -> if (all.count { it.setupId == setup.id } >= cap) continue }
@@ -359,7 +361,15 @@ class EvaluationService(
             val exitPlan = if (sd.exit.structured) ExitPlan.build(sd, short, bars, ev, idx, last).first ?: continue else null
             val allocated = def.plan.capitalPolicy == CapitalPolicy.ALLOCATED && setup.allocationPercent != null
             val budget = if (allocated) equity.multiply(setup.allocationPercent).divide(Decimals.HUNDRED, Decimals.MC) else equity
-            val qty = Decimals.floorToStep(sizing(sd, budget, last, tradeCap, limits?.maxTradeValue, exitPlan?.riskFraction(last)), i.quantityIncrement)
+            val sized = Decimals.floorToStep(sizing(sd, budget, last, tradeCap, limits?.maxTradeValue, exitPlan?.riskFraction(last)), i.quantityIncrement)
+            // An order reserves more cash than its notional (price buffer and costs); size within buying power (D-063).
+            val reserve = if (short) Pricing.shortReservation(portfolio.costModel, sized, last) else Pricing.buyReservation(portfolio.costModel, sized, last)
+            val qty =
+                if (reserve > summary.buyingPower && reserve.signum() > 0) {
+                    Decimals.floorToStep(sized.multiply(summary.buyingPower).multiply(BigDecimal("0.999")).divide(reserve, Decimals.MC), i.quantityIncrement)
+                } else {
+                    sized
+                }
             if (qty < i.minQuantity) continue
             val notional = qty.multiply(last)
             if (allocated && all.filter { it.setupId == setup.id }.fold(BigDecimal.ZERO) { acc, h -> acc.add(h.holding.quantity.multiply(h.holding.averageCost)) }.add(notional) > budget.multiply(BigDecimal("1.001"))) continue

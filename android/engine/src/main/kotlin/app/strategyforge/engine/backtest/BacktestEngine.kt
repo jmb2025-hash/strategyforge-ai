@@ -752,8 +752,8 @@ fun sizing(
             val byRisk = risk.divide(perUnit, 18, RoundingMode.FLOOR)
             val capPct = listOfNotNull(def.risk.maximumPositionPercent, profileMaxTradePercent, Decimals.HUNDRED).min()
             val capValue = listOfNotNull(equity.multiply(capPct).divide(Decimals.HUNDRED, mc), profileMaxTradeValue).min()
-            // Slightly inside the cap so rounding never pushes the order over a limit.
-            val byCap = capValue.multiply(BigDecimal("0.999")).divide(price, 18, RoundingMode.FLOOR)
+            // Inside the cap by more than the spread and slippage a fill can add, so it never lands over a limit.
+            val byCap = capValue.multiply(BigDecimal("0.995")).divide(price, 18, RoundingMode.FLOOR)
             byRisk.min(byCap).max(BigDecimal.ZERO)
         }
     }

@@ -151,13 +151,15 @@ class BacktestService(
             val capital = req.startingCapital ?: settings.get().portfolioDefaults.startingBalance
             if (capital < BigDecimal(100) || capital > BigDecimal(100_000_000)) throw Problems.badRequest("invalid-capital", "startingCapital must be 100 - 100,000,000")
             req.riskProfile?.let { profiles.validate(it) }
+            // A plan runs under its own sizing and loss limits in its slot (D-063), so it is tested that way.
+            val def = runCatching { strategies.definition(versionId) }.getOrNull()
             val levels =
                 listOfNotNull(
                     profiles
                         .global()
                         .limits
                         .takeIf { req.applyGlobalRiskProfile }
-                        ?.let { RiskLevel.GLOBAL to it },
+                        ?.let { g -> if (def != null) RiskLevel.GLOBAL to RiskProfileService.planBase(g, def.risk, def.assetClass) else RiskLevel.GLOBAL to g },
                     req.riskProfile?.let { RiskLevel.PORTFOLIO to it },
                 )
             // The stored parameters record the exact merged limits the run used.

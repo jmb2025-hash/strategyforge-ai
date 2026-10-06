@@ -347,6 +347,16 @@ class LocalApiAppTest {
             // Live price streams (D-056): none are configured in this engine.
             assertThat(repo.streams().streams).isEmpty()
 
+            // Risk limits (D-063): defaults readable; tightening is free, loosening needs the device lock.
+            val limits = repo.riskLimits()
+            assertThat(limits.global.maxTradePercent).isEqualTo("20")
+            assertThat(limits.global.maxCryptoPercent).isEqualTo("50")
+            assertThat(repo.setGlobalLimits(mapOf("maxTradePercent" to "15")).global.maxTradePercent).isEqualTo("15")
+            host.call { engine.auth.forget() }
+            assertThat(assertThrows<ApiError.Http> { runBlocking { repo.setGlobalLimits(mapOf("maxTradePercent" to "30")) } }.recentAuthRequired).isTrue()
+            repo.reauthenticate("", null)
+            assertThat(repo.setGlobalLimits(mapOf("maxTradePercent" to "20", "maxOpenPositions" to "25")).global.maxTradePercent).isEqualTo("20")
+
             // AI provider setup as the phone screen does it: Gemini preset, key into the key store.
             val gemini = repo.providerTypes().single { it.providerType == "GEMINI" }
             assertThat(gemini.presets["model"]).isEqualTo("gemini-flash-latest")

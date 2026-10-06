@@ -1024,3 +1024,28 @@ When a conflict is unresolved, the safest reversible option is selected.
   The per-year returns and drawdowns are unchanged to one decimal.
 - **Tests:** `BookTest` covers cash ending between 0 and 1 cent for the first purchase, a full switch, and covering existing negative cash.
 - **Version:** 1.18.2 (versionCode 27). It installs over 1.18.1 and keeps the app's data (D-059).
+
+## D-063 Running plans trade under their own risk limits; sizing fits limits and buying power
+
+- **Date:** 2026-10-06
+- **Context:** The owner's BTC trend core (95% of equity in BTC) never traded. Every nightly entry was rejected by the global profile: 20% per trade, 25% per instrument, 50% crypto, 5% daily loss and 25% drawdown. The app had no way to change these limits. Every backtest on the phone ended with zero trades for the same reason, while the library's research results were made without these limits, and nothing warned about the mismatch. The owner's backup (`.sfbk`) confirmed one rejected signal (TRADE_VALUE 95% against 20%, ALLOCATION 95% against 25%) and four zero-trade backtests. The other alerts were transient: a missing first quote at activation, the re-authorization after turning shorting on, and a phone DNS error. The owner chose per-plan limits over raising the global ones or shrinking the plans.
+- **Decision:**
+  - **Plan limits.** `RiskProfileService.baseFor` gives a running plan's own orders, in the portfolio its activation runs in, `planBase`: the global profile with the plan's declared limits in place of the global sizing and loss limits. Those are its largest position (trade and single instrument), 100% of its own asset class, daily loss, drawdown, open positions and losing streak. Data-quality, rate and emergency limits stay global.
+  - **Tightening still works.** Portfolio and strategy profiles still apply strictest-wins on top of the plan limits.
+  - **Other orders.** Manual orders, and strategies outside a slot, keep the global profile.
+  - **Backtests.** They use the same plan base, so their results match what the plan will do in a slot.
+  - **Sizing fixes found on the way.**
+    - Entry size is also capped at the activation's share of the portfolio.
+    - It is capped so the cash reservation (price buffer and costs) fits within buying power; before, a 99.5% buy needed about 101.5% of the cash.
+    - The margin under a percentage cap is now 0.5%, up from 0.1%, so spread and slippage cannot push a fill over the limit.
+  - **Risk limits screen** (More → Risk limits; `GET /v1/risk/limits`, `PUT /v1/risk/limits/global`).
+    - It shows each running plan's effective limits, with a warning when they would block the plan's normal entry size.
+    - It lets the owner edit the default limits for everything else: per trade, per symbol, crypto, stocks, daily loss, drawdown and open positions. Raising a limit needs the device lock.
+- **Tests:**
+  - A 95% plan fills, while the same size entered by hand in another portfolio is rejected (TRADE_VALUE).
+  - The backtest applies the plan's own open-position cap of 3 instead of the global 25.
+  - Risk-percent sizing is still capped by a portfolio's own 20% profile.
+  - The live wick-stop plan now fills and exits; it had been hiding the buying-power gap.
+  - Through the Repository, tightening needs no device lock and loosening does.
+  - `RiskLimitsUiTest`.
+- **Version:** 1.19.0 (versionCode 28). It installs over 1.18.2 and keeps the app's data (D-059).

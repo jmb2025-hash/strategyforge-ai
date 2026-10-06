@@ -174,6 +174,10 @@ class Engine(
     val maintenance = PortfolioMaintenance(db, portfolios, instruments, corporateActions, ledger, lots, orders, audit, notifications, marketClock, reconciliation)
 
     // ------------------------------------------------------------------ signals, recommendations, autonomy
+    init {
+        riskProfiles.definitions = strategies
+    }
+
     val activations = ActivationService(db, strategies, backtests, portfolios, riskProfiles, audit, wall, auth)
     val recommendations = RecommendationService(db, orders, market, instruments, notifications, audit, wall, marketClock)
     val dispatcher = SignalDispatcher(db, activations, risk, recommendations, orders, portfolios, notifications, events)

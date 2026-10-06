@@ -839,3 +839,35 @@ data class StreamInfo(
     val error: String? = null,
     val reconnects: Int = 0,
 )
+
+/** Risk limits (D-063): the global defaults and the limits each running plan's orders use. Percentages as text. */
+@Serializable
+data class RiskLimitsInfo(
+    val global: LimitValues = LimitValues(),
+    val globalVersion: Long = 0,
+    val plans: List<PlanLimits> = emptyList(),
+)
+
+@Serializable
+data class LimitValues(
+    val maxTradePercent: String? = null,
+    val maxInstrumentPercent: String? = null,
+    val maxCryptoPercent: String? = null,
+    val maxStocksPercent: String? = null,
+    val maxDailyLossPercent: String? = null,
+    val maxDrawdownPercent: String? = null,
+    val maxOpenPositions: Int? = null,
+)
+
+@Serializable
+data class PlanLimits(
+    val strategyId: String,
+    val name: String,
+    val assetClass: String,
+    val slot: Int,
+    val portfolio: String? = null,
+    val allocationPercent: String? = null,
+    val sizing: String? = null,
+    val limits: LimitValues = LimitValues(),
+    val warning: String? = null,
+)
