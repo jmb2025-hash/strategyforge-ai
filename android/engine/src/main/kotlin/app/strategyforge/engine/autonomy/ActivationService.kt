@@ -211,11 +211,8 @@ class ActivationService(
             .list { rs -> map(rs) }
 
     /**
-     * Everything material to an autonomy authorization: strategy version hash, portfolio and its
-     * cost model and shorting flag, allocation, and every applicable risk profile (FR-072).
-     */
-    /**
-     * Everything material to an autonomous authorization (FR-072). For the global profile only the
+     * Everything material to an autonomous authorization (FR-072): strategy version hash, portfolio and
+     * its cost model and shorting flag, allocation, and the applicable risk profiles. For the global profile only the
      * limits the plan actually runs under count (D-071): the plan's own sizing and loss limits replace
      * the global ones ([RiskProfileService.planBase], D-063), so editing those global defaults does not
      * change what the plan may do and does not pause it.
