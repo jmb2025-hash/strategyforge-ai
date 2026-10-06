@@ -209,7 +209,7 @@ fun AutoBackupCard(
             Column(Modifier.weight(1f)) {
                 Text("Daily backup to Downloads", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Once a day the app saves a backup in Downloads/StrategyForge, which stays on the phone even if the app is uninstalled. The last 7 are kept.",
+                    "Once a day the app saves a backup in Downloads/StrategyForge, which stays on the phone even if the app is uninstalled. Only the last 3 are kept: older backups are deleted, here and in Downloads.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

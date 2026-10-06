@@ -14,7 +14,7 @@ import java.sql.DriverManager
 import java.time.Duration
 import java.time.Instant
 
-/** D-069 a daily backup is written and copied out of the app, kept to seven, and retried after failures. */
+/** D-069 a daily backup is written and copied out of the app, kept to three in total, and retried after failures. */
 class AutoBackupsTest {
     @TempDir lateinit var appDir: File
 
@@ -72,7 +72,7 @@ class AutoBackupsTest {
     }
 
     @Test
-    fun `seven daily backups are kept and manual backups are never pruned`() {
+    fun `only the last three backups are kept, in the app and in Downloads`() {
         val e = engine()
         e.portfolio("Main")
         val manual =
@@ -84,7 +84,11 @@ class AutoBackupsTest {
             advance(Duration.ofHours(24))
         }
         assertThat(autoFiles(appDir)).hasSize(AutoBackups.KEEP)
-        assertThat(File(appDir, manual)).exists()
+        assertThat(AutoBackups.KEEP).isEqualTo(3)
+        assertThat(e.backups.list()).hasSize(3)
+        assertThat(File(appDir, manual)).doesNotExist()
+        // The newest three days are the ones kept.
+        assertThat(e.backups.list().map { it.name }).isEqualTo(autoFiles(appDir).sortedDescending())
     }
 
     @Test

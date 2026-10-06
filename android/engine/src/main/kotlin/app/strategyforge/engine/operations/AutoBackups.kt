@@ -27,7 +27,8 @@ data class AutoBackupStatus(
 /**
  * Daily automatic backup (D-069). Once a day, when there is something to keep, the engine writes a
  * backup and hands it to [export], which on the phone copies it to Downloads/StrategyForge so it
- * survives the app being uninstalled. Seven daily backups are kept in the app and in Downloads.
+ * survives the app being uninstalled. Only the newest three backups are kept (the last three days):
+ * in the app that counts every backup, manual ones included; in Downloads, the daily copies.
  * Failures are recorded and retried at the next check; they never stop trading.
  */
 class AutoBackups(
@@ -75,7 +76,8 @@ class AutoBackups(
         try {
             val b = backups.create(TAG)
             val location = export?.let { it(backups.fileOf(b.file.name)) }
-            backups.prune(TAG, KEEP)
+            // Every backup kind counts towards the three kept in the app (the owner asked for three in total).
+            backups.prune("", KEEP)
             put(LAST_AT_KEY, now.toString())
             put(LAST_NAME_KEY, b.file.name)
             put(LAST_LOCATION_KEY, location ?: "")
@@ -111,7 +113,7 @@ class AutoBackups(
 
     companion object {
         const val TAG = "auto"
-        const val KEEP = 7
+        const val KEEP = 3
         val EVERY: Duration = Duration.ofHours(24)
         val RETRY: Duration = Duration.ofHours(1)
         private const val ENABLED_KEY = "auto_backup_enabled"

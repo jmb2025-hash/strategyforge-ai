@@ -13,7 +13,7 @@ import java.io.File
  * [KEEP] daily copies are kept; files from an earlier install, or saved by hand, are never touched.
  */
 object DownloadsBackups {
-    const val KEEP = 7
+    const val KEEP = 3
     private const val FOLDER = "StrategyForge"
     private val relative = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER/"
 

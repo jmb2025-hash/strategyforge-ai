@@ -1130,7 +1130,7 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Context:** The owner uninstalled the app before installing an update. That deleted its data and its backups, because backups were kept in app-private storage. They asked for a daily backup that would survive an uninstall.
 - **Decision:**
   - **Daily backup.** `AutoBackups` runs once a day, in both modes, when there is something to keep (at least one portfolio or strategy). It writes a backup tagged `auto` (`strategyforge-...-autoXXXX.sfbk`) and hands it to the app's `exportBackup`. On the phone that is `DownloadsBackups`, which saves it with MediaStore to `Download/StrategyForge/` (no storage permission needed).
-  - **Kept to seven.** The newest 7 daily backups are kept, both in the app and in Downloads. Manual backups, and files from an earlier install, are never deleted.
+  - **Kept to seven.** The newest 7 daily backups are kept, both in the app and in Downloads. Manual backups, and files from an earlier install, are never deleted. (Changed to three in total by D-070.)
   - **Failures.** A failure is recorded, shown on the Backups screen and retried after an hour. It never affects trading.
   - **Settings.** The daily backup is on by default and can be turned off on More → Backups (`GET/PUT /v1/backups/auto`). "Back up to Downloads now" runs it at once (`POST /v1/backups/auto/run`).
   - **Restoring after a reinstall.** Home, when empty, offers "Restore from a backup". Backups → "Restore from a file" picks the newest file in Downloads/StrategyForge. API keys are not in backups and are entered again.
@@ -1138,3 +1138,14 @@ When a conflict is unresolved, the safest reversible option is selected.
   - Engine: nothing is backed up before there is data, then once a day with a copy outside the app; seven are kept and manual backups survive; a failed copy is retried after an hour; turning it off stops it; the scheduler runs it in demo mode; with no export target, backups stay in the app; the Repository round trip works.
   - App: the backup card and the failure banner.
 - **Version:** 1.22.0 (versionCode 33).
+
+## D-070 Keep only the last three backups
+
+- **Date:** 2026-10-06
+- **Context:** The owner asked the daily backup job to delete old backups so that there are only ever three in total, covering the last three days.
+- **Decision:**
+  - **Three in total.** After each daily backup, only the newest three backups are kept, both in the app and in Downloads.
+  - **In the app,** that count covers every backup: manual ones and the safety copy made before a restore count too. This replaces D-069's seven daily backups with manual ones never deleted.
+  - **In Downloads,** the job deletes only daily copies it made itself. Files saved by hand, or left by an earlier install, are left alone, because Android does not let the app see them.
+- **Tests:** after ten days only three backups remain, the newest three, and an older manual backup is gone.
+- **Version:** 1.22.1 (versionCode 34).
