@@ -1180,3 +1180,13 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Home.** Each paused or suspended strategy gets an "Open … to resume it ›" link.
 - **Tests:** a paused autonomous plan resumes with the same portfolio, share and mode, and needs the device lock. A strategy that is not paused, or never ran, cannot be resumed.
 - **Version:** 1.23.0 (versionCode 36).
+
+## D-073 Paused plans are listed on the Plans screen with Resume
+
+- **Date:** 2026-10-06
+- **Context:** The owner's backup at 21:56 UTC showed BTC trend core still paused since 03:28 UTC; it had not been resumed. The Plans screen's "Running now" lists only active slot occupants, so it said "Crypto · 0 of 10 slots in use · No crypto strategy running", and the owner thought their crypto plans had vanished. Crypto plans started after the 00:02 UTC backup had been lost in the uninstall (D-067); that backup held only BTC trend core.
+- **Decision:**
+  - **Listed under their asset class.** Paused strategies appear in "Running now" under their asset class, with the pause reason and a **Resume** button (D-072) next to Open.
+  - **Device lock.** Resuming an autonomous plan from this screen shows the device-lock prompt first and then retries.
+- **Tests:** `StrategySlotsUiTest` shows a paused crypto plan with its reason and Resume, and no "No crypto strategy running" message.
+- **Version:** 1.23.1 (versionCode 37).

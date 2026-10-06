@@ -43,6 +43,14 @@ fun StrategiesScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val action by vm.action.collectAsStateWithLifecycle()
+    // Resuming an autonomous plan asks for the phone's lock first (D-073).
+    var showUnlock by remember { mutableStateOf(false) }
+    if (showUnlock) {
+        ReauthDialog({ showUnlock = false }) { _, _ ->
+            showUnlock = false
+            vm.resumeAfterUnlock()
+        }
+    }
     val imported by vm.imported.collectAsStateWithLifecycle()
     val slots by vm.slots.collectAsStateWithLifecycle()
     val instructions by vm.instructions.collectAsStateWithLifecycle()
@@ -73,6 +81,8 @@ fun StrategiesScreen(
             tsxRuns = tsxRuns,
             onOpenTsx = { nav.navigate("tsx-run/$it") },
             onStopTsx = vm::stopTsx,
+            paused = (state as? app.strategyforge.android.core.cache.Resource.Data)?.value.orEmpty(),
+            onResume = vm::resume,
         )
         SectionTitle("Trading plans")
         Row {
@@ -98,7 +108,7 @@ fun StrategiesScreen(
                 onImport = { vm.import(json) },
             )
         }
-        ActionFeedback(action)
+        ActionFeedback(action, onReauth = { showUnlock = true })
         ResourceContent(state, fmt, vm::refresh, empty = { it.isEmpty() }, emptyText = "No strategies yet. Import one or start AI research.", art = Art.STRATEGIES) { list ->
             list.forEach { s -> StrategyRow(s, fmt) { nav.navigate("strategy/${s.id}") } }
         }
@@ -158,11 +168,14 @@ fun SlotsSection(
     tsxRuns: List<app.strategyforge.android.core.model.TsxRun> = emptyList(),
     onOpenTsx: (String) -> Unit = {},
     onStopTsx: (String) -> Unit = {},
+    /** Strategies paused by the owner or by a safety check, listed under their asset class with Resume (D-073). */
+    paused: List<Strategy> = emptyList(),
+    onResume: (String) -> Unit = {},
 ) {
     var confirmStop by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmStopTsx by rememberSaveable { mutableStateOf<String?>(null) }
     Column {
-        SlotCards(slots, onOpen) { confirmStop = it }
+        SlotCards(slots, onOpen, { confirmStop = it }, paused, onResume)
         TsxSlotCards(tsxRuns.filter { it.status == "ACTIVE" }, onOpenTsx) { confirmStopTsx = it }
     }
     confirmStopTsx?.let { id ->
@@ -194,6 +207,8 @@ private fun SlotCards(
     slots: List<Slot>,
     onOpen: (String) -> Unit,
     onStop: (String) -> Unit,
+    paused: List<Strategy>,
+    onResume: (String) -> Unit,
 ) {
     SectionTitle("Running now")
     Text("Up to 10 crypto and 10 stock strategies and 10 TSX plans can run at once, each in its own slot. Give each slot its own portfolio to compare them side by side.", style = MaterialTheme.typography.bodySmall)
@@ -201,7 +216,8 @@ private fun SlotCards(
         val mine = slots.filter { it.assetClass == ac }
         val used = mine.filter { it.strategy != null }
         Text("$label · ${used.size} of ${mine.size.takeIf { it > 0 } ?: 10} slots in use", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-        if (used.isEmpty()) {
+        val stopped = paused.filter { it.assetClass == ac && it.status == "PAUSED" }
+        if (used.isEmpty() && stopped.isEmpty()) {
             SfCard(Modifier.testTag("slot-$ac")) {
                 Text("No ${label.lowercase()} strategy running. Open a ${if (ac == "CRYPTO") "crypto" else "stock"} strategy below and activate it in a slot.", style = MaterialTheme.typography.bodySmall)
             }
@@ -222,6 +238,21 @@ private fun SlotCards(
                 Row {
                     TextButton(onClick = { onOpen(s.id) }) { Text("Open") }
                     TextButton(onClick = { onStop(s.id) }, modifier = Modifier.testTag("stop-$ac-${slot.number}")) { Text("Stop") }
+                }
+            }
+        }
+        // Paused strategies are not in a slot, but they are still the owner's running plans (D-073).
+        stopped.forEach { s ->
+            SfCard(Modifier.testTag("paused-${s.id}")) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(s.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    StatusChip(s.status)
+                }
+                s.statusReason?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                Row {
+                    Button(onClick = { onResume(s.id) }, modifier = Modifier.testTag("resume-${s.id}")) { Text("Resume") }
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = { onOpen(s.id) }) { Text("Open") }
                 }
             }
         }

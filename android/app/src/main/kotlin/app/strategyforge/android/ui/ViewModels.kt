@@ -263,6 +263,27 @@ class StrategiesViewModel
                 _slots.value = repo.slots()
             }
 
+        private var lastResume: String? = null
+
+        /** Restarts a paused strategy as it last ran (D-072); autonomous mode asks for the device lock. */
+        fun resume(strategyId: String) {
+            lastResume = strategyId
+            act("Running again") {
+                repo.resume(strategyId)
+                _slots.value = repo.slots()
+            }
+        }
+
+        /** After the device-lock prompt succeeds, records it and resumes the strategy that asked for it. */
+        fun resumeAfterUnlock() {
+            val id = lastResume ?: return
+            viewModelScope.launch {
+                runCatching { repo.reauthenticate("", null) }
+                clearAction()
+                resume(id)
+            }
+        }
+
         private val _imported = MutableStateFlow<String?>(null)
         val imported: StateFlow<String?> = _imported.asStateFlow()
         private val _instructions = MutableStateFlow<String?>(null)

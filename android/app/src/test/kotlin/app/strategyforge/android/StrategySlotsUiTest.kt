@@ -44,6 +44,28 @@ class StrategySlotsUiTest {
         )
 
     @Test
+    fun `D-073 a paused crypto plan is listed under Crypto with its reason and Resume`() {
+        val resumed = mutableListOf<String>()
+        val paused =
+            listOf(
+                app.strategyforge.android.core.model.Strategy(
+                    "st9",
+                    "BTC trend core",
+                    "CRYPTO",
+                    "PAUSED",
+                    statusReason = "Autonomous mode paused until re-authorized: global risk profile changed",
+                ),
+            )
+        val empty = slots.map { if (it.assetClass == "CRYPTO") it.copy(strategy = null, activation = null, holdings = emptyList()) else it }
+        rule.setContent { SfTheme { SlotsSection(empty, onOpen = {}, onStop = {}, paused = paused, onResume = { resumed += it }) } }
+        rule.onNodeWithText("BTC trend core").assertExists()
+        rule.onNodeWithText("global risk profile changed", substring = true).assertExists()
+        rule.onNodeWithText("No crypto strategy running", substring = true).assertDoesNotExist()
+        rule.onNodeWithTag("resume-st9").performClick()
+        assertEquals(listOf("st9"), resumed)
+    }
+
+    @Test
     fun `D-051 the slots show the running crypto strategy with its slot number, no stock strategy, and stop asks first`() {
         val stopped = mutableListOf<String>()
         rule.setContent { SfTheme { SlotsSection(slots, onOpen = {}, onStop = { stopped += it }) } }
