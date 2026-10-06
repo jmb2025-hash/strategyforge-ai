@@ -108,6 +108,8 @@ class Engine(
     cryptoStream: () -> app.strategyforge.engine.market.QuoteStream? = { null },
     /** Live US stock and TSX price stream (Yahoo Finance's streamer in the app, D-056). */
     stockStream: () -> app.strategyforge.engine.market.QuoteStream? = { null },
+    /** Symbol search and display prices for the order screen (Yahoo Finance in the app, D-065). */
+    symbolDirectory: () -> app.strategyforge.engine.market.SymbolDirectory? = { null },
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -135,6 +137,9 @@ class Engine(
     val notifications = NotificationService(db, wall, settings)
     val instruments = InstrumentService(db, sources, audit)
     val market = MarketDataService(db, sources, marketClock, wall, audit, { streams.quote(it) })
+    val lookup =
+        app.strategyforge.engine.market
+            .InstrumentLookup(instruments, market, symbolDirectory)
     val corporateActions = CorporateActionService(db, sources, audit, wall)
     val derivatives =
         app.strategyforge.engine.market

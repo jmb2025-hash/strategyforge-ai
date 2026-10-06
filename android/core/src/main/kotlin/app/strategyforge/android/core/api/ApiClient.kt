@@ -56,6 +56,9 @@ sealed class ApiError(
     ) : ApiError(detail ?: title ?: "Request failed (HTTP $status)") {
         val permissionDenied get() = status == 403
         val recentAuthRequired get() = code == "recent-authentication-required"
+
+        /** The form field the problem is about (symbol, quantity, limitPrice, ...), when the engine names one (D-065). */
+        val field: String? get() = (properties?.get("field") as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content
     }
 
     /** The server answered with something the app cannot interpret. */

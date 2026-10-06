@@ -42,6 +42,7 @@ import app.strategyforge.android.core.format.Formatters
 import app.strategyforge.android.core.model.PortfolioSummary
 import app.strategyforge.android.core.notify.DeepLinks
 import app.strategyforge.android.core.state.ActionState
+import app.strategyforge.android.core.state.OrderForm
 import app.strategyforge.android.core.state.RecommendationPresenter
 import app.strategyforge.android.core.state.RecommendationState
 
@@ -52,6 +53,11 @@ fun PortfolioScreen(
     fmt: Formatters,
     onChart: (symbol: String, portfolioId: String) -> Unit = { _, _ -> },
     session: SessionViewModel? = null,
+    /** Opens a symbol's information screen (D-065). */
+    onInfo: (symbol: String, portfolioId: String?) -> Unit = { _, _ -> },
+    /** A side and symbol chosen on the information screen, to fill the order form with. */
+    prefill: Pair<String, String>? = null,
+    onPrefillUsed: () -> Unit = {},
 ) {
     var confirmShorting by remember { mutableStateOf(false) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -76,6 +82,28 @@ fun PortfolioScreen(
     var qty by rememberSaveable { mutableStateOf("") }
     var side by rememberSaveable { mutableStateOf("BUY") }
     var limit by rememberSaveable { mutableStateOf("") }
+    val suggestions by vm.suggestions.collectAsStateWithLifecycle()
+    // Problems found before sending, per field; engine problems arrive in [action] with their field (D-065).
+    var formErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    // Counts submits, so pressing Submit again scrolls to the same problem again.
+    var attempts by remember { mutableStateOf(0) }
+    val targets = rememberFieldTargets(OrderForm.SYMBOL, OrderForm.QUANTITY, OrderForm.LIMIT, "submit")
+    val failedField = (action as? ActionState.Failed)?.field?.takeIf { it in targets }
+    val fieldErrors = if (failedField != null) formErrors + (failedField to (action as ActionState.Failed).message) else formErrors
+    LaunchedEffect(attempts, action) {
+        val f = OrderForm.first(formErrors) ?: failedField
+        f?.let { targets[it]?.show() }
+    }
+    LaunchedEffect(prefill) {
+        prefill?.let { (s, sym) ->
+            side = s
+            symbol = sym
+            vm.clearSuggestions()
+            formErrors = emptyMap()
+            targets.getValue(OrderForm.QUANTITY).show()
+            onPrefillUsed()
+        }
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         SectionTitle("Paper portfolios")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -158,17 +186,64 @@ fun PortfolioScreen(
                     FilterChip(selected = side == s, onClick = { side = s }, label = { Text(s.lowercase().replace('_', ' ')) })
                 }
             }
-            Field("Symbol", symbol, { symbol = it.uppercase() })
-            Field("Quantity", qty, { qty = it }, number = true)
-            Field("Limit price (blank for market)", limit, { limit = it }, number = true)
+            SymbolField(
+                symbol,
+                {
+                    symbol = it
+                    formErrors = formErrors - OrderForm.SYMBOL
+                    if (failedField == OrderForm.SYMBOL) vm.clearAction()
+                    vm.searchSymbols(it)
+                },
+                suggestions,
+                { h ->
+                    symbol = h.symbol
+                    formErrors = formErrors - OrderForm.SYMBOL
+                    vm.clearSuggestions()
+                },
+                { sym -> onInfo(sym, selected) },
+                fmt,
+                targets.getValue(OrderForm.SYMBOL).modifier,
+                error = fieldErrors[OrderForm.SYMBOL],
+            )
+            if (symbol.isNotBlank() && suggestions.isEmpty()) {
+                TextButton(onClick = { onInfo(symbol.trim().uppercase(), selected) }, modifier = Modifier.testTag("symbol-info")) { Text("About ${symbol.trim().uppercase()} ›") }
+            }
+            Field(
+                "Quantity",
+                qty,
+                {
+                    qty = it
+                    formErrors = formErrors - OrderForm.QUANTITY
+                },
+                targets.getValue(OrderForm.QUANTITY).modifier.testTag("quantity-field"),
+                number = true,
+                error = fieldErrors[OrderForm.QUANTITY],
+            )
+            Field(
+                "Limit price (blank for market)",
+                limit,
+                {
+                    limit = it
+                    formErrors = formErrors - OrderForm.LIMIT
+                },
+                targets.getValue(OrderForm.LIMIT).modifier.testTag("limit-field"),
+                number = true,
+                error = fieldErrors[OrderForm.LIMIT],
+            )
             Button(
                 onClick = {
-                    selected?.let {
-                        vm.placeOrder(OrderDraft(it, symbol.trim(), side, if (limit.isBlank()) "MARKET" else "LIMIT", qty.trim(), limit.trim().ifBlank { null }, timeInForce = "DAY"))
+                    formErrors = OrderForm.problems(symbol, qty, limit)
+                    attempts++
+                    val id = selected
+                    if (formErrors.isEmpty() && id != null) {
+                        vm.placeOrder(OrderDraft(id, symbol.trim().uppercase(), side, if (limit.isBlank()) "MARKET" else "LIMIT", qty.trim(), limit.trim().ifBlank { null }, timeInForce = "DAY"))
                     }
                 },
-                enabled = symbol.isNotBlank() && qty.isNotBlank(),
+                modifier = targets.getValue("submit").modifier.testTag("submit-order"),
             ) { Text("Submit paper order") }
+            // Rejections and other order problems show here, by the button (D-065).
+            if (failedField == "submit") Banner((action as ActionState.Failed).message, BannerKind.ERROR, Modifier.testTag("order-error"))
+            if (action is ActionState.Done && (action as ActionState.Done).message.startsWith("Paper order")) Banner((action as ActionState.Done).message)
         }
         if (plan == null) {
             SectionTitle("Create portfolio")
@@ -177,7 +252,8 @@ fun PortfolioScreen(
             OutlinedButton(onClick = { vm.createPortfolio(name, balance) }, enabled = name.isNotBlank()) { Text("Create") }
         }
         // The TSX plan view shows its own action feedback.
-        if (plan !is RunningPlan.TsxPlan) ActionFeedback(action)
+        // Field problems are shown at their field instead.
+        if (plan !is RunningPlan.TsxPlan && failedField == null && !(action is ActionState.Done && (action as ActionState.Done).message.startsWith("Paper order"))) ActionFeedback(action)
     }
     if (confirmShorting) {
         val id = selected

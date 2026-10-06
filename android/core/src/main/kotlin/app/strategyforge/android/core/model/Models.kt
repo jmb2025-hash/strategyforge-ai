@@ -871,3 +871,38 @@ data class PlanLimits(
     val limits: LimitValues = LimitValues(),
     val warning: String? = null,
 )
+
+/** A symbol search result for the order screen (D-065). [added] false: a US stock or ETF added when picked. */
+@Serializable
+data class InstrumentHit(
+    val symbol: String,
+    val name: String,
+    val assetClass: String,
+    val exchange: String? = null,
+    val sector: String? = null,
+    val industry: String? = null,
+    val added: Boolean = true,
+    val active: Boolean = true,
+    val lastPrice: String? = null,
+)
+
+/** The symbol information screen (D-065): display prices from Yahoo Finance and the price paper orders fill from. */
+@Serializable
+data class InstrumentInfo(
+    val instrument: InstrumentHit,
+    val price: String? = null,
+    val previousClose: String? = null,
+    val currency: String? = null,
+    val exchange: String? = null,
+    val dayHigh: String? = null,
+    val dayLow: String? = null,
+    val yearHigh: String? = null,
+    val yearLow: String? = null,
+    val volume: String? = null,
+    val marketTime: String? = null,
+    val range: String = "1M",
+    val points: List<ChartPoint> = emptyList(),
+    val tradingPrice: String? = null,
+    val tradingPriceAt: String? = null,
+    val tradingSource: String? = null,
+)

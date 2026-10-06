@@ -211,7 +211,46 @@ fun MainShell(
                             defaultValue = null
                         },
                     ),
-            ) { PortfolioScreen(hiltViewModel(), fmt, onChart = { sym, pid -> nav.navigate("chart/${Uri.encode(sym)}?portfolioId=$pid") }, session = session) }
+            ) { entry ->
+                // Buy or Sell on a symbol's information screen fills this screen's order form (D-065).
+                val prefill by entry.savedStateHandle.getStateFlow<String?>(ORDER_PREFILL, null).collectAsStateWithLifecycle()
+                PortfolioScreen(
+                    hiltViewModel(),
+                    fmt,
+                    onChart = { sym, pid -> nav.navigate("chart/${Uri.encode(sym)}?portfolioId=$pid") },
+                    session = session,
+                    onInfo = { sym, pid -> nav.navigate("instrument/${Uri.encode(sym)}" + (pid?.let { "?portfolioId=$it" } ?: "")) },
+                    prefill = prefill?.split('|')?.takeIf { it.size == 2 }?.let { it[0] to it[1] },
+                    onPrefillUsed = { entry.savedStateHandle[ORDER_PREFILL] = null },
+                )
+            }
+            composable(
+                "instrument/{symbol}?portfolioId={portfolioId}",
+                arguments =
+                    listOf(
+                        navArgument("symbol") { type = NavType.StringType },
+                        navArgument("portfolioId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+            ) {
+                InstrumentScreen(
+                    hiltViewModel(),
+                    fmt,
+                    onTrade = { side, sym ->
+                        val back = nav.previousBackStackEntry
+                        if (back?.destination?.route?.startsWith("portfolio") == true) {
+                            back.savedStateHandle[ORDER_PREFILL] = "$side|$sym"
+                            nav.popBackStack()
+                        } else {
+                            nav.navigate("portfolio")
+                        }
+                    },
+                    onCandles = { sym -> nav.navigate("chart/${Uri.encode(sym)}?timeframe=1d") },
+                )
+            }
             composable(
                 "chart/{symbol}?portfolioId={portfolioId}&strategyId={strategyId}&timeframe={timeframe}",
                 arguments =
@@ -494,3 +533,6 @@ fun PlanSnapshotCard(
         }
     }
 }
+
+/** Back-stack key carrying "SIDE|SYMBOL" from a symbol's information screen to the order form (D-065). */
+const val ORDER_PREFILL = "order-prefill"

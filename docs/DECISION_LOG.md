@@ -1061,3 +1061,29 @@ When a conflict is unresolved, the safest reversible option is selected.
   - A plan activated before any quote exists is not blocked and produces exactly one ENTER_LONG on its first check.
   - The autonomy test still pauses on a feed that stops refreshing.
 - **Version:** 1.19.1 (versionCode 29). It installs over 1.19.0 and keeps the app's data (D-059).
+
+## D-065 Symbol search with an information screen; errors shown at their field
+
+- **Date:** 2026-10-06
+- **Context:** The owner asked for two things. First, errors from an action should appear next to the field they are about, and the screen should move there; before, they appeared as a banner at the bottom of a long screen. Second, the order screen's free-text symbol field accepted anything. The owner wanted typing to suggest matching symbols, and a way to see a stock's or coin's price, chart and details before buying, as Wealthsimple and Questrade do. A risk rejection was also reported as "Paper order submitted".
+- **Decision:**
+  - **Search as you type.** `GET /v1/instruments?q=` matches the app's instruments by ticker or name. Exact tickers rank first, and "btc" finds BTC-USD. Then come US stocks and ETFs from Yahoo Finance's public search; those are added (after Twelve Data confirms them, FR-020) when first traded (`POST /v1/instruments`). Crypto stays limited to the allowlisted pairs. Each suggestion shows the name, exchange, sector and last price, plus an Info button.
+  - **Information screen** (`GET /v1/instruments/{symbol}?range=`). It shows:
+    - the price and today's change;
+    - a price chart for 1D, 5D, 1M, 6M, 1Y or 5Y;
+    - previous close, day and 52-week ranges, volume, exchange and industry;
+    - the owner's position in the portfolio;
+    - the trading price paper orders fill from.
+
+    Buy and Sell fill in the order form. Display data comes from Yahoo Finance (`YahooSymbolDirectory`, no key). Orders still fill from the trading sources (Coinbase, Twelve Data), and the screen says so. Company descriptions are not shown, because Yahoo's profile endpoint needs a session cookie.
+  - **Errors at their field.**
+    - Engine problems may name a `field`: `unknown-symbol`, `invalid-quantity` and `invalid-price` now do. `ActionState.Failed.field` carries it.
+    - The order form checks its fields before sending (`OrderForm`). It shows each problem under its field, then scrolls to the first one and focuses it (`FieldTarget`).
+    - A risk rejection is shown by the Submit button with its reason.
+    - On every screen, an action's error banner now scrolls into view.
+- **Tests:**
+  - Engine: search ranking and filtering, the information data, the field on order errors, and adding stocks. Yahoo parsing, including BRK.B↔BRK-B and yesterday's close from today's change.
+  - An opt-in live Yahoo check (`SF_LIVE_YAHOO=1`), run once against the real service.
+  - Core: `OrderForm` and field mapping.
+  - App: `InstrumentUiTest`.
+- **Version:** 1.20.0 (versionCode 30). It installs over 1.19.1 and keeps the app's data (D-059).

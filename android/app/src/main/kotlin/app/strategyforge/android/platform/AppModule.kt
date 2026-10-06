@@ -51,6 +51,10 @@ object AppModule {
         val secrets = KeystoreSecretStore(context)
         val coinbase by lazy { CoinbaseProvider(Clock.systemUTC()) }
         val kraken by lazy { KrakenFuturesProvider(Clock.systemUTC()) }
+        val symbolDirectory by lazy {
+            app.strategyforge.engine.market
+                .YahooSymbolDirectory()
+        }
         val yahooTsx by lazy {
             app.strategyforge.engine.tsx
                 .YahooTsxProvider()
@@ -78,6 +82,7 @@ object AppModule {
                     tsxProvider = { yahooTsx },
                     cryptoStream = { coinbaseStream },
                     stockStream = { yahooStream },
+                    symbolDirectory = { symbolDirectory },
                     equityProvider = { key -> TwelveDataProvider(key, Clock.systemUTC()) },
                     secrets = secrets,
                     aiClients = aiClients,

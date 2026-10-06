@@ -137,7 +137,9 @@ class OrderService(
     ): OrderResult {
         validateShape(req)
         val portfolio = lockPortfolio(req.portfolioId)
-        val instrument = instruments.bySymbol(req.symbol)
+        val instrument =
+            instruments.findBySymbol(req.symbol) ?: throw app.strategyforge.engine.market.InstrumentLookup
+                .unknown(InstrumentService.normalize(req.symbol))
         val now = marketClock.now()
         // Refresh on demand so the decision uses the freshest verifiable quote; failures simply leave it unverified.
         runCatching { market.refreshQuote(instrument) }
@@ -360,14 +362,14 @@ class OrderService(
         }
 
     private fun validateShape(req: OrderRequest) {
-        if (req.quantity.signum() <= 0) throw Problems.badRequest("invalid-quantity", "quantity must be positive")
+        if (req.quantity.signum() <= 0) throw Problems.badRequest("invalid-quantity", "Quantity must be more than zero", mapOf("field" to "quantity"))
         when (req.orderType) {
             OrderType.MARKET -> if (req.limitPrice != null || req.stopPrice != null) throw Problems.badRequest("invalid-order", "MARKET orders take no limit or stop price")
             OrderType.LIMIT -> if (req.limitPrice == null || req.stopPrice != null) throw Problems.badRequest("invalid-order", "LIMIT orders require limitPrice only")
             OrderType.STOP -> if (req.stopPrice == null || req.limitPrice != null) throw Problems.badRequest("invalid-order", "STOP orders require stopPrice only")
             OrderType.STOP_LIMIT -> if (req.stopPrice == null || req.limitPrice == null) throw Problems.badRequest("invalid-order", "STOP_LIMIT orders require stopPrice and limitPrice")
         }
-        listOfNotNull(req.limitPrice, req.stopPrice).forEach { if (it.signum() <= 0) throw Problems.badRequest("invalid-price", "Prices must be positive") }
+        listOfNotNull(req.limitPrice, req.stopPrice).forEach { if (it.signum() <= 0) throw Problems.badRequest("invalid-price", "Prices must be more than zero", mapOf("field" to if (it == req.limitPrice) "limitPrice" else "stopPrice")) }
     }
 
     fun lockPortfolio(

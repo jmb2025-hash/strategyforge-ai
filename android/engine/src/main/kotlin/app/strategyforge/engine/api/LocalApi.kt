@@ -188,6 +188,19 @@ class LocalApi(
             else -> "Error"
         }
 
+    private fun instrumentHit(h: app.strategyforge.engine.market.InstrumentHit) =
+        mapOf(
+            "symbol" to h.symbol,
+            "name" to h.name,
+            "assetClass" to h.assetClass.name,
+            "exchange" to h.exchange,
+            "sector" to h.sector,
+            "industry" to h.industry,
+            "added" to h.added,
+            "active" to h.active,
+            "lastPrice" to h.lastPrice,
+        )
+
     /** Problem properties may hold engine objects; keep them JSON-friendly. */
     private fun plain(v: Any?): Any? =
         when (v) {
@@ -558,6 +571,41 @@ class LocalApi(
                 )
         }
         post("/v1/strategies/{id}/deactivate") { r, g -> engine.strategyControl.deactivate(uuid(g[0]), obj(r).str("reason"))?.let { activation(it) } ?: mapOf("status" to "NOT_ACTIVE") }
+        // Symbol search and information for the order screen (D-065).
+        get("/v1/instruments") { r, _ ->
+            val ac =
+                r.query["assetClass"]?.takeIf { it.isNotBlank() }?.let {
+                    runCatching {
+                        app.strategyforge.engine.market.AssetClass
+                            .valueOf(it)
+                    }.getOrElse { throw Problems.badRequest("invalid-asset-class", "assetClass must be CRYPTO or US_EQUITY") }
+                }
+            val limit = (r.query["limit"]?.toIntOrNull() ?: app.strategyforge.engine.market.InstrumentLookup.DEFAULT_LIMIT).coerceIn(1, 30)
+            engine.lookup.search(r.query["q"].orEmpty(), ac, limit).map { instrumentHit(it) }
+        }
+        post("/v1/instruments") { r, _ -> instrumentHit(engine.lookup.search(engine.lookup.ensure(obj(r).req("symbol")).symbol, null, 1).first()) }
+        get("/v1/instruments/{id}") { r, g ->
+            val d = engine.lookup.detail(g[0], r.query["range"] ?: "1M", r.query["refresh"] == "true")
+            val s = d.snapshot
+            mapOf(
+                "instrument" to instrumentHit(d.hit),
+                "price" to s?.price,
+                "previousClose" to s?.previousClose,
+                "currency" to s?.currency,
+                "exchange" to s?.exchange,
+                "dayHigh" to s?.dayHigh,
+                "dayLow" to s?.dayLow,
+                "yearHigh" to s?.yearHigh,
+                "yearLow" to s?.yearLow,
+                "volume" to s?.volume,
+                "marketTime" to s?.marketTime,
+                "range" to (s?.range ?: (r.query["range"] ?: "1M").uppercase()),
+                "points" to s?.points.orEmpty().map { mapOf("at" to it.at, "value" to it.price) },
+                "tradingPrice" to d.quote?.last,
+                "tradingPriceAt" to d.quote?.exchangeTs,
+                "tradingSource" to d.quote?.provider,
+            )
+        }
         get("/v1/charts/candles") { r, _ ->
             val c =
                 engine.charts.candles(

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package app.strategyforge.android.ui
 
 import androidx.compose.animation.AnimatedContent
@@ -24,6 +26,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,6 +51,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -315,12 +321,15 @@ fun ActionFeedback(
     action: ActionState,
     onReauth: (() -> Unit)? = null,
 ) {
+    // A failure is brought on screen, so it is seen even when the button that caused it is far up (D-065).
+    val bring = remember { BringIntoViewRequester() }
+    LaunchedEffect(action) { if (action is ActionState.Failed) runCatching { bring.bringIntoView() } }
     when (action) {
         ActionState.Idle -> Unit
         ActionState.Running -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics { contentDescription = "Working" })
         is ActionState.Done -> Banner(action.message)
         is ActionState.Failed ->
-            Column {
+            Column(Modifier.bringIntoViewRequester(bring)) {
                 Banner(action.message, BannerKind.ERROR)
                 if (action.needsReauth && onReauth != null) Button(onClick = onReauth) { Text("Confirm it's you") }
             }
@@ -361,12 +370,16 @@ fun Field(
     password: Boolean = false,
     number: Boolean = false,
     singleLine: Boolean = true,
+    /** Shown under the field in the error colour (D-065). */
+    error: String? = null,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
         label = { Text(label) },
         singleLine = singleLine,
+        isError = error != null,
+        supportingText = error?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
         visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions =
             KeyboardOptions(
@@ -382,6 +395,25 @@ fun Field(
         modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
     )
 }
+
+/**
+ * Moves the screen to a form field with a problem and puts the cursor there (D-065). Attach
+ * [modifier] to the field; [show] scrolls to it and focuses it.
+ */
+class FieldTarget {
+    val bring = BringIntoViewRequester()
+    val focus = FocusRequester()
+    val modifier: Modifier get() = Modifier.bringIntoViewRequester(bring).focusRequester(focus)
+
+    suspend fun show() {
+        runCatching { bring.bringIntoView() }
+        runCatching { focus.requestFocus() }
+    }
+}
+
+/** One [FieldTarget] per field name, kept across recompositions. */
+@Composable
+fun rememberFieldTargets(vararg fields: String): Map<String, FieldTarget> = remember { fields.associateWith { FieldTarget() } }
 
 /**
  * "Confirm it's you" with the phone's own lock (fingerprint, face or screen-lock PIN), D-029.

@@ -741,6 +741,38 @@ class Repository(
                 .serializer(),
         )
 
+    /** Symbols matching what the owner typed: known instruments first, then US stocks and ETFs that can be added (D-065). */
+    suspend fun searchInstruments(
+        query: String,
+        assetClass: String? = null,
+    ): List<app.strategyforge.android.core.model.InstrumentHit> =
+        api.get(
+            "/v1/instruments?q=${q(query)}" + (assetClass?.let { "&assetClass=$it" } ?: ""),
+            ListSerializer(
+                app.strategyforge.android.core.model.InstrumentHit
+                    .serializer(),
+            ),
+        )
+
+    /** Adds a US stock or ETF after the stock data source confirms it; a known symbol is returned as is. */
+    suspend fun addInstrument(symbol: String): app.strategyforge.android.core.model.InstrumentHit =
+        api.decode(
+            api.post("/v1/instruments", buildJsonObject { put("symbol", symbol) }).body,
+            app.strategyforge.android.core.model.InstrumentHit
+                .serializer(),
+        )
+
+    suspend fun instrumentInfo(
+        symbol: String,
+        range: String,
+        refresh: Boolean = false,
+    ): app.strategyforge.android.core.model.InstrumentInfo =
+        api.get(
+            "/v1/instruments/${q(symbol)}?range=$range" + (if (refresh) "&refresh=true" else ""),
+            app.strategyforge.android.core.model.InstrumentInfo
+                .serializer(),
+        )
+
     /** The live price streams and their state (D-056). */
     suspend fun streams(): app.strategyforge.android.core.model.StreamsInfo =
         api.get(

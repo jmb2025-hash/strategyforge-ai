@@ -769,10 +769,52 @@ class PortfolioViewModel
             _selected.value = p.id
         }
 
-        fun placeOrder(d: OrderDraft) = act("Paper order submitted") { repo.placeOrder(d) }
+        private val _suggestions = MutableStateFlow<List<app.strategyforge.android.core.model.InstrumentHit>>(emptyList())
+
+        /** Symbols matching the order form's symbol field (D-065). */
+        val suggestions: StateFlow<List<app.strategyforge.android.core.model.InstrumentHit>> = _suggestions.asStateFlow()
+        private var searchJob: kotlinx.coroutines.Job? = null
+
+        /** Searches as the owner types, a moment after the last key so each letter is not a search. */
+        fun searchSymbols(text: String) {
+            searchJob?.cancel()
+            if (text.isBlank()) {
+                _suggestions.value = emptyList()
+                return
+            }
+            searchJob =
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(SEARCH_DELAY_MS)
+                    runCatching { repo.searchInstruments(text.trim()) }.onSuccess { _suggestions.value = it }
+                }
+        }
+
+        fun clearSuggestions() {
+            searchJob?.cancel()
+            _suggestions.value = emptyList()
+        }
+
+        /**
+         * Places a paper order (D-065): a US stock picked from search is added first, a symbol the app
+         * cannot trade fails at the symbol field, and a rejection by the risk checks is shown at the
+         * submit button with its reason rather than reported as submitted.
+         */
+        fun placeOrder(d: OrderDraft) =
+            act("Paper order placed: ${d.side.lowercase().replace('_', ' ')} ${d.quantity} ${d.symbol.uppercase()}") {
+                val instrument = repo.addInstrument(d.symbol)
+                val order = repo.placeOrder(d.copy(symbol = instrument.symbol))
+                if (order.status == "REJECTED") {
+                    throw app.strategyforge.android.core.state
+                        .FieldError("submit", "Order rejected: ${order.rejectionReason ?: "the risk checks did not allow it"}")
+                }
+                clearSuggestions()
+            }
 
         fun cancel(orderId: String) = act("Order cancelled") { repo.cancelOrder(orderId) }
     }
+
+/** Pause after the last key before the symbol field searches (D-065). */
+const val SEARCH_DELAY_MS = 250L
 
 /** A running strategy plan as the Portfolio menu lists it (D-058). */
 sealed interface RunningPlan {

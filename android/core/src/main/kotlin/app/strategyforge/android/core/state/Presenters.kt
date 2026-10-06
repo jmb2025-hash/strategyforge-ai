@@ -30,6 +30,8 @@ sealed interface ActionState {
         /** The backend requires recent authentication; the UI asks for the password and retries. */
         val needsReauth: Boolean = false,
         val permissionDenied: Boolean = false,
+        /** The form field the failure is about, so the screen can show it there and scroll to it (D-065). */
+        val field: String? = null,
     ) : ActionState
 }
 
@@ -38,7 +40,14 @@ fun Throwable.toFailure(): ActionState.Failed =
         Repository.message(this),
         needsReauth = (this as? ApiError.Http)?.recentAuthRequired == true,
         permissionDenied = (this as? ApiError.Http)?.permissionDenied == true,
+        field = (this as? ApiError.Http)?.field ?: (this as? FieldError)?.field,
     )
+
+/** A failure a screen found before calling the engine, about one form field (D-065). */
+class FieldError(
+    val field: String,
+    message: String,
+) : IllegalArgumentException(message)
 
 // ---------------------------------------------------------------------------- access
 
