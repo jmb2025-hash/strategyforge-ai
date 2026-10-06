@@ -133,7 +133,7 @@ class InstrumentUiTest {
             }
         }
         rule.onNodeWithText("BTC-USD · Bitcoin").assertExists()
-        rule.onNodeWithText("today", substring = true).assertExists()
+        rule.onNodeWithText("(-0.96%) · today", substring = true).assertExists()
         rule.onNodeWithText("30.0B").performScrollTo().assertExists()
         rule.onNodeWithText("Coinbase").performScrollTo().assertExists()
         rule.onNodeWithTag("instrument-position").performScrollTo().assertExists()
