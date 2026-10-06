@@ -79,6 +79,37 @@ class AccountScreensUiTest {
     }
 
     @Test
+    fun `D-069 the daily backup to Downloads shows where the last copy is and can be turned off or run now`() {
+        val toggles = mutableListOf<Boolean>()
+        var ran = 0
+        val auto =
+            app.strategyforge.android.core.model.AutoBackupInfo(
+                enabled = true,
+                exportAvailable = true,
+                lastAt = "2026-10-06T12:00:00Z",
+                lastName = "strategyforge-20261006-120000-auto1a2b.sfbk",
+                lastLocation = "Download/StrategyForge/strategyforge-20261006-120000-auto1a2b.sfbk",
+                nextDueAt = "2026-10-07T12:00:00Z",
+            )
+        show { BackupsContent(BackupsState(loading = false, auto = auto), fmt, {}, {}, {}, onAuto = { toggles += it }, onRunAuto = { ran++ }) }
+        rule.onNodeWithText("Download/StrategyForge/strategyforge-20261006-120000-auto1a2b.sfbk").assertExists()
+        rule.onNodeWithText("Daily backup to Downloads").assertExists()
+        rule.onNodeWithTag("auto-backup-switch").performClick()
+        assertEquals(listOf(false), toggles)
+        rule.onNodeWithTag("auto-backup-now").performScrollTo().performClick()
+        assertEquals(1, ran)
+    }
+
+    @Test
+    fun `D-069 a failed daily backup is shown`() {
+        val auto =
+            app.strategyforge.android.core.model
+                .AutoBackupInfo(enabled = true, exportAvailable = true, lastError = "Downloads is full")
+        show { BackupsContent(BackupsState(loading = false, auto = auto), fmt, {}, {}, {}) }
+        rule.onNodeWithText("The last daily backup failed: Downloads is full", substring = true).assertExists()
+    }
+
+    @Test
     fun `FR-112 empty backup list is flagged`() {
         show { BackupsContent(BackupsState(loading = false), fmt, {}, {}, {}) }
         rule.onNodeWithText("No backup exists yet.", substring = true).assertExists()

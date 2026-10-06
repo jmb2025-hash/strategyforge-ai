@@ -78,7 +78,9 @@ class BackupService(
             .sortedByDescending { it.name }
             .map { view(it) }
 
-    fun create(): BackupResult {
+    /** [tag] (up to 4 lowercase letters) marks the file's kind in its name, for example "auto" for daily backups (D-069). */
+    fun create(tag: String = ""): BackupResult {
+        require(Regex("^[a-z]{0,4}$").matches(tag)) { "Invalid backup tag" }
         val folder = folder(create = true) ?: throw Problems.unavailable("backups-unavailable", "Backup storage is not available on this device")
         val now = clock.instant()
         val tables = JsonObject(TABLES.associateWith { dump(it) })
@@ -94,7 +96,7 @@ class BackupService(
                     "tables" to tables,
                 ),
             )
-        val name = "strategyforge-${STAMP.format(now)}-${UUID.randomUUID().toString().take(6)}.sfbk"
+        val name = "strategyforge-${STAMP.format(now)}-$tag${UUID.randomUUID().toString().take(if (tag.isEmpty()) 6 else 4)}.sfbk"
         val tmp = File(folder, "$name.tmp")
         GZIPOutputStream(tmp.outputStream()).use { it.write(doc.toString().toByteArray(Charsets.UTF_8)) }
         val file = File(folder, name)
@@ -108,6 +110,22 @@ class BackupService(
         audit.record(AuditCategory.OPERATIONS, "BACKUP_CREATED", details = mapOf("name" to name, "sha256" to sha, "rows" to rows))
         return BackupResult(view(file), sha, SCHEMA_VERSION, TABLES.size, rows)
     }
+
+    /** Deletes the oldest backups whose name carries [tag], keeping the newest [keep] (D-069). */
+    fun prune(
+        tag: String,
+        keep: Int,
+    ) {
+        folder(create = false)
+            ?.listFiles { f -> f.isFile && NAME.matches(f.name) && f.name.substringAfterLast('-').startsWith(tag) }
+            .orEmpty()
+            .sortedByDescending { it.name }
+            .drop(keep)
+            .forEach { it.delete() }
+    }
+
+    /** The backup file itself, for copying it elsewhere (D-069). */
+    fun fileOf(name: String): File = file(name)
 
     fun verify(name: String): BackupVerification =
         try {

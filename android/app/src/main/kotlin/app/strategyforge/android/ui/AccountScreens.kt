@@ -127,6 +127,8 @@ fun BackupsScreen(
             },
             onRestore = { restoring = it },
             onImport = { pick.launch(arrayOf("*/*")) },
+            onAuto = vm::setAuto,
+            onRunAuto = vm::runAuto,
         )
         ReauthHost(action, session, vm)
     }
@@ -153,11 +155,15 @@ fun BackupsContent(
     onSaveCopy: (String) -> Unit = {},
     onRestore: (String) -> Unit = {},
     onImport: () -> Unit = {},
+    onAuto: (Boolean) -> Unit = {},
+    onRunAuto: () -> Unit = {},
 ) {
     SectionTitle("Backups")
+    state.auto?.let { a -> AutoBackupCard(a, fmt, onAuto, onRunAuto) }
     Text(
-        "Backups are kept in the app's private storage and contain no AI keys. Save a copy somewhere safe (for example Google Drive) before uninstalling or moving to a new phone; " +
-            "restore it here with \"Restore from a file\".",
+        "Backups hold your portfolios, plans, orders and history; they contain no AI keys or stock data key (add those again after a reinstall). " +
+            "Backups listed below are kept inside the app and are deleted if the app is uninstalled; the daily copies in Downloads are not. " +
+            "To get your data back after a reinstall, tap \"Restore from a file\" and pick the newest file in Downloads/StrategyForge.",
     )
     Button(onClick = onCreate, modifier = Modifier.fillMaxWidth()) { Text("Back up now") }
     OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Restore from a file") }
@@ -189,6 +195,34 @@ fun BackupsContent(
 }
 
 private const val KIB = 1024L
+
+/** The daily backup to Downloads (D-069): on/off, the last copy and where it is, and "back up now". */
+@Composable
+fun AutoBackupCard(
+    a: app.strategyforge.android.core.model.AutoBackupInfo,
+    fmt: Formatters,
+    onAuto: (Boolean) -> Unit,
+    onRunAuto: () -> Unit,
+) {
+    SfCard(Modifier.testTag("auto-backup")) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Daily backup to Downloads", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Once a day the app saves a backup in Downloads/StrategyForge, which stays on the phone even if the app is uninstalled. The last 7 are kept.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            androidx.compose.material3.Switch(checked = a.enabled, onCheckedChange = onAuto, modifier = Modifier.testTag("auto-backup-switch"))
+        }
+        if (!a.exportAvailable) Banner("This build cannot save to Downloads; daily backups stay inside the app.", BannerKind.WARNING)
+        a.lastAt?.let { LabelValue("Last saved", fmt.dateTime(it)) }
+        a.lastLocation?.let { Text(it, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+        if (a.enabled) a.nextDueAt?.let { LabelValue("Next", fmt.dateTime(it)) }
+        a.lastError?.let { Banner("The last daily backup failed: $it. It is tried again within the hour.", BannerKind.ERROR) }
+        OutlinedButton(onClick = onRunAuto, modifier = Modifier.fillMaxWidth().testTag("auto-backup-now")) { Text("Back up to Downloads now") }
+    }
+}
 
 // ------------------------------------------------------------------ exports (FR-105)
 

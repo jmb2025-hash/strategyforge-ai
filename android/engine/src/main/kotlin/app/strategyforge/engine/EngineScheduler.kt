@@ -85,6 +85,12 @@ class EngineScheduler(
             lastRun["tsx"] = now
             ran += "tsx"
         }
+        // The daily backup (D-069) runs in both modes; it checks often but writes once a day.
+        if (lastRun["auto-backup"]?.let { now.isBefore(it.plus(AUTO_BACKUP_CHECK)) } != true) {
+            runCatching { engine.autoBackups.runIfDue() }.onFailure { log.error("Daily backup check failed", it) }
+            lastRun["auto-backup"] = now
+            ran += "auto-backup"
+        }
         runCatching { syncStreams(mode == MarketMode.LIVE) }.onFailure { log.error("Stream sync failed", it) }
         if (mode == MarketMode.DEMO) {
             val step = demoStepMinutes
@@ -111,6 +117,9 @@ class EngineScheduler(
 
         /** How often TSX portfolio plans refresh their state and intraday prices (daily data downloads are at most every few hours). */
         val TSX_EVERY: Duration = Duration.ofMinutes(1)
+
+        /** How often the scheduler asks whether the daily backup is due (D-069). */
+        val AUTO_BACKUP_CHECK: Duration = Duration.ofMinutes(15)
 
         /** How often the foreground service should call [tick]. */
         val TICK_INTERVAL: Duration = Duration.ofSeconds(5)

@@ -124,6 +124,8 @@ data class BackupsState(
     val verifications: Map<String, BackupVerification> = emptyMap(),
     val loading: Boolean = true,
     val loadError: String? = null,
+    /** The daily backup to Downloads (D-069). */
+    val auto: app.strategyforge.android.core.model.AutoBackupInfo? = null,
 )
 
 /** FR-112: on-device backups, copies saved to and restored from files the owner picks. */
@@ -146,10 +148,25 @@ class BackupsViewModel
                 runCatching { repo.backups() }
                     .onSuccess { items -> _state.update { it.copy(items = items, loading = false, loadError = null) } }
                     .onFailure { e -> _state.update { it.copy(loading = false, loadError = Repository.message(e)) } }
+                runCatching { repo.autoBackup() }.onSuccess { a -> _state.update { it.copy(auto = a) } }
             }
         }
 
         fun create() = act("Backup created") { repo.createBackup() }
+
+        fun setAuto(enabled: Boolean) =
+            act(if (enabled) "Daily backup to Downloads turned on" else "Daily backup turned off") {
+                val a = repo.setAutoBackup(enabled)
+                _state.update { it.copy(auto = a) }
+            }
+
+        /** Backs up now and copies it to Downloads; a failed copy is reported here. */
+        fun runAuto() =
+            act("Backup saved to Downloads") {
+                val a = repo.runAutoBackup()
+                _state.update { it.copy(auto = a) }
+                a.lastError?.let { error("The backup could not be copied to Downloads: $it") }
+            }
 
         fun verify(name: String) =
             act("Verification finished") {

@@ -347,6 +347,8 @@ fun DashboardContent(
     if (p == null) {
         EmptyState("No active paper portfolio yet.", Art.PORTFOLIO) {
             Button(onClick = { onOpen("portfolio") }) { Text("Create a portfolio") }
+            // After a reinstall the daily backup in Downloads brings everything back (D-069).
+            OutlinedButton(onClick = { onOpen("backups") }, modifier = Modifier.testTag("restore-backup")) { Text("Restore from a backup") }
         }
     } else {
         HeroCard(

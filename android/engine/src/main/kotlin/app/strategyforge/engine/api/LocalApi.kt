@@ -188,6 +188,17 @@ class LocalApi(
             else -> "Error"
         }
 
+    private fun autoBackup(a: app.strategyforge.engine.operations.AutoBackupStatus) =
+        mapOf(
+            "enabled" to a.enabled,
+            "exportAvailable" to a.exportAvailable,
+            "lastAt" to a.lastAt,
+            "lastName" to a.lastName,
+            "lastLocation" to a.lastLocation?.takeIf { it.isNotBlank() },
+            "lastError" to a.lastError,
+            "nextDueAt" to a.nextDueAt,
+        )
+
     private fun instrumentHit(h: app.strategyforge.engine.market.InstrumentHit) =
         mapOf(
             "symbol" to h.symbol,
@@ -1233,6 +1244,13 @@ class LocalApi(
     }
 
     private fun backups() {
+        get("/v1/backups/auto") { _, _ -> autoBackup(engine.autoBackups.status()) }
+        put("/v1/backups/auto") { r, _ ->
+            val on = obj(r).str("enabled")?.toBooleanStrictOrNull() ?: throw Problems.badRequest("missing-field", "enabled must be true or false")
+            engine.autoBackups.enabled = on
+            autoBackup(engine.autoBackups.status())
+        }
+        post("/v1/backups/auto/run") { _, _ -> autoBackup(engine.autoBackups.run()) }
         get("/v1/backups") { _, _ -> mapOf("items" to engine.backups.list().map { backupFile(it) }) }
         post("/v1/backups", 201) { _, _ ->
             val b = engine.backups.create()

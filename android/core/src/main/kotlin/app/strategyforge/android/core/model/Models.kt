@@ -906,3 +906,16 @@ data class InstrumentInfo(
     val tradingPriceAt: String? = null,
     val tradingSource: String? = null,
 )
+
+/** The daily backup to Downloads (D-069). */
+@Serializable
+data class AutoBackupInfo(
+    val enabled: Boolean = true,
+    /** False when this build cannot copy files out of the app. */
+    val exportAvailable: Boolean = false,
+    val lastAt: String? = null,
+    val lastName: String? = null,
+    val lastLocation: String? = null,
+    val lastError: String? = null,
+    val nextDueAt: String? = null,
+)

@@ -110,6 +110,8 @@ class Engine(
     stockStream: () -> app.strategyforge.engine.market.QuoteStream? = { null },
     /** Symbol search and display prices for the order screen (Yahoo Finance in the app, D-065). */
     symbolDirectory: () -> app.strategyforge.engine.market.SymbolDirectory? = { null },
+    /** Copies a daily backup out of the app (to Downloads on the phone) and says where (D-069). */
+    exportBackup: ((java.io.File) -> String)? = null,
 ) {
     private val log = EngineLog.of(javaClass)
 
@@ -216,6 +218,9 @@ class Engine(
     val backups =
         app.strategyforge.engine.operations
             .BackupService(db, backupDir, audit, auth, wall)
+    val autoBackups =
+        app.strategyforge.engine.operations
+            .AutoBackups(db, backups, audit, wall, exportBackup)
 
     // ------------------------------------------------------------------ AI research
     val aiProviders = AiProviderService(db, secrets, aiClients, audit, auth, wall, allowLocalProviderHttp)

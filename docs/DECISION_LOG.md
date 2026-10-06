@@ -1123,3 +1123,18 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Context:** The security scan began failing on CVE-2026-47884 (CRITICAL, spring-webmvc 6.2.19: remote code execution through XsltView path handling), which blocked phone releases. The fix exists only in Spring 7.0.9 (Spring Boot 4), and no 6.2.x release fixes it. Only the legacy `backend/` server depends on Spring. The phone app runs its engine on the device and does not include Spring, and `backend/` uses no XsltView or XSLT views.
 - **Decision:** The owner chose to accept the finding for 30 days rather than upgrade or retire `backend/` now. `.trivyignore` lists it with this justification and an expiry (`exp:2026-11-05`), after which the scan fails again.
 - **Follow-up:** by 2026-11-05, upgrade `backend/` to Spring Boot 4, or remove it if it is no longer needed.
+
+## D-069 Daily backup to Downloads
+
+- **Date:** 2026-10-06
+- **Context:** The owner uninstalled the app before installing an update. That deleted its data and its backups, because backups were kept in app-private storage. They asked for a daily backup that would survive an uninstall.
+- **Decision:**
+  - **Daily backup.** `AutoBackups` runs once a day, in both modes, when there is something to keep (at least one portfolio or strategy). It writes a backup tagged `auto` (`strategyforge-...-autoXXXX.sfbk`) and hands it to the app's `exportBackup`. On the phone that is `DownloadsBackups`, which saves it with MediaStore to `Download/StrategyForge/` (no storage permission needed).
+  - **Kept to seven.** The newest 7 daily backups are kept, both in the app and in Downloads. Manual backups, and files from an earlier install, are never deleted.
+  - **Failures.** A failure is recorded, shown on the Backups screen and retried after an hour. It never affects trading.
+  - **Settings.** The daily backup is on by default and can be turned off on More → Backups (`GET/PUT /v1/backups/auto`). "Back up to Downloads now" runs it at once (`POST /v1/backups/auto/run`).
+  - **Restoring after a reinstall.** Home, when empty, offers "Restore from a backup". Backups → "Restore from a file" picks the newest file in Downloads/StrategyForge. API keys are not in backups and are entered again.
+- **Tests:**
+  - Engine: nothing is backed up before there is data, then once a day with a copy outside the app; seven are kept and manual backups survive; a failed copy is retried after an hour; turning it off stops it; the scheduler runs it in demo mode; with no export target, backups stay in the app; the Repository round trip works.
+  - App: the backup card and the failure banner.
+- **Version:** 1.22.0 (versionCode 33).

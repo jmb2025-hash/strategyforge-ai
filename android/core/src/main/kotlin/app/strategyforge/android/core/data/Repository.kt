@@ -972,6 +972,29 @@ class Repository(
 
     suspend fun backups(): List<BackupFile> = api.decode(api.get("/v1/backups").body.jsonObject["items"] ?: JsonArray(emptyList()), ListSerializer(BackupFile.serializer()))
 
+    /** The daily backup to Downloads and its last outcome (D-069). */
+    suspend fun autoBackup(): app.strategyforge.android.core.model.AutoBackupInfo =
+        api.get(
+            "/v1/backups/auto",
+            app.strategyforge.android.core.model.AutoBackupInfo
+                .serializer(),
+        )
+
+    suspend fun setAutoBackup(enabled: Boolean): app.strategyforge.android.core.model.AutoBackupInfo =
+        api.decode(
+            api.put("/v1/backups/auto", buildJsonObject { put("enabled", enabled.toString()) }).body,
+            app.strategyforge.android.core.model.AutoBackupInfo
+                .serializer(),
+        )
+
+    /** Backs up now and copies the file to Downloads. */
+    suspend fun runAutoBackup(): app.strategyforge.android.core.model.AutoBackupInfo =
+        api.decode(
+            api.post("/v1/backups/auto/run").body,
+            app.strategyforge.android.core.model.AutoBackupInfo
+                .serializer(),
+        )
+
     suspend fun createBackup(): BackupResult = api.decode(api.post("/v1/backups").body, BackupResult.serializer())
 
     suspend fun verifyBackup(name: String): BackupVerification {

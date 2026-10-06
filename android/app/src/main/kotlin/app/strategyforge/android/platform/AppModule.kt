@@ -83,6 +83,7 @@ object AppModule {
                     cryptoStream = { coinbaseStream },
                     stockStream = { yahooStream },
                     symbolDirectory = { symbolDirectory },
+                    exportBackup = { f -> DownloadsBackups.export(context, f) },
                     equityProvider = { key -> TwelveDataProvider(key, Clock.systemUTC()) },
                     secrets = secrets,
                     aiClients = aiClients,

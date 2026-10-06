@@ -222,6 +222,17 @@ class LocalApiAppTest {
             ).isEqualTo(p.id)
             assertThat(host.call { engine.audit.verifyChain() }).`as`("audit chain intact after restore").isNull()
 
+            // D-069 the daily backup through the app's calls (no Downloads in tests: kept in the app).
+            val auto = repo.autoBackup()
+            assertThat(auto.enabled).isTrue()
+            assertThat(auto.exportAvailable).isFalse()
+            val ran = repo.runAutoBackup()
+            assertThat(ran.lastName).contains("-auto")
+            assertThat(ran.lastError).isNull()
+            assertThat(repo.backups().map { it.name }).contains(ran.lastName)
+            assertThat(repo.setAutoBackup(false).enabled).isFalse()
+            assertThat(repo.autoBackup().nextDueAt).isNull()
+
             // A damaged file is reported as invalid, never restored.
             val damaged = File(backups, backup.file.name)
             damaged.writeBytes(damaged.readBytes().also { it[it.size / 2] = (it[it.size / 2] + 1).toByte() })
