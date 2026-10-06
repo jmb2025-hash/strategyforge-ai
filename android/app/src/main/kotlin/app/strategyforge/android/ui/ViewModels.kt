@@ -557,6 +557,13 @@ class StrategyDetailViewModel
             }
 
         fun deactivate() = act("Strategy stopped") { repo.deactivate(id) }
+
+        /** Restarts the paused strategy as it last ran (D-072); autonomous mode asks for the device lock. */
+        fun resume() =
+            act("Running again") {
+                repo.resume(id)
+                runCatching { _slots.value = repo.slots() }
+            }
     }
 
 /** Another strategy holds the slot; [retry] re-sends the activation with KEEP (true) or CLOSE (false). */

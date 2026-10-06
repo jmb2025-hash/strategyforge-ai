@@ -582,6 +582,13 @@ class LocalApi(
                     "leftOpen" to result.leftOpen.map { holding(it) },
                 )
         }
+        post("/v1/strategies/{id}/resume") { _, g ->
+            activation(
+                engine.slots
+                    .resume(uuid(g[0]))
+                    .slot.activation!!,
+            )
+        }
         post("/v1/strategies/{id}/deactivate") { r, g -> engine.strategyControl.deactivate(uuid(g[0]), obj(r).str("reason"))?.let { activation(it) } ?: mapOf("status" to "NOT_ACTIVE") }
         // Symbol search and information for the order screen (D-065).
         get("/v1/instruments") { r, _ ->

@@ -539,6 +539,9 @@ class Repository(
     /** The crypto and stock strategy slots (D-035). */
     suspend fun slots(): List<Slot> = api.get("/v1/slots", ListSerializer(Slot.serializer()))
 
+    /** Restarts a paused strategy as it last ran: same portfolio, share, mode and slot (D-072). */
+    suspend fun resume(strategyId: String): Activation = api.decode(api.post("/v1/strategies/${seg(strategyId)}/resume", buildJsonObject { }).body, Activation.serializer())
+
     suspend fun deactivate(strategyId: String) {
         api.post("/v1/strategies/${seg(strategyId)}/deactivate", buildJsonObject { put("reason", "Paused by owner") })
     }

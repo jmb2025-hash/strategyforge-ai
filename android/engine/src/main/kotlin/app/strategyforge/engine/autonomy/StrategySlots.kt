@@ -175,6 +175,23 @@ class StrategySlots(
             SwitchResult(slots(assetClass).first { it.number == number }, old, if (old != null) positions else null, handedOver, closing, leftOpen)
         }
 
+    /**
+     * Restarts a paused strategy exactly as it last ran (D-072): same portfolio, share, mode and slot.
+     * Autonomous mode still needs the device lock, and a disclosure accepted before still counts only
+     * while its version is current; otherwise the owner reads the new one on the strategy's page.
+     */
+    fun resume(strategyId: UUID): SwitchResult {
+        val s = strategies.get(strategyId)
+        if (s.status.name != "PAUSED") throw Problems.conflict("not-paused", "${s.name} is ${s.status.name.lowercase().replace('_', ' ')}, not paused")
+        val last = activations.history(strategyId).firstOrNull() ?: throw Problems.conflict("never-started", "${s.name} has not run yet: choose a portfolio and start it below")
+        val autonomous = last.mode == ActivationMode.AUTONOMOUS
+        if (autonomous && last.disclosureVersion != AutonomyDisclosure.VERSION) {
+            throw Problems.conflict("disclosure-changed", "The autonomous-mode disclosure has changed since ${s.name} last ran: read and accept it below, then activate.")
+        }
+        val req = ActivationRequest(last.mode, last.portfolioId, last.allocationPercent, disclosureAccepted = autonomous, disclosureVersion = last.disclosureVersion.takeIf { autonomous })
+        return activate(strategyId, req, positions = null, slot = last.slot)
+    }
+
     /** Another running strategy (not in [except]) trading any of [target]'s symbols in [portfolioId]. */
     private fun sharedSymbols(
         target: StrategyView,

@@ -1168,3 +1168,15 @@ When a conflict is unresolved, the safest reversible option is selected.
   - Engine: raising per-trade, per-symbol and crypto limits leaves a running plan active, while tightening the quote-age limit pauses it.
   - Core: dates stored as "never".
 - **Version:** 1.22.2 (versionCode 35).
+
+## D-072 Resume a paused plan with one tap
+
+- **Date:** 2026-10-06
+- **Context:** The owner saw BTC trend core marked Paused on Home and on its results card, but could not find a way to unpause it. The only path was the activation form at the bottom of the strategy's page, where they had to choose the portfolio, share and mode again and accept the disclosure.
+- **Decision:**
+  - **Resume.** `StrategySlots.resume` (`POST /v1/strategies/{id}/resume`) restarts a PAUSED strategy exactly as it last ran: the same portfolio, share, mode and slot. It goes through the usual activation gates.
+  - **Autonomous mode** still needs the device lock. The disclosure the owner accepted earlier counts only while its version is still current; if it has changed, Resume says so and the owner accepts it on the page.
+  - **Strategy page.** A paused strategy shows its reason and a **Resume** button at the top.
+  - **Home.** Each paused or suspended strategy gets an "Open … to resume it ›" link.
+- **Tests:** a paused autonomous plan resumes with the same portfolio, share and mode, and needs the device lock. A strategy that is not paused, or never ran, cannot be resumed.
+- **Version:** 1.23.0 (versionCode 36).

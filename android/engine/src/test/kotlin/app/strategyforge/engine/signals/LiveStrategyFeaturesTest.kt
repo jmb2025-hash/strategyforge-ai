@@ -211,4 +211,41 @@ class LiveStrategyFeaturesTest {
         ).isEqualTo("PAUSED")
         assertThat(e.strategies.get(id).statusReason).contains("risk profile changed")
     }
+
+    @Test
+    fun `D-072 a paused plan resumes as it last ran, and only a paused plan can be resumed`() {
+        val id = e.eligible(base("BTC resume"))
+        val first = e.activate(id, p, ActivationMode.AUTONOMOUS, allocation = "40")
+        assertThrows<app.strategyforge.engine.common.EngineException> { e.slots.resume(id) }
+        e.strategyControl.deactivate(id, "Paused by owner")
+        assertThat(
+            e.strategies
+                .get(id)
+                .status.name,
+        ).isEqualTo("PAUSED")
+        // Autonomous mode needs the device lock again.
+        e.auth.forget()
+        assertThrows<app.strategyforge.engine.common.EngineException> { e.slots.resume(id) }
+        e.auth.confirmed()
+        val a =
+            e.slots
+                .resume(id)
+                .slot.activation!!
+        assertThat(
+            e.strategies
+                .get(id)
+                .status.name,
+        ).isEqualTo("ACTIVE_AUTONOMOUS")
+        assertThat(a.portfolioId).isEqualTo(first.portfolioId)
+        assertThat(a.allocationPercent).isEqualByComparingTo("40")
+        assertThat(a.mode).isEqualTo(ActivationMode.AUTONOMOUS)
+        assertThat(a.id).isNotEqualTo(first.id)
+    }
+
+    @Test
+    fun `D-072 a plan that never ran cannot be resumed`() {
+        val id = e.eligible(base("BTC never ran"))
+        val err = assertThrows<app.strategyforge.engine.common.EngineException> { e.slots.resume(id) }
+        assertThat(err.code).isIn("not-paused", "never-started")
+    }
 }

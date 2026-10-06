@@ -396,6 +396,16 @@ fun StrategyDetailScreen(
             SectionTitle(s.name)
             StatusChip(s.status)
             s.statusReason?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            // A paused plan restarts with one tap, as it last ran (D-072).
+            if (s.status == "PAUSED") {
+                Button(onClick = vm::resume, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("resume")) { Text("Resume") }
+                Text(
+                    "Resume restarts it with the same portfolio, share and mode as before. To change those, use the settings at the bottom of this page instead.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ActionFeedback(action, onReauth = { showReauth = true })
+            }
             LabelValue("Asset class", s.assetClass)
             LabelValue("Version", "${s.currentVersion ?: "-"} (${s.contentHash?.take(16) ?: "-"})")
             d.currentVersion?.let { LabelValue("Source", it.source + (it.sourceRef?.let { r -> " · $r" } ?: "")) }
@@ -528,7 +538,9 @@ fun StrategyDetailScreen(
                 ) { Text(if (autonomous) "Activate in autonomous mode" else "Activate with notifications") }
             }
         }
-        ActionFeedback(action, onReauth = { showReauth = true })
+        // A paused strategy shows its feedback by the Resume button instead.
+        val paused = (state as? app.strategyforge.android.core.cache.Resource.Data)?.value?.strategy?.status == "PAUSED"
+        if (!paused) ActionFeedback(action, onReauth = { showReauth = true })
         TextButton(onClick = {
             vm.refresh()
             vm.loadExtras()

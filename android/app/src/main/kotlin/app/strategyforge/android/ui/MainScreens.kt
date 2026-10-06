@@ -381,6 +381,10 @@ fun DashboardContent(
     if (autonomous > 0) Banner("Autonomous paper trading is active for $autonomous strategy(ies).", BannerKind.WARNING)
     d.strategies.filter { it.status == "SUSPENDED" || it.status == "PAUSED" }.forEach {
         Banner("${it.name} is ${it.status.lowercase()}${it.statusReason?.let { r -> ": $r" } ?: ""}", BannerKind.WARNING)
+        // Opens the strategy, where Resume restarts a paused one (D-072).
+        TextButton(onClick = { onOpen("strategy/${it.id}") }, modifier = Modifier.testTag("open-paused-${it.id}")) {
+            Text(if (it.status == "PAUSED") "Open ${it.name} to resume it ›" else "Open ${it.name} ›")
+        }
     }
     SectionTitle("Recommendations")
     if (d.pendingRecommendations.items.isEmpty()) {
