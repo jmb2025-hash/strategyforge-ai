@@ -28,7 +28,6 @@ import app.strategyforge.engine.execution.TimeInForce
 import app.strategyforge.engine.market.BarSchedule
 import app.strategyforge.engine.market.CandleData
 import app.strategyforge.engine.market.ClockMode
-import app.strategyforge.engine.market.DataStatus
 import app.strategyforge.engine.market.Instrument
 import app.strategyforge.engine.market.InstrumentService
 import app.strategyforge.engine.market.MarketClock
@@ -169,9 +168,10 @@ class EvaluationService(
             def.symbols.forEach { sym ->
                 val i = instruments.bySymbol(sym)
                 var quote = market.verifyQuote(i, def.maximumQuoteAgeSeconds, now)
-                // Right after a plan starts no quote may have been fetched yet: fetch one now rather than fail (D-064).
-                // A quote that went stale still blocks, so a feed that stops refreshing pauses the plan.
-                if (quote.status == DataStatus.MISSING) {
+                // No quote fetched yet (a plan just started, D-064) or an old stored one (after a restore or with the
+                // phone off, D-067): fetch one now rather than fail. If the fetch fails the quote stays unverified and
+                // blocks, so a feed that stops refreshing still pauses the plan; deactivated instruments are not fetched.
+                if (!quote.verified && i.active) {
                     runCatching { market.refreshQuote(i) }
                     quote = market.verifyQuote(i, def.maximumQuoteAgeSeconds, now)
                 }

@@ -160,4 +160,22 @@ class LiveStrategyFeaturesTest {
                 .status.name,
         ).isEqualTo("ACTIVE_AUTONOMOUS")
     }
+
+    @Test
+    fun `D-067 a plan whose stored quote is hours old, as after a restore or a phone switched off, fetches a fresh one and keeps running`() {
+        val id = e.eligible(base("BTC after restore"))
+        val btc = e.instruments.bySymbol("BTC-USD")
+        e.market.refreshQuote(btc)
+        // Time moves on with nothing refreshing the stored quote.
+        e.marketClock.setReplayTime(e.marketClock.now().plusSeconds(3 * 3600))
+        assertThat(e.market.verifyQuote(btc, 60, e.marketClock.now()).verified).`as`("stored quote is stale").isFalse()
+        e.activate(id, p, ActivationMode.AUTONOMOUS)
+        val r = e.evaluation.evaluateAll()
+        assertThat(r.map { it.status }).doesNotContain("BLOCKED")
+        assertThat(
+            e.strategies
+                .get(id)
+                .status.name,
+        ).isEqualTo("ACTIVE_AUTONOMOUS")
+    }
 }

@@ -1105,3 +1105,14 @@ When a conflict is unresolved, the safest reversible option is selected.
   - Core: amount form checks.
   - App: the amount hint.
 - **Version:** 1.21.0 (versionCode 31).
+
+## D-067 A plan with an old stored price fetches a fresh one instead of pausing
+
+- **Date:** 2026-10-06
+- **Context:** The owner uninstalled the app before installing 1.20.0, which deletes all of an app's data on Android, and then restored the backup from 00:02 UTC Oct 6. The BTC trend core plan was running in that backup, but did not run after the restore. The backup's stored BTC quote was hours old. The plan's first check found it STALE and blocked with STALE_MARKET_DATA, which pauses autonomy. D-064 fetched a quote on demand only when none existed (MISSING). The same happens whenever the phone has been off or the app stopped long enough for the stored price to age.
+- **Decision:**
+  - **Refresh on any unverified quote.** When a plan is checked and its quote is not verified for any reason (missing, stale, from an inactive source), the engine fetches one before deciding, as long as the instrument is active.
+  - **A real feed failure still pauses.** If the fetch fails, the quote stays unverified and blocks, so autonomy still pauses (FR-074). This is tested by deactivating the instrument.
+  - **Plans started after a backup are not in it.** They have to be started again after a restore.
+- **Tests:** a plan whose stored quote is three hours old keeps running and is not blocked. The FR-074 autonomy test still pauses.
+- **Version:** 1.21.1 (versionCode 32).
