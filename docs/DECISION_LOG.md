@@ -1049,3 +1049,15 @@ When a conflict is unresolved, the safest reversible option is selected.
   - Through the Repository, tightening needs no device lock and loosening does.
   - `RiskLimitsUiTest`.
 - **Version:** 1.19.0 (versionCode 28). It installs over 1.18.2 and keeps the app's data (D-059).
+
+## D-064 A started or resumed plan checks the current bar straight away
+
+- **Date:** 2026-10-06
+- **Context:** The owner started the BTC trend core at 11:51 and expected it to buy. Its rule (hold while the daily close is above the 100-day average) was true, but nothing happened for about nine hours. The first check ran before any BTC quote had arrived, so it was blocked as STALE_MARKET_DATA and autonomy paused the plan. After re-authorization the plan's check of the same daily bar was refused as a duplicate, so it waited for the next daily close at 00:00 UTC. Crypto trades all day, but daily-bar plans decide once per completed day.
+- **Decision:**
+  - **Missing first quote.** When a plan is checked and no quote has been received yet for a symbol, the engine fetches one on demand before deciding. A quote that has gone stale still blocks and pauses autonomy, as before (FR-074).
+  - **Re-check on restart.** A new activation (a plan started again, or resumed after a pause) may re-check the current bar when an earlier activation's check of it produced no signal. Checks that produced a signal are kept, so a bar never trades twice.
+- **Tests:**
+  - A plan activated before any quote exists is not blocked and produces exactly one ENTER_LONG on its first check.
+  - The autonomy test still pauses on a feed that stops refreshing.
+- **Version:** 1.19.1 (versionCode 29). It installs over 1.19.0 and keeps the app's data (D-059).

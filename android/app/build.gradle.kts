@@ -28,8 +28,8 @@ android {
         applicationId = "app.strategyforge.android"
         minSdk = 29
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.19.0"
+        versionCode = 29
+        versionName = "1.19.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

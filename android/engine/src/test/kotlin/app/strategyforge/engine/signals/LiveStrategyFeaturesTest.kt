@@ -140,4 +140,24 @@ class LiveStrategyFeaturesTest {
         assertThat(manual.order.status).isEqualTo(OrderStatus.REJECTED)
         assertThat(manual.order.rejectionReason).contains("TRADE_VALUE")
     }
+
+    @Test
+    fun `D-064 a plan evaluated before any quote was fetched gets one and enters at once`() {
+        val id = e.eligible(base("BTC at start"))
+        assertThat(e.market.latestQuote(e.instruments.bySymbol("BTC-USD").id)).`as`("no quote fetched yet").isNull()
+        e.activate(id, p, ActivationMode.AUTONOMOUS)
+        val r = e.evaluation.evaluateAll()
+        assertThat(r.map { it.status }).doesNotContain("BLOCKED")
+        assertThat(
+            e.db
+                .sql("select count(*) from signals where strategy_id = :s and action = 'ENTER_LONG'")
+                .param("s", id)
+                .long(),
+        ).isEqualTo(1)
+        assertThat(
+            e.strategies
+                .get(id)
+                .status.name,
+        ).isEqualTo("ACTIVE_AUTONOMOUS")
+    }
 }

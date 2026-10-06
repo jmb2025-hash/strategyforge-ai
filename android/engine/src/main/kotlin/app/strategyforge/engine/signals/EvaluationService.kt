@@ -28,6 +28,7 @@ import app.strategyforge.engine.execution.TimeInForce
 import app.strategyforge.engine.market.BarSchedule
 import app.strategyforge.engine.market.CandleData
 import app.strategyforge.engine.market.ClockMode
+import app.strategyforge.engine.market.DataStatus
 import app.strategyforge.engine.market.Instrument
 import app.strategyforge.engine.market.InstrumentService
 import app.strategyforge.engine.market.MarketClock
@@ -167,7 +168,13 @@ class EvaluationService(
         if (blocks.isEmpty()) {
             def.symbols.forEach { sym ->
                 val i = instruments.bySymbol(sym)
-                val quote = market.verifyQuote(i, def.maximumQuoteAgeSeconds, now)
+                var quote = market.verifyQuote(i, def.maximumQuoteAgeSeconds, now)
+                // Right after a plan starts no quote may have been fetched yet: fetch one now rather than fail (D-064).
+                // A quote that went stale still blocks, so a feed that stops refreshing pauses the plan.
+                if (quote.status == DataStatus.MISSING) {
+                    runCatching { market.refreshQuote(i) }
+                    quote = market.verifyQuote(i, def.maximumQuoteAgeSeconds, now)
+                }
                 if (!quote.verified) {
                     blocks += if (quote.status.name in setOf("PROVIDER_ERROR", "UNSUPPORTED")) "PROVIDER_UNAVAILABLE" else "STALE_MARKET_DATA"
                     details += "$sym quote ${quote.status}: ${quote.detail}"
@@ -231,6 +238,19 @@ class EvaluationService(
         a: Activation,
         bucket: Instant,
     ): UUID? {
+        // A new activation (started again, resumed after a pause) re-checks the current bar when an earlier
+        // activation's check of it produced no signal, for example one blocked by missing data at start (D-064).
+        db
+            .sql(
+                """
+                delete from strategy_evaluations
+                where strategy_id = :s and bucket_start = :b and activation_id <> :a and status <> 'CLAIMED'
+                  and not exists (select 1 from signals where signals.evaluation_id = strategy_evaluations.id)
+                """.trimIndent(),
+            ).param("s", a.strategyId)
+            .param("b", bucket)
+            .param("a", a.id)
+            .update()
         val id = UUID.randomUUID()
         val n =
             db
