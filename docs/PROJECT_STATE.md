@@ -171,6 +171,8 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
         amount-too-small/no-price on field "amount". Order form Amount ($) (default) / Quantity with estimate hint.
 - 1.21.1 (D-067) STALE QUOTE AT CHECK: EvaluationService refreshes any unverified quote of an active instrument
         before blocking (restore / phone-off left hours-old quotes -> STALE_MARKET_DATA -> autonomy paused).
+- D-068 SECURITY: CVE-2026-47884 (spring-webmvc, legacy backend only, no XsltView) accepted in .trivyignore until
+        2026-11-05 by owner choice; upgrade backend/ to Spring Boot 4 or retire it before then.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.
@@ -203,7 +205,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - Every user-facing update ships a new APK via CI to release tag phone-latest, signed with the owner's PERMANENT key
   (D-059: phone-release refuses any other certificate; updates install over the old app and keep all data). CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-068). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-069). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

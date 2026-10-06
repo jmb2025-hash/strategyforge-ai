@@ -1116,3 +1116,10 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Plans started after a backup are not in it.** They have to be started again after a restore.
 - **Tests:** a plan whose stored quote is three hours old keeps running and is not blocked. The FR-074 autonomy test still pauses.
 - **Version:** 1.21.1 (versionCode 32).
+
+## D-068 Accept CVE-2026-47884 in the legacy backend for 30 days
+
+- **Date:** 2026-10-06
+- **Context:** The security scan began failing on CVE-2026-47884 (CRITICAL, spring-webmvc 6.2.19: remote code execution through XsltView path handling), which blocked phone releases. The fix exists only in Spring 7.0.9 (Spring Boot 4), and no 6.2.x release fixes it. Only the legacy `backend/` server depends on Spring. The phone app runs its engine on the device and does not include Spring, and `backend/` uses no XsltView or XSLT views.
+- **Decision:** The owner chose to accept the finding for 30 days rather than upgrade or retire `backend/` now. `.trivyignore` lists it with this justification and an expiry (`exp:2026-11-05`), after which the scan fails again.
+- **Follow-up:** by 2026-11-05, upgrade `backend/` to Spring Boot 4, or remove it if it is no longer needed.

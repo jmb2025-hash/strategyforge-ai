@@ -1,2 +1,8 @@
 # Accepted findings must be listed with justification and review date.
-# (none)
+
+# CVE-2026-47884 (spring-webmvc 6.2.19, CRITICAL): RCE via XsltView path handling. Fixed only in
+# Spring 7.0.9 (Spring Boot 4); no 6.2.x fix exists. Only the legacy backend/ server pulls it in:
+# the phone app (android/) does not include Spring, and backend/ uses no XsltView or XSLT views.
+# Accepted by the owner on 2026-10-06 (D-068). Review by 2026-11-05: upgrade backend/ to Spring
+# Boot 4 or retire it.
+CVE-2026-47884 exp:2026-11-05
