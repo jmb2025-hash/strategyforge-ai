@@ -41,6 +41,9 @@ class MarketDataIngestion(
     private val clock: MarketClock,
     private val diagnostics: DiagnosticsService,
 ) {
+    /** When each instrument's price refreshes started failing without a break (D-074). */
+    private val failingSince = java.util.concurrent.ConcurrentHashMap<java.util.UUID, java.time.Instant>()
+
     private val log = EngineLog.of(javaClass)
     val lastReport = AtomicReference<IngestionReport?>(null)
 
@@ -84,18 +87,25 @@ class MarketDataIngestion(
                     QuoteVerification(DataStatus.PROVIDER_ERROR, null, null, it.javaClass.simpleName)
                 }
             val quote = v.quote
-            if (v.verified && quote != null) {
+            // A failed refresh does not matter while the last stored price is still fresh (D-074).
+            val fresh = !v.verified && runCatching { data.verifyQuote(i, FRESH_ENOUGH.seconds, now).verified }.getOrDefault(false)
+            if ((v.verified && quote != null) || fresh) {
                 verified++
-                runCatching { alerts.evaluate(i, quote) }.onFailure { log.warn("Alert evaluation failed for {}", i.symbol, it) }
+                failingSince.remove(i.id)
+                if (quote != null && v.verified) runCatching { alerts.evaluate(i, quote) }.onFailure { log.warn("Alert evaluation failed for {}", i.symbol, it) }
             } else {
                 failures[i.symbol] = "${v.status}: ${v.detail}"
-                if (MarketCalendar.state(i.assetClass, now) == SessionState.OPEN) {
+                // Phones drop the network for a minute now and then (screen off, Wi-Fi hand-over): alert only when
+                // the data has been unavailable for ALERT_AFTER without a break (D-074).
+                val since = failingSince.getOrPut(i.id) { now }
+                if (Duration.between(since, now) >= ALERT_AFTER && MarketCalendar.state(i.assetClass, now) == SessionState.OPEN) {
                     val bucket = now.truncatedTo(ChronoUnit.HOURS)
                     notifications.notify(
                         NotificationCategory.STALE_DATA,
                         Severity.CRITICAL,
                         "Market data unavailable for ${i.symbol}",
-                        "Quote status ${v.status}: ${v.detail}. New positions in ${i.symbol} are blocked until data is verified.",
+                        "No verified price for ${Duration.between(since, now).toMinutes()} minutes (${v.status}: ${v.detail}). " +
+                            "New positions in ${i.symbol} are blocked until data is verified. Check the phone's internet connection; Settings → Market data has a test.",
                         "Instrument",
                         i.id,
                         "stale:${i.id}:$bucket",
@@ -201,3 +211,9 @@ class ReplayService(
         const val MAX_ADVANCE_MINUTES = 60L * 24 * 7
     }
 }
+
+/** A stored price this recent still counts when one refresh fails (D-074). */
+private val FRESH_ENOUGH: Duration = Duration.ofMinutes(2)
+
+/** How long data must stay unavailable before the owner is alerted (D-074). */
+val ALERT_AFTER: Duration = Duration.ofMinutes(5)

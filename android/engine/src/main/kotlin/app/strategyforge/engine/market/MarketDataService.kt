@@ -55,7 +55,10 @@ class MarketDataService(
             }
             is ProviderResult.Failed -> {
                 val status = if (r.kind == FailureKind.MALFORMED) DataStatus.MALFORMED else DataStatus.PROVIDER_ERROR
-                flag(instrument.id, QUOTE_KEY, status, "${r.kind}: ${r.detail}")
+                // Bad data is flagged until good data replaces it. A failed request (the phone briefly offline) says
+                // nothing about the stored price, so it is not flagged: that price stays usable until it is too old,
+                // which the age limit enforces as before (D-074).
+                if (status == DataStatus.MALFORMED) flag(instrument.id, QUOTE_KEY, status, "${r.kind}: ${r.detail}")
                 QuoteVerification(status, latestQuote(instrument.id), null, "${r.kind}: ${r.detail}")
             }
         }

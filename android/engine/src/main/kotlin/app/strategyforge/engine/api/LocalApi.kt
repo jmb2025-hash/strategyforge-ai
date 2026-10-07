@@ -282,6 +282,23 @@ class LocalApi(
             val t = engine.equitySource()?.diagnose(engine.wall.instant()) ?: throw Problems.unavailable("stocks-unavailable", "Stock data is not available in this build")
             stocks() + mapOf("lastTestStatus" to t.status, "lastTestDetail" to t.detail)
         }
+        // Checks the phone can reach Coinbase right now, and how fresh the last BTC price is (D-074).
+        post("/v1/market-data/crypto/test") { _, _ ->
+            val now = engine.wall.instant()
+            val t = engine.cryptoSource()?.diagnose(now) ?: throw Problems.unavailable("crypto-unavailable", "Live crypto data is not available in this build")
+            val btc = engine.instruments.findBySymbol("BTC-USD")?.let { engine.market.latestQuote(it.id) }
+            val age =
+                btc?.let {
+                    java.time.Duration
+                        .between(it.receivedAt, now)
+                        .seconds
+                        .coerceAtLeast(0)
+                }
+            val detail =
+                (if (t.status.name == "OK") "Coinbase answered. " else "Coinbase could not be reached: ${t.detail}. Check the phone's internet connection. ") +
+                    (age?.let { "Last BTC price was received ${if (it < 120) "$it s" else "${it / 60} min"} ago." } ?: "No BTC price has been received yet.")
+            mapOf("source" to "Coinbase", "status" to t.status, "detail" to detail)
+        }
         post("/v1/market-data/futures/test") { _, _ ->
             val (source, t) = engine.derivatives.diagnoseLive(engine.wall.instant())
             mapOf("source" to source, "status" to t.status, "detail" to t.detail)

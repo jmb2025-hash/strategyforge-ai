@@ -262,6 +262,8 @@ data class EngineUiState(
     val runtime: RuntimeState? = null,
     val stocks: StockData? = null,
     val futures: app.strategyforge.android.core.model.FuturesTest? = null,
+    /** The last crypto data test (D-074). */
+    val crypto: app.strategyforge.android.core.model.FuturesTest? = null,
     val streams: app.strategyforge.android.core.model.StreamsInfo? = null,
     val runInBackground: Boolean = true,
     val keepAwake: Boolean = true,
@@ -313,6 +315,12 @@ class EngineViewModel
                 _state.update { it.copy(stocks = t) }
             }
 
+        fun testCrypto() =
+            act("Crypto data test finished") {
+                val t = repo.testCryptoData()
+                _state.update { it.copy(crypto = t) }
+            }
+
         fun testFutures() =
             act("Futures data test finished") {
                 val t = repo.testFuturesData()
@@ -360,6 +368,7 @@ fun EngineScreen(
             onStockKey = vm::setStockKey,
             onTestStocks = vm::testStocks,
             onTestFutures = vm::testFutures,
+            onTestCrypto = vm::testCrypto,
             onOpenUrl = { url ->
                 try {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -396,6 +405,7 @@ fun EngineContent(
     onStockKey: (String?) -> Unit = {},
     onTestStocks: () -> Unit = {},
     onTestFutures: () -> Unit = {},
+    onTestCrypto: () -> Unit = {},
     onOpenUrl: (String) -> Unit = {},
 ) {
     SectionTitle("Market data")
@@ -448,6 +458,16 @@ fun EngineContent(
     }
     (stocks?.keyUrl ?: "https://twelvedata.com/account/api-keys").let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text("Get a free key: $url") } }
     StreamsSection(state.streams, mode == "LIVE")
+    // A quick check when the app warns that crypto data is unavailable (D-074).
+    state.crypto?.let { c ->
+        LabelValue("Crypto data test", if (c.status == "OK") "Working" else c.status.lowercase().replaceFirstChar { it.uppercase() })
+        Text(c.detail, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("crypto-test-detail"))
+    }
+    OutlinedButton(onClick = onTestCrypto, modifier = Modifier.testTag("test-crypto")) { Text("Test crypto data (Coinbase)") }
+    Text(
+        "\"Market data unavailable\" alerts come only when no verified price has arrived for 5 minutes. Short drops, for example when the phone switches networks or saves battery with the screen off, are ignored.",
+        style = MaterialTheme.typography.bodySmall,
+    )
     SectionTitle("Crypto futures data (Kraken Futures)")
     Text(
         "Strategies that use open interest, funding or delta (CVD) read them from Kraken Futures' public data (no account or key). " +

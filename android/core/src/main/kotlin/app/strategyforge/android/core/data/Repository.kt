@@ -788,6 +788,9 @@ class Repository(
 
     suspend fun testStockData(): StockData = api.decode(api.post("/v1/market-data/stocks/test").body, StockData.serializer())
 
+    /** Whether the phone can reach Coinbase now and how fresh the last BTC price is (D-074). */
+    suspend fun testCryptoData(): FuturesTest = api.decode(api.post("/v1/market-data/crypto/test").body, FuturesTest.serializer())
+
     suspend fun testFuturesData(): FuturesTest = api.decode(api.post("/v1/market-data/futures/test").body, FuturesTest.serializer())
 
     suspend fun setDemoSpeed(minutesPerTick: Int): RuntimeState = api.decode(api.put("/v1/runtime", buildJsonObject { put("demoStepMinutes", minutesPerTick) }).body, RuntimeState.serializer())

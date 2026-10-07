@@ -132,6 +132,11 @@ class Engine(
         app.strategyforge.engine.market
             .StreamHub(cryptoStream, stockStream)
 
+    private val cryptoFeed = cryptoProvider
+
+    /** The live crypto source in either mode, for the crypto data test (D-074). */
+    fun cryptoSource(): MarketDataProvider? = cryptoFeed()
+
     /** The US equity source even before a key is stored (for the key test screen). */
     fun equitySource(): MarketDataProvider? = equities
 

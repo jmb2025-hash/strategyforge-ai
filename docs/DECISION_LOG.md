@@ -1190,3 +1190,19 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Device lock.** Resuming an autonomous plan from this screen shows the device-lock prompt first and then retries.
 - **Tests:** `StrategySlotsUiTest` shows a paused crypto plan with its reason and Resume, and no "No crypto strategy running" message.
 - **Version:** 1.23.1 (versionCode 37).
+
+## D-074 Brief network drops neither alert nor block; crypto data test
+
+- **Date:** 2026-10-07
+- **Context:** The owner kept getting critical "Market data unavailable for BTC-USD — PROVIDER_ERROR: UNAVAILABLE: Network error: UnknownHostException" alerts and could find no problem or test in Settings. Their backup showed short bursts of a minute or two each (21:48–21:51, 22:24, 22:52, 23:07–23:09 UTC), which cleared on their own. These are the phone briefly losing DNS or network, for example on a Wi-Fi hand-over or when the battery saver cuts the app with the screen off.
+  - **Alerts.** Every failed poll raised a critical alert at once.
+  - **Blocking.** A failed request also flagged the stored price as bad, so for that moment any plan check or order found no verified price, even a seconds-old one, and autonomy paused.
+- **Decision:**
+  - **Network failures are not flagged.** A failed request (UNAVAILABLE, timeout, rate limit) no longer flags the stored price. That price stays usable until it is older than the plan's or portfolio's quote-age limit, which still blocks trading (fail closed, FR-024). Malformed data is still flagged until good data replaces it.
+  - **Alerts wait five minutes.** A "Market data unavailable" alert is raised only after 5 minutes without a verified price. A failed refresh does not count while the stored price is under 2 minutes old. The alert says how long the data has been missing and points to the new test.
+  - **Crypto data test.** Settings → Market data has "Test crypto data (Coinbase)" (`POST /v1/market-data/crypto/test`). It reports whether Coinbase answers now and how old the last BTC price is.
+- **Tests:** `DataAlertGraceTest`:
+  - a one-minute drop raises no alert and leaves the price usable for a plan;
+  - five minutes without a price raises exactly one alert, and the stale price then blocks trading;
+  - the crypto test reaches the source.
+- **Version:** 1.23.2 (versionCode 38).
