@@ -539,6 +539,26 @@ class Repository(
     /** The crypto and stock strategy slots (D-035). */
     suspend fun slots(): List<Slot> = api.get("/v1/slots", ListSerializer(Slot.serializer()))
 
+    /** Positions in a running strategy's symbols and portfolio that it does not manage, e.g. bought by hand (D-075). */
+    suspend fun outsidePositions(strategyId: String): List<app.strategyforge.android.core.model.SlotHolding> =
+        api.get(
+            "/v1/strategies/${seg(strategyId)}/outside-positions",
+            ListSerializer(
+                app.strategyforge.android.core.model.SlotHolding
+                    .serializer(),
+            ),
+        )
+
+    /** Hands those positions to the strategy, which then manages (and may sell) them (D-075). */
+    suspend fun adoptPositions(strategyId: String): List<app.strategyforge.android.core.model.SlotHolding> =
+        api.decode(
+            api.post("/v1/strategies/${seg(strategyId)}/adopt", buildJsonObject { }).body,
+            ListSerializer(
+                app.strategyforge.android.core.model.SlotHolding
+                    .serializer(),
+            ),
+        )
+
     /** Restarts a paused strategy as it last ran: same portfolio, share, mode and slot (D-072). */
     suspend fun resume(strategyId: String): Activation = api.decode(api.post("/v1/strategies/${seg(strategyId)}/resume", buildJsonObject { }).body, Activation.serializer())
 

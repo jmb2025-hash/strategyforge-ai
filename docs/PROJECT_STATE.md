@@ -189,6 +189,8 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - 1.23.2 (D-074) NETWORK BLIPS: refreshQuote no longer flags PROVIDER_ERROR (only MALFORMED); stored quote usable until
         age limit. Ingestion alerts only after ALERT_AFTER=5 min failing (stored quote <2 min counts as fresh).
         POST /v1/market-data/crypto/test + Settings "Test crypto data (Coinbase)".
+- 1.23.3 (D-075) OUTSIDE POSITIONS: StrategySlots.outsidePositions/adopt (+ routes); strategy page warning + "Let the plan
+        manage it"; Re-run validation shown only for DRAFT/VALIDATION_FAILED/MANUAL_REVIEW_REQUIRED/VALIDATED.
 
 3. CURRENT WORKING STATE & BLOCKERS
 - Build: GREEN. No compile errors, no unfinished files, working tree clean after the D-055 commit.
@@ -221,7 +223,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - Every user-facing update ships a new APK via CI to release tag phone-latest, signed with the owner's PERMANENT key
   (D-059: phone-release refuses any other certificate; updates install over the old app and keep all data). CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-075). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-076). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

@@ -500,9 +500,22 @@ class StrategyDetailViewModel
                 runCatching { _scorecard.value = repo.scorecard(id) }
                 runCatching { _disclosure.value = repo.disclosure() }
                 runCatching { _slots.value = repo.slots() }
+                runCatching { _outside.value = repo.outsidePositions(id) }
                 repo.portfolios().collect { r -> if (r is Resource.Data) _portfolios.value = r.value.filter { it.status == "ACTIVE" } }
             }
         }
+
+        private val _outside = MutableStateFlow<List<app.strategyforge.android.core.model.SlotHolding>>(emptyList())
+
+        /** Positions in this plan's symbols and portfolio that it does not manage (D-075). */
+        val outside: StateFlow<List<app.strategyforge.android.core.model.SlotHolding>> = _outside.asStateFlow()
+
+        /** Lets the plan manage those positions as its own. */
+        fun adopt() =
+            act("The plan now manages these positions") {
+                repo.adoptPositions(id)
+                _outside.value = repo.outsidePositions(id)
+            }
 
         fun revalidate() = act("Validation re-run") { repo.revalidate(id) }
 

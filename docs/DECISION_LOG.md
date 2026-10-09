@@ -1206,3 +1206,14 @@ When a conflict is unresolved, the safest reversible option is selected.
   - five minutes without a price raises exactly one alert, and the stale price then blocks trading;
   - the crypto test reaches the source.
 - **Version:** 1.23.2 (versionCode 38).
+
+## D-075 Positions bought outside a plan are shown and can be handed to it; validation button only when allowed
+
+- **Date:** 2026-10-09
+- **Context:** The owner's backup at 23:55 UTC Oct 8 showed BTC trend core active since 12:24 UTC Oct 7 in Crypto slot 2 (100%), but with no buys. BTC closed around 83–85k, against a 100-day average of about 72k, so the entry rule was true. The owner had bought about 98% of each crypto portfolio in BTC by hand on Oct 6 (D-066). Since D-035, a plan does not touch a symbol already held outside it, so it neither bought nor would ever sell that BTC. Nothing said so. Separately, "Re-run validation" stayed on a running plan's page and failed with "Validation can be re-run only before backtesting (status ACTIVE_AUTONOMOUS)".
+- **Decision:**
+  - **Outside positions.** `StrategySlots.outsidePositions` (`GET /v1/strategies/{id}/outside-positions`) lists open lots in a running plan's own symbols, in its portfolio, that no strategy manages.
+  - **Warning and hand-over.** The plan's page shows them in a warning with **Let the plan manage it**. `StrategySlots.adopt` (`POST /v1/strategies/{id}/adopt`) sets `managed_by_strategy_id`, as a slot hand-over does (D-035), and is audited as POSITIONS_ADOPTED. The plan then counts the position as its own: it does not buy twice, and its exit rules can sell it.
+  - **Re-run validation.** The button is shown only in the states where the engine allows it (draft, validation failed, manual review, validated).
+- **Tests:** a BTC position bought by hand is listed as outside the plan and not in its holdings; after adopting, it is the plan's, and a second adopt does nothing.
+- **Version:** 1.23.3 (versionCode 39).

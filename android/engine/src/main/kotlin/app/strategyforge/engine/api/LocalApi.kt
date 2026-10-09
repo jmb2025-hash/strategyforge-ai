@@ -599,6 +599,8 @@ class LocalApi(
                     "leftOpen" to result.leftOpen.map { holding(it) },
                 )
         }
+        get("/v1/strategies/{id}/outside-positions") { _, g -> engine.slots.outsidePositions(uuid(g[0])).map { holding(it) } }
+        post("/v1/strategies/{id}/adopt") { _, g -> engine.slots.adopt(uuid(g[0])).map { holding(it) } }
         post("/v1/strategies/{id}/resume") { _, g ->
             activation(
                 engine.slots

@@ -248,4 +248,28 @@ class LiveStrategyFeaturesTest {
         val err = assertThrows<app.strategyforge.engine.common.EngineException> { e.slots.resume(id) }
         assertThat(err.code).isIn("not-paused", "never-started")
     }
+
+    @Test
+    fun `D-075 a position bought by hand is shown as outside the plan, and once adopted the plan manages it`() {
+        val id = e.eligible(base("BTC adopt"))
+        // Bought by hand in the portfolio the plan will run in.
+        val manual = e.order(p, "BTC-USD", "BUY", "0.01")
+        e.advance(2)
+        assertThat(e.orders.get(manual.order.id).status).isEqualTo(OrderStatus.FILLED)
+        e.activate(id, p, ActivationMode.AUTONOMOUS)
+        assertThat(e.slots.outsidePositions(id).map { it.symbol }).containsExactly("BTC-USD")
+        assertThat(e.slots.holdings(id)).isEmpty()
+
+        val adopted = e.slots.adopt(id)
+        assertThat(adopted.single().quantity).isEqualByComparingTo("0.01")
+        assertThat(e.slots.outsidePositions(id)).isEmpty()
+        assertThat(
+            e.slots
+                .holdings(id)
+                .single()
+                .symbol,
+        ).isEqualTo("BTC-USD")
+        // Nothing left to adopt the second time.
+        assertThat(e.slots.adopt(id)).isEmpty()
+    }
 }

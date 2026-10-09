@@ -192,6 +192,64 @@ class StrategySlots(
         return activate(strategyId, req, positions = null, slot = last.slot)
     }
 
+    /**
+     * Open positions in a running strategy's own symbols, in the portfolio it trades, that no strategy
+     * manages, for example bought by hand (D-075). The strategy neither adds to nor sells these.
+     */
+    fun outsidePositions(strategyId: UUID): List<SlotHolding> {
+        val a = activations.active(strategyId) ?: return emptyList()
+        val mine = strategies.definition(a.versionId).symbols.toSet()
+        return db
+            .sql(
+                """
+                select l.portfolio_id, l.instrument_id, i.symbol, l.side, l.quantity_remaining from position_lots l
+                join paper_executions e on e.id = l.open_execution_id join paper_orders o on o.id = e.order_id
+                join instruments i on i.id = l.instrument_id
+                where l.closed_at is null and l.portfolio_id = :p and coalesce(l.managed_by_strategy_id, o.strategy_id) is null
+                """.trimIndent(),
+            ).param("p", a.portfolioId)
+            .list { rs -> SlotHolding(rs.uuid("portfolio_id"), rs.uuid("instrument_id"), rs.str("symbol"), rs.str("side"), rs.dec("quantity_remaining")) }
+            .filter { it.symbol in mine }
+            .groupBy { Triple(it.portfolioId, it.instrumentId, it.side) }
+            .map { (_, lots) -> lots.first().copy(quantity = lots.fold(BigDecimal.ZERO) { acc, l -> acc.add(l.quantity) }) }
+            .filter { it.quantity.signum() != 0 }
+    }
+
+    /**
+     * Hands the [outsidePositions] to the running strategy (D-075): from then on it manages them as
+     * its own, so its exit rules can sell them and it does not buy the symbol twice.
+     */
+    fun adopt(strategyId: UUID): List<SlotHolding> =
+        db.tx {
+            val s = strategies.get(strategyId)
+            val a = activations.active(strategyId) ?: throw Problems.conflict("not-running", "${s.name} is not running")
+            val outside = outsidePositions(strategyId)
+            outside.forEach { h ->
+                db
+                    .sql(
+                        """
+                        update position_lots set managed_by_strategy_id = :s
+                        where closed_at is null and portfolio_id = :p and instrument_id = :i and side = :side and managed_by_strategy_id is null
+                          and open_execution_id in (select e.id from paper_executions e join paper_orders o on o.id = e.order_id where o.strategy_id is null)
+                        """.trimIndent(),
+                    ).param("s", strategyId)
+                    .param("p", h.portfolioId)
+                    .param("i", h.instrumentId)
+                    .param("side", h.side)
+                    .update()
+            }
+            if (outside.isNotEmpty()) {
+                audit.record(
+                    AuditCategory.AUTONOMY,
+                    "POSITIONS_ADOPTED",
+                    entityType = "Strategy",
+                    entityId = strategyId,
+                    details = mapOf("portfolioId" to a.portfolioId, "positions" to outside.map { mapOf("symbol" to it.symbol, "side" to it.side, "quantity" to it.quantity) }),
+                )
+            }
+            outside
+        }
+
     /** Another running strategy (not in [except]) trading any of [target]'s symbols in [portfolioId]. */
     private fun sharedSymbols(
         target: StrategyView,

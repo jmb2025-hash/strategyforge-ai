@@ -414,6 +414,7 @@ fun StrategyDetailScreen(
     var autonomous by rememberSaveable { mutableStateOf(false) }
     var accepted by rememberSaveable { mutableStateOf(false) }
     var portfolioId by rememberSaveable { mutableStateOf<String?>(null) }
+    val outside by vm.outside.collectAsStateWithLifecycle()
     var showReauth by remember { mutableStateOf(false) }
     LaunchedEffect(newPortfolioId) {
         newPortfolioId?.let {
@@ -455,7 +456,10 @@ fun StrategyDetailScreen(
             d.validation?.let { v ->
                 SectionTitle("Validation: ${v.status.lowercase().replace('_', ' ')}")
                 v.issues.forEach { i -> Text("• [${i.severity ?: i.category ?: ""}] ${i.path ?: ""} ${i.message}", style = MaterialTheme.typography.bodySmall) }
-                OutlinedButton(onClick = vm::revalidate) { Text("Re-run validation") }
+                // The engine re-validates only before backtesting; later the button would just fail (D-075).
+                if (s.status in setOf("DRAFT", "VALIDATION_FAILED", "MANUAL_REVIEW_REQUIRED", "VALIDATED")) {
+                    OutlinedButton(onClick = vm::revalidate) { Text("Re-run validation") }
+                }
             }
             d.explanation?.let {
                 SectionTitle("How it works")
@@ -509,6 +513,17 @@ fun StrategyDetailScreen(
                         } +
                         (if (a.leftOpen.isNotEmpty()) " Still open and unmanaged: ${a.leftOpen.joinToString { "${it.quantity} ${it.symbol}" }}; close them from the Portfolio tab." else ""),
                 )
+            }
+            // Bought outside the plan in its portfolio: the plan neither adds to nor sells these (D-075).
+            if (s.status.startsWith("ACTIVE") && outside.isNotEmpty()) {
+                Banner(
+                    outside.joinToString { "${it.quantity.trimEnd('0').trimEnd('.')} ${it.symbol}" } +
+                        " in this plan's portfolio was not bought by the plan, so the plan will not buy more of it or sell it. " +
+                        "Let the plan manage it to have its rules buy and sell from now on (it may sell it when its exit rule says so).",
+                    BannerKind.WARNING,
+                    Modifier.testTag("outside-positions"),
+                )
+                Button(onClick = vm::adopt, modifier = Modifier.testTag("adopt")) { Text("Let the plan manage it") }
             }
             if (s.status.startsWith("ACTIVE")) {
                 Banner(if (s.status == "ACTIVE_AUTONOMOUS") "Autonomous paper trading is active." else "Notifications mode is active: you approve each trade.", if (s.status == "ACTIVE_AUTONOMOUS") BannerKind.WARNING else BannerKind.INFO)
