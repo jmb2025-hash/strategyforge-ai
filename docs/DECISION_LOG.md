@@ -1217,3 +1217,10 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Re-run validation.** The button is shown only in the states where the engine allows it (draft, validation failed, manual review, validated).
 - **Tests:** a BTC position bought by hand is listed as outside the plan and not in its holdings; after adopting, it is the plan's, and a second adopt does nothing.
 - **Version:** 1.23.3 (versionCode 39).
+
+## D-076 Accept CVE-2026-47890 in the legacy backend until 2026-11-05
+
+- **Date:** 2026-10-09
+- **Context:** The security scan failed on CVE-2026-47890 (CRITICAL, spring-webmvc 6.2.19: stream corruption in server-sent events), which blocked 1.23.3. As with D-068, only the legacy `backend/` uses Spring, the phone app does not include it, and `backend/` uses no server-sent events. The fix needs Spring 7.0.9 (Spring Boot 4).
+- **Decision:** The owner chose to accept it on the same terms as D-068. `.trivyignore` lists it with this justification and the same expiry, 2026-11-05.
+- **Follow-up:** the D-068 follow-up still applies: upgrade or retire `backend/` by 2026-11-05.

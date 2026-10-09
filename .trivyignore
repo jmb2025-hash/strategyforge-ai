@@ -6,3 +6,4 @@
 # Accepted by the owner on 2026-10-06 (D-068). Review by 2026-11-05: upgrade backend/ to Spring
 # Boot 4 or retire it.
 CVE-2026-47884 # legacy backend/ only, no XsltView used, fix needs Spring Boot 4; owner accepted (D-068); review 2026-11-05 exp:2026-11-05
+CVE-2026-47890 # legacy backend/ only, no server-sent events used, fix needs Spring Boot 4; owner accepted (D-076); review 2026-11-05 exp:2026-11-05
