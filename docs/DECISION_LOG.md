@@ -1224,3 +1224,20 @@ When a conflict is unresolved, the safest reversible option is selected.
 - **Context:** The security scan failed on CVE-2026-47890 (CRITICAL, spring-webmvc 6.2.19: stream corruption in server-sent events), which blocked 1.23.3. As with D-068, only the legacy `backend/` uses Spring, the phone app does not include it, and `backend/` uses no server-sent events. The fix needs Spring 7.0.9 (Spring Boot 4).
 - **Decision:** The owner chose to accept it on the same terms as D-068. `.trivyignore` lists it with this justification and the same expiry, 2026-11-05.
 - **Follow-up:** the D-068 follow-up still applies: upgrade or retire `backend/` by 2026-11-05.
+
+## D-077 Stock backtests get splits and dividends from Yahoo when Twelve Data has none; Back no longer reopens a plan
+
+- **Date:** 2026-10-09
+- **Context:** The owner could not start the US stock plans (S&P 500 trend core, Index dip score). Activation said "Strategy must be Paper Eligible (currently VALIDATED)" and needed a completed backtest without critical integrity errors. Every live US-stock backtest ended "Manual Review Required" with CORPORATE_ACTIONS_UNAVAILABLE. Twelve Data's free plan does not serve `/splits` or `/dividends`, so corporate-action coverage was always unavailable. The app has no manual review, and an "unavailable" result was stored and never asked again. Separately, after adding a plan from the library, the Plans screen kept the added plan's id and navigated to it every time it was shown, so Back seemed to do nothing until pressed many times.
+- **Decision:**
+  - **Second source.** When the stock data source cannot supply splits and dividends, `CorporateActionService` asks a second, keyless source: Yahoo Finance's chart events, through `SymbolDirectory.corporateActions` (`YahooSymbolDirectory.parseActions`). Ex-dates are New York trading days, and coverage is recorded with provider YAHOO. If both sources fail, results still need manual review (FR-025).
+  - **Retry.** An earlier UNAVAILABLE coverage is retried on the next check instead of being kept.
+  - **Back button.** The Plans screen forgets the added plan once it has opened it (`StrategiesViewModel.importedOpened`).
+- **Tests:** `CorporateActionFallbackTest`:
+  - with a stock source lacking corporate actions, Yahoo's split is used and the range is covered;
+  - with no second source the range is not covered;
+  - Yahoo's events parse to the right ex-dates.
+
+  In `BacktestServiceTest`, an earlier UNAVAILABLE no longer blocks: the backtest passes and the strategy becomes Paper Eligible.
+- **Owner action:** run "Backtest on recent history" again on each stock plan, then activate it.
+- **Version:** 1.23.4 (versionCode 40).

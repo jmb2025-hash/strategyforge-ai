@@ -147,7 +147,7 @@ class Engine(
     val lookup =
         app.strategyforge.engine.market
             .InstrumentLookup(instruments, market, symbolDirectory)
-    val corporateActions = CorporateActionService(db, sources, audit, wall)
+    val corporateActions = CorporateActionService(db, sources, audit, wall, symbolDirectory)
     val derivatives =
         app.strategyforge.engine.market
             .DerivativesService(

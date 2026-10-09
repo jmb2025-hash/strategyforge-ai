@@ -56,6 +56,16 @@ interface SymbolDirectory {
         range: String,
     ): SymbolSnapshot?
 
+    /**
+     * Splits and cash dividends with ex-dates in [from]..[to], or null when the source cannot answer
+     * (D-077). Used when the stock data source does not supply corporate actions.
+     */
+    fun corporateActions(
+        symbol: String,
+        from: java.time.LocalDate,
+        to: java.time.LocalDate,
+    ): List<CorporateActionData>? = null
+
     companion object {
         /** Chart ranges the information screen offers. */
         val RANGES = listOf("1D", "5D", "1M", "6M", "1Y", "5Y")
@@ -100,6 +110,31 @@ class YahooSymbolDirectory(
                 .build()
         val root = fetch(url) ?: return null
         return parseChart(symbol, range.uppercase(), root)
+    }
+
+    override fun corporateActions(
+        symbol: String,
+        from: java.time.LocalDate,
+        to: java.time.LocalDate,
+    ): List<CorporateActionData>? {
+        val url =
+            baseUrl
+                .newBuilder()
+                .addPathSegments("v8/finance/chart")
+                .addPathSegment(toYahoo(symbol))
+                .addQueryParameter("period1", from.atStartOfDay(MarketCalendar.NEW_YORK).toEpochSecond().toString())
+                .addQueryParameter(
+                    "period2",
+                    to
+                        .plusDays(1)
+                        .atStartOfDay(MarketCalendar.NEW_YORK)
+                        .toEpochSecond()
+                        .toString(),
+                ).addQueryParameter("interval", "1d")
+                .addQueryParameter("events", "div,split")
+                .build()
+        val root = fetch(url) ?: return null
+        return parseActions(root, from, to)
     }
 
     private fun fetch(url: HttpUrl): JsonNode? {
@@ -201,6 +236,32 @@ class YahooSymbolDirectory(
                 range,
                 points,
             )
+        }
+
+        /** Yahoo's split and dividend events as corporate actions; ex-dates are New York trading days (D-077). */
+        fun parseActions(
+            root: JsonNode,
+            from: java.time.LocalDate,
+            to: java.time.LocalDate,
+        ): List<CorporateActionData>? {
+            val r = root.path("chart").path("result").path(0)
+            if (r.isMissingNode) return null
+            val day = { n: JsonNode -> Instant.ofEpochSecond(n.path("date").asLong()).atZone(MarketCalendar.NEW_YORK).toLocalDate() }
+            val events = r.path("events")
+            val splits =
+                events.path("splits").mapNotNull { s ->
+                    val num = s.dec("numerator")
+                    val den = s.dec("denominator")
+                    if (num == null || den == null || num.signum() <= 0 || den.signum() <= 0) return@mapNotNull null
+                    val d = day(s)
+                    CorporateActionData(CorporateActionType.SPLIT, d, d, num, den, null)
+                }
+            val dividends =
+                events.path("dividends").mapNotNull { v ->
+                    val amount = v.dec("amount")?.takeIf { it.signum() > 0 } ?: return@mapNotNull null
+                    CorporateActionData(CorporateActionType.CASH_DIVIDEND, day(v), null, null, null, amount)
+                }
+            return (splits + dividends).filter { !it.exDate.isBefore(from) && !it.exDate.isAfter(to) }.sortedBy { it.exDate }
         }
 
         /** Yesterday's close: from today's change when Yahoo gives it (any range), else the one-day chart's previous close. */

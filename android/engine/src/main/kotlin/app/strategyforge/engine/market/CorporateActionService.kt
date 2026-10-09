@@ -45,6 +45,8 @@ class CorporateActionService(
     private val registry: MarketSources,
     private val audit: AuditService,
     private val clock: Clock,
+    /** A keyless second source for US splits and dividends (Yahoo Finance in the app, D-077). */
+    private val fallback: () -> SymbolDirectory? = { null },
 ) {
     fun sync(
         instrument: Instrument,
@@ -52,9 +54,18 @@ class CorporateActionService(
         to: LocalDate,
     ): Coverage {
         val active = registry.active()
-        val provider = registry.nameFor(instrument.assetClass)
+        var provider = registry.nameFor(instrument.assetClass)
+        var result = active.provider.corporateActions(instrument.symbol, instrument.assetClass, from, to)
+        // Twelve Data's free plan has no splits or dividends, which left every stock backtest needing a manual review
+        // nobody could do (D-077): ask the second source before giving up.
+        if (result !is ProviderResult.Ok && instrument.assetClass != AssetClass.CRYPTO) {
+            runCatching { fallback()?.corporateActions(instrument.symbol, from, to) }.getOrNull()?.let {
+                result = ProviderResult.Ok(it)
+                provider = "YAHOO"
+            }
+        }
         val coverage =
-            when (val r = active.provider.corporateActions(instrument.symbol, instrument.assetClass, from, to)) {
+            when (val r = result) {
                 is ProviderResult.Ok -> {
                     r.value.forEach { a ->
                         db
@@ -118,7 +129,8 @@ class CorporateActionService(
         to: LocalDate,
     ): Boolean {
         if (instrument.assetClass == AssetClass.CRYPTO) return true
-        val c = coverage(instrument.id) ?: sync(instrument, from, to)
+        // An earlier "unavailable" is asked again: a source may answer now, or a second source may (D-077).
+        val c = coverage(instrument.id)?.takeIf { it.status == CoverageStatus.AVAILABLE } ?: sync(instrument, from, to)
         if (c.status != CoverageStatus.AVAILABLE || c.from == null || c.to == null) return false
         if (c.from.isAfter(from) || c.to.isBefore(to)) return sync(instrument, from, to).let { it.status == CoverageStatus.AVAILABLE && !it.from!!.isAfter(from) && !it.to!!.isBefore(to) }
         return true

@@ -66,7 +66,13 @@ fun StrategiesScreen(
     }
     var showImport by rememberSaveable { mutableStateOf(false) }
     var json by rememberSaveable { mutableStateOf("") }
-    LaunchedEffect(imported) { imported?.let { nav.navigate("strategy/$it") } }
+    // Opens a just-added strategy once; forgetting it keeps Back from reopening it (D-077).
+    LaunchedEffect(imported) {
+        imported?.let {
+            vm.importedOpened()
+            nav.navigate("strategy/$it")
+        }
+    }
     LaunchedEffect(Unit) {
         vm.loadSlots()
         vm.loadLibrary()

@@ -286,6 +286,12 @@ class StrategiesViewModel
 
         private val _imported = MutableStateFlow<String?>(null)
         val imported: StateFlow<String?> = _imported.asStateFlow()
+
+        /** The screen opened the added strategy; returning to the list must not open it again. */
+        fun importedOpened() {
+            _imported.value = null
+        }
+
         private val _instructions = MutableStateFlow<String?>(null)
 
         /** Instructions for the owner's own AI, ready to copy (D-041). */

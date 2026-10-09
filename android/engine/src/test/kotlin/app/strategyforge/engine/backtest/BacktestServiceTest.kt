@@ -106,24 +106,13 @@ class BacktestServiceTest {
     }
 
     @Test
-    fun `FR-025 FR-054 equities without verified corporate-action data are Manual Review Required`() {
+    fun `FR-025 D-077 an earlier unavailable corporate-action result is asked again, so the backtest passes`() {
         val id = create("valid_momentum.json")
         val msft = e.instruments.bySymbol("MSFT").id
         e.db
             .sql("insert or replace into corporate_action_coverage(instrument_id, status, provider, detail, updated_at) values (:i, 'UNAVAILABLE', 'REPLAY', 'simulated outage', 0)")
             .param("i", msft)
             .update()
-        try {
-            val b = run(id, "2026-02-01T00:00:00Z", "2026-06-19T00:00:00Z")
-            assertThat(b.resultStatus).isEqualTo("MANUAL_REVIEW_REQUIRED")
-            assertThat(b.integrity!!["issues"].map { it["code"].asText() }).contains("CORPORATE_ACTIONS_UNAVAILABLE")
-            assertThat(e.strategies.get(id).status).isEqualTo(StrategyStatus.VALIDATED)
-        } finally {
-            e.db
-                .sql("delete from corporate_action_coverage where instrument_id = :i")
-                .param("i", msft)
-                .update()
-        }
         val ok = run(id, "2026-02-01T00:00:00Z", "2026-06-19T00:00:00Z")
         assertThat(ok.resultStatus).`as`(ok.integrity.toString()).isIn("OK", "WARNINGS")
         assertThat(e.strategies.get(id).status).isEqualTo(StrategyStatus.PAPER_ELIGIBLE)
