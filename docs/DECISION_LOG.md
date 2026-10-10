@@ -1252,3 +1252,41 @@ When a conflict is unresolved, the safest reversible option is selected.
   - **Run page.** The run page, and the TSX plan as shown in the Portfolio menu, has "Switch to autonomous" or "Switch to notify and approve", with a note when a waiting rebalance will be applied.
 - **Tests:** a notify run switched to autonomous applies its waiting rebalance and holds those listings. Switching back keeps the holdings, and a stopped run cannot switch. `TsxPlansUiTest` clicks the switch.
 - **Version:** 1.23.5 (versionCode 41).
+
+## D-079 Each slot is its own portfolio; the Portfolio tab opens on an overview; backups keep TSX plans
+
+- **Date:** 2026-10-10
+- **Context:** The owner found the Portfolio screen confusing.
+  - Portfolios and running plans were two separate rows of chips, so plans seemed to run "outside" the slots.
+  - The activation form let any portfolio be picked for any slot. Starting a plan in another slot with a portfolio already used there raised a conflict, although the owner expects each slot to be its own portfolio.
+  - Separately, the TSX plan tables were created by a migration and never added to backups, so a restore lost the TSX plans.
+- **Decision:**
+  - **One portfolio per slot.** Each crypto and stock slot owns one portfolio, in the new `slot_portfolios` table (migration 11).
+    - `StrategySlots.activate` always trades the slot's own portfolio.
+    - When the slot has none yet, it takes the requested portfolio if no other slot uses it. Otherwise it creates "Crypto slot N" or "Stock slot N", with the starting cash given and simulated shorting for plans that can short.
+    - A plan replacing a slot's plan trades that same portfolio, so KEEP still hands positions over.
+    - Plans in different slots therefore never compete for a symbol or for cash.
+  - **Linking existing data.** `StrategySlots.linkPortfolios` runs at startup (also after a restore).
+    - It links each running plan's portfolio to its slot when no other slot uses that portfolio.
+    - It then links any unused portfolio named exactly "Crypto slot N" or "Stock slot N" to slot N.
+    - It never moves a plan or a position.
+    - A plan still sharing a portfolio is shown as sharing, and gets its own portfolio when it is stopped and started again.
+  - **API.** Portfolios carry `slot`, and slots carry `portfolioId` and `portfolioName`. Activation takes an optional `portfolioId`, plus `startingCash` and `shorting`.
+  - **Portfolio tab.** It now opens on an overview grouped into Crypto slots, Stock slots, TSX slots and My portfolios. Each card shows the plan and its mode, the value, and the change since the start.
+    - Tapping a card opens that portfolio or plan; "‹ All portfolios" and the Back button return to the overview.
+    - The owner's own portfolios for manual trades are created from the overview.
+    - In a slot's own portfolio, all positions and orders are shown.
+  - **Activation form.** The portfolio chips and "New portfolio" button are gone. The form names the slot's portfolio, or asks the starting cash for the new one. The share defaults to 100%.
+  - **Backups.** Backups now include `tsx_runs`, `tsx_run_values`, `tsx_run_events`, `tsx_backtests` and `slot_portfolios`.
+    - The TSX price cache is left out; it is downloaded again.
+    - Older backups without these tables still restore. Current TSX runs are left as they are, and slot links are rebuilt.
+- **Tests:**
+  - `StrategySlotsTest`:
+    - slot 2 gets a new "Crypto slot 2" with the starting cash when the requested portfolio belongs to slot 1;
+    - a replacing plan keeps the slot's portfolio;
+    - a request without a portfolio makes one;
+    - startup linking links running plans and slot-named portfolios once.
+  - `BackupTablesTest`: TSX runs and slot links round-trip, and a pre-1.24 backup restores.
+  - `LocalApiAppTest` covers the API fields.
+  - `PortfolioOverviewUiTest` covers the overview groups, values and taps, creating an own portfolio, and the activation form text.
+- **Version:** 1.24.0 (versionCode 42).

@@ -155,8 +155,12 @@ class BackupService(
             // Append-only guards (ledger, audit) are lifted only inside this transaction.
             val triggers = db.sql("select name from sqlite_master where type = 'trigger'").list { it.str("name") }
             triggers.forEach { db.sql("drop trigger $it").update() }
-            TABLES.asReversed().forEach { db.sql("delete from $it").update() }
-            TABLES.forEach { load(it, doc.tables.getValue(it)) }
+            // A table added after the backup was made (for example TSX plans before 1.24.0) is left as it is.
+            val present = TABLES.filter { it in doc.tables }
+            // Slot portfolios point at portfolios, which the backup replaces: rebuilt at the next start (D-079).
+            if ("slot_portfolios" !in present) db.sql("delete from slot_portfolios").update()
+            present.asReversed().forEach { db.sql("delete from $it").update() }
+            present.forEach { load(it, doc.tables.getValue(it)) }
             Db.schemaStatements().filter { it.trimStart().startsWith("create trigger", ignoreCase = true) }.forEach { db.sql(it).update() }
             // Older backups load into the current tables (new columns stay empty); keep the current version.
             db.setSchemaVersion(Db.SCHEMA_VERSION)
@@ -201,9 +205,9 @@ class BackupService(
         if (doc["format"]?.jsonPrimitive?.content != FORMAT) throw BackupInvalid("Not a StrategyForge backup")
         val tables = doc["tables"] as? JsonObject ?: throw BackupInvalid("The backup has no data")
         if (Hashing.sha256Hex(tables.toString()) != doc["sha256"]?.jsonPrimitive?.content) throw BackupInvalid("Checksum mismatch: the backup was modified or damaged")
-        val missing = TABLES.filter { tables[it] !is JsonObject }
+        val missing = SCHEMA_TABLES.filter { tables[it] !is JsonObject }
         if (missing.isNotEmpty()) throw BackupInvalid("The backup is missing tables: ${missing.joinToString()}")
-        val parsed = TABLES.associateWith { tables.getValue(it).jsonObject }
+        val parsed = TABLES.filter { tables[it] is JsonObject }.associateWith { tables.getValue(it).jsonObject }
         return Parsed(
             doc["schemaVersion"]?.jsonPrimitive?.content ?: "",
             runCatching { Instant.parse(doc["createdAt"]!!.jsonPrimitive.content) }.getOrElse { throw BackupInvalid("The backup has no creation time") },
@@ -265,8 +269,18 @@ class BackupService(
         private val NAME = Regex("^strategyforge-[0-9]{8}-[0-9]{6}-[a-z0-9]{1,8}\\.sfbk$")
         private val STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(ZoneOffset.UTC)
 
-        /** Every table in schema.sql, parents before children (restore order). */
-        val TABLES: List<String> by lazy {
+        /**
+         * Tables created by migrations rather than schema.sql (D-079): the TSX plan runs and their history,
+         * and each slot's portfolio. Backups made before 1.24.0 lack them. The downloaded TSX price cache
+         * is left out; it is fetched again.
+         */
+        val LATER_TABLES = listOf("tsx_runs", "tsx_run_values", "tsx_run_events", "tsx_backtests", "slot_portfolios")
+
+        /** Every table backed up, parents before children (restore order). */
+        val TABLES: List<String> by lazy { SCHEMA_TABLES + LATER_TABLES }
+
+        /** Every table in schema.sql, which every backup has. */
+        private val SCHEMA_TABLES: List<String> by lazy {
             Db.schemaStatements().mapNotNull {
                 Regex("^create table (?:if not exists )?([a-z_]+)", RegexOption.IGNORE_CASE)
                     .find(it.trim())

@@ -200,10 +200,11 @@ class Engine(
         }
     val strategyControl = StrategyActivationFacade(db, activations) { recommendations }
 
-    /** One crypto and one stock strategy at a time (D-035). */
+    /** Ten crypto and ten stock slots, each with its own portfolio (D-051, D-079). */
     val slots =
         app.strategyforge.engine.autonomy
-            .StrategySlots(db, strategies, strategyControl, activations, orders, audit)
+            .StrategySlots(db, strategies, strategyControl, activations, orders, audit, portfolios)
+            .also { runCatching { it.linkPortfolios() } }
     val emergency = EmergencyService(db, orders, portfolios, activations, strategyControl, notifications, audit, wall, auth)
     val healthMonitor = StrategyHealthMonitor(db, activations, strategies, recommendations, riskProfiles, notifications, audit)
 

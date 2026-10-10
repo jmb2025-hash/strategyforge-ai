@@ -20,6 +20,7 @@ import app.strategyforge.engine.support.Strategies
 import app.strategyforge.engine.support.TestEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
@@ -641,7 +642,7 @@ class LocalApiAppTest {
     }
 
     @Test
-    fun `D-051 strategies run in numbered slots, one owner per symbol and portfolio, and replacing a slot asks keep or close`() {
+    fun `D-051 strategies run in numbered slots, each in its own portfolio, and replacing a slot asks keep or close`() {
         start()
         runBlocking {
             val p = repo.createPortfolio("Slots", "100000")
@@ -660,12 +661,21 @@ class LocalApiAppTest {
             assertThat(slots.single { it.assetClass == "CRYPTO" && it.number == 1 }.strategy!!.name).isEqualTo("First crypto")
             assertThat(slots.filter { it.assetClass == "US_EQUITY" }.all { it.strategy == null }).isTrue()
 
-            // Both trade BTC-USD: not in the same portfolio, but in a portfolio of its own it takes slot 2.
-            val shared = assertThrows<ApiError.Http> { runBlocking { repo.activate(b, p.id, "40", false, null) } }
-            assertThat(shared.code).isEqualTo("symbol-shared")
-            val own = repo.createPortfolio("Crypto slot 2", "10000")
-            assertThat(repo.activate(b, own.id, "100", false, null).slot).isEqualTo(2)
-            assertThat(repo.slots().filter { it.assetClass == "CRYPTO" && it.strategy != null }.map { it.number }).containsExactly(1, 2)
+            // D-079 both trade BTC-USD, but each slot trades its own portfolio: no conflict, and slot 2 gets a new one.
+            assertThat(repo.activate(b, p.id, "100", false, null, startingCash = "25000").slot).isEqualTo(2)
+            val after = repo.slots().filter { it.assetClass == "CRYPTO" }
+            assertThat(after.filter { it.strategy != null }.map { it.number }).containsExactly(1, 2)
+            assertThat(after[0].portfolioId).isEqualTo(p.id)
+            assertThat(after[1].portfolioName).isEqualTo("Crypto slot 2")
+            val own =
+                repo
+                    .portfolios()
+                    .first { it is Resource.Data }
+                    .let { (it as Resource.Data).value }
+                    .single { it.name == "Crypto slot 2" }
+            assertThat(own.startingBalance.toBigDecimal()).isEqualByComparingTo("25000")
+            assertThat(own.slot!!.number).isEqualTo(2)
+            assertThat(own.slot!!.assetClass).isEqualTo("CRYPTO")
 
             // Choosing an occupied slot replaces its strategy after asking.
             val c = eligible("Third crypto")

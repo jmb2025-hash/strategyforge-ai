@@ -417,6 +417,9 @@ class LocalApi(
 
     private fun portfolio(p: Portfolio) =
         mapOf(
+            // The slot that owns this portfolio (D-079), or null for the owner's own portfolios.
+            "slot" to
+                engine.slots.portfolioSlots()[p.id]?.let { (ac, n) -> mapOf("assetClass" to ac.name, "number" to n) },
             "id" to p.id,
             "name" to p.name,
             "accountType" to p.accountType,
@@ -585,9 +588,18 @@ class LocalApi(
             val result =
                 engine.slots.activate(
                     uuid(g[0]),
-                    ActivationRequest(mode, uuid(b.req("portfolioId")), b.dec("allocationPercent") ?: throw Problems.badRequest("missing-field", "allocationPercent is required"), b.bool("disclosureAccepted") ?: false, b.str("disclosureVersion")),
+                    ActivationRequest(
+                        mode,
+                        // Each slot trades its own portfolio (D-079); without one, the slot's portfolio is used or created.
+                        b.str("portfolioId")?.let { uuid(it) } ?: app.strategyforge.engine.autonomy.StrategySlots.SLOT_PORTFOLIO,
+                        b.dec("allocationPercent") ?: throw Problems.badRequest("missing-field", "allocationPercent is required"),
+                        b.bool("disclosureAccepted") ?: false,
+                        b.str("disclosureVersion"),
+                    ),
                     positions,
                     slot,
+                    app.strategyforge.engine.autonomy
+                        .NewSlotPortfolio(b.dec("startingCash"), b.bool("shorting") ?: false),
                 )
             activation(result.slot.activation!!) +
                 mapOf(
@@ -696,6 +708,8 @@ class LocalApi(
                     "strategy" to s.strategy?.let { strategy(it) },
                     "activation" to s.activation?.let { activation(it) },
                     "holdings" to s.holdings.map { holding(it) },
+                    "portfolioId" to s.portfolioId,
+                    "portfolioName" to s.portfolioId?.let { runCatching { engine.portfolios.get(it).name }.getOrNull() },
                 )
             }
         }

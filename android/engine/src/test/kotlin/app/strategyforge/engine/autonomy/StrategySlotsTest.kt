@@ -143,18 +143,47 @@ class StrategySlotsTest {
     }
 
     @Test
-    fun `two running strategies cannot trade the same symbol in one portfolio`() {
-        running(strategy("Owner of BTC"))
+    fun `D-079 each slot trades its own portfolio, so the same symbol in another slot never conflicts`() {
+        val first = running(strategy("Owner of BTC"))
         e.auth.confirmed()
-        val shared = assertThrows<EngineException> { e.slots.activate(strategy("Also BTC"), auto("10"), null) }
-        assertThat(shared.code).isEqualTo("symbol-shared")
-        assertThat(shared.properties["otherStrategyName"]).isEqualTo("Owner of BTC")
-        // A different symbol in the same portfolio is fine.
+        // Asked for the portfolio slot 1 already uses: slot 2 gets a new one instead.
+        val r = e.slots.activate(strategy("Also BTC"), auto("100"), null, fresh = NewSlotPortfolio(BigDecimal("25000")))
+        assertThat(r.slot.number).isEqualTo(2)
+        val own = r.slot.activation!!.portfolioId
+        assertThat(own).isNotEqualTo(p)
+        assertThat(r.slot.portfolioId).isEqualTo(own)
+        assertThat(e.portfolios.get(own).name).isEqualTo("Crypto slot 2")
+        assertThat(e.portfolios.get(own).startingBalance).isEqualByComparingTo("25000")
+        assertThat(crypto(1).portfolioId).isEqualTo(p)
+        assertThat(e.slots.portfolioSlots()[own]).isEqualTo(app.strategyforge.engine.market.AssetClass.CRYPTO to 2)
+
+        // A plan replacing slot 2 trades slot 2's portfolio, whatever portfolio it asked for.
+        e.auth.confirmed()
+        val next = e.slots.activate(strategy("Next BTC"), auto("100", e.portfolio(balance = "5000")), PositionHandling.KEEP, 2)
+        assertThat(next.slot.activation!!.portfolioId).isEqualTo(own)
+        // Without a portfolio named, slot 3 makes its own.
+        e.auth.confirmed()
+        val third = e.slots.activate(strategy("Third BTC"), auto("100", StrategySlots.SLOT_PORTFOLIO), null)
+        assertThat(e.portfolios.get(third.slot.activation!!.portfolioId).name).isEqualTo("Crypto slot 3")
+        assertThat(crypto(1).strategy!!.id).isEqualTo(first)
+    }
+
+    @Test
+    fun `D-079 upgraded phones link each running plan's portfolio and slot-named portfolios to their slots`() {
+        val a = running(strategy("Runs in p"))
+        val named = e.portfolio(name = "Stock slot 4", balance = "10000")
+        e.db.sql("delete from slot_portfolios").update()
+        assertThat(e.slots.linkPortfolios()).isEqualTo(2)
+        assertThat(crypto(1).portfolioId).isEqualTo(p)
+        assertThat(e.slots.portfolioSlots()[named]).isEqualTo(app.strategyforge.engine.market.AssetClass.US_EQUITY to 4)
+        // Running again links nothing new and moves nothing.
+        assertThat(e.slots.linkPortfolios()).isEqualTo(0)
         assertThat(
             e.slots
-                .activate(strategy("ETH only", symbol = "ETH-USD"), auto("10"), null)
-                .slot.number,
-        ).isEqualTo(2)
+                .holdings(a)
+                .single()
+                .portfolioId,
+        ).isEqualTo(p)
     }
 
     @Test

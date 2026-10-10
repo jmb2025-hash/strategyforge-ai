@@ -179,6 +179,17 @@ class Db(
                         """,
                     ).forEach { db.sql(it.trimIndent()).update() }
                 },
+                Migration(11, "One portfolio per slot: each crypto and stock slot keeps its own portfolio") { db ->
+                    // Filled from the running plans at startup (StrategySlots.linkPortfolios), also after a restore.
+                    db
+                        .sql(
+                            """
+                            create table if not exists slot_portfolios (
+                              asset_class TEXT NOT NULL, slot INTEGER NOT NULL, portfolio_id TEXT NOT NULL UNIQUE REFERENCES portfolios(id),
+                              created_at INTEGER NOT NULL, PRIMARY KEY (asset_class, slot))
+                            """.trimIndent(),
+                        ).update()
+                },
             )
 
         val SCHEMA_VERSION: Int get() = MIGRATIONS.maxOfOrNull { it.version } ?: 1

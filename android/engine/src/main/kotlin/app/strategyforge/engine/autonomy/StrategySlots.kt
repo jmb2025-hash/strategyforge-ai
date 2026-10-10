@@ -40,6 +40,14 @@ data class SlotView(
     val strategy: StrategyView?,
     val activation: Activation?,
     val holdings: List<SlotHolding>,
+    /** The slot's own portfolio (D-079), null until a plan first runs in the slot. */
+    val portfolioId: UUID? = null,
+)
+
+/** Starting cash and simulated shorting for the portfolio a slot gets when a plan first runs in it (D-079). */
+data class NewSlotPortfolio(
+    val startingCash: BigDecimal? = null,
+    val shorting: Boolean = false,
 )
 
 data class SwitchResult(
@@ -59,9 +67,9 @@ data class SwitchResult(
  * Activating a strategy into an occupied slot replaces its occupant in one transaction: the old
  * strategy is paused, its open positions are either handed to the new strategy (which then manages
  * their exits) or closed with market orders, and the new strategy is activated through the usual
- * gates. Two running strategies may not trade the same symbol in the same portfolio, so each
- * position always has one owner; give each slot its own portfolio for that. If any step fails,
- * nothing changes.
+ * gates. Each slot trades its own portfolio (D-079), created the first time a plan runs in it and
+ * kept for the next plan in that slot, so plans in different slots never compete for a symbol or
+ * for cash. If any step fails, nothing changes.
  */
 class StrategySlots(
     private val db: Db,
@@ -70,16 +78,130 @@ class StrategySlots(
     private val activations: ActivationService,
     private val orders: OrderService,
     private val audit: AuditService,
+    private val portfolios: app.strategyforge.engine.portfolio.PortfolioService,
 ) {
     /** Every slot of both asset classes, empty ones included. */
     fun slots(): List<SlotView> = ASSET_CLASSES.flatMap { slots(it) }
 
     fun slots(assetClass: AssetClass): List<SlotView> {
         val taken = occupied(assetClass)
+        val owned = slotPortfolios(assetClass)
         return (1..SLOTS).map { n ->
             val s = taken[n]?.let { strategies.get(it) }
-            SlotView(assetClass, n, s, s?.let { activations.active(it.id) }, s?.let { holdings(it.id) }.orEmpty())
+            val a = s?.let { activations.active(it.id) }
+            SlotView(assetClass, n, s, a, s?.let { holdings(it.id) }.orEmpty(), owned[n] ?: a?.portfolioId)
         }
+    }
+
+    /** Portfolio id to the slot that owns it (D-079). */
+    fun portfolioSlots(): Map<UUID, Pair<AssetClass, Int>> =
+        db
+            .sql("select asset_class, slot, portfolio_id from slot_portfolios")
+            .list { it.uuid("portfolio_id") to (AssetClass.valueOf(it.str("asset_class")) to it.str("slot").toInt()) }
+            .toMap()
+
+    private fun slotPortfolios(assetClass: AssetClass): Map<Int, UUID> =
+        db
+            .sql("select slot, portfolio_id from slot_portfolios where asset_class = :ac")
+            .param("ac", assetClass.name)
+            .list { it.str("slot").toInt() to it.uuid("portfolio_id") }
+            .toMap()
+
+    private fun link(
+        assetClass: AssetClass,
+        slot: Int,
+        portfolioId: UUID,
+    ) {
+        db
+            .sql("insert into slot_portfolios(asset_class, slot, portfolio_id, created_at) values (:ac, :n, :p, :now)")
+            .param("ac", assetClass.name)
+            .param("n", slot)
+            .param("p", portfolioId)
+            .param("now", java.time.Instant.now())
+            .update()
+    }
+
+    /** True when no slot owns [portfolioId] and no plan in a slot other than [assetClass] [slot] trades in it. */
+    private fun free(
+        portfolioId: UUID,
+        assetClass: AssetClass,
+        slot: Int,
+        owners: Map<UUID, Pair<AssetClass, Int>>,
+    ): Boolean {
+        if (portfolioId in owners) return false
+        val p = portfolios.find(portfolioId) ?: return false
+        if (p.status != "ACTIVE") return false
+        return ASSET_CLASSES.none { ac ->
+            occupiedActivations(ac).any { (n, a) -> a.portfolioId == portfolioId && (ac != assetClass || n != slot) }
+        }
+    }
+
+    private fun occupiedActivations(assetClass: AssetClass): List<Pair<Int, Activation>> = occupied(assetClass).mapNotNull { (n, id) -> activations.active(id)?.let { n to it } }
+
+    /**
+     * Gives each slot the portfolio its running plan already trades in, when no other slot uses that
+     * portfolio, then any unused "Crypto slot N" or "Stock slot N" portfolio to slot N (D-079). Runs at
+     * startup, so upgraded phones and restored backups keep their plans where they are. Never moves a plan.
+     */
+    fun linkPortfolios(): Int =
+        db.tx {
+            var linked = 0
+            ASSET_CLASSES.forEach { ac ->
+                occupiedActivations(ac).sortedBy { it.second.createdAt }.forEach { (n, a) ->
+                    if (n !in slotPortfolios(ac) && free(a.portfolioId, ac, n, portfolioSlots())) {
+                        link(ac, n, a.portfolioId)
+                        linked++
+                    }
+                }
+            }
+            val named = Regex("^(Crypto|Stock) slot ([0-9]+)$")
+            portfolios.list(false).forEach { p ->
+                val m = named.matchEntire(p.name) ?: return@forEach
+                val ac = if (m.groupValues[1] == "Crypto") AssetClass.CRYPTO else AssetClass.US_EQUITY
+                val n = m.groupValues[2].toInt()
+                if (n in 1..SLOTS && n !in slotPortfolios(ac) && free(p.id, ac, n, portfolioSlots())) {
+                    link(ac, n, p.id)
+                    linked++
+                }
+            }
+            linked
+        }
+
+    /**
+     * The portfolio a plan in [assetClass] [slot] trades: the slot's own; else [requested] when it is
+     * free (D-079); else a new one named after the slot.
+     */
+    private fun portfolioFor(
+        assetClass: AssetClass,
+        slot: Int,
+        requested: UUID?,
+        fresh: NewSlotPortfolio?,
+    ): UUID {
+        slotPortfolios(assetClass)[slot]?.let { id ->
+            if (portfolios.find(id)?.status == "ACTIVE") return id
+            // The slot's portfolio was archived: the slot gets a new one.
+            db
+                .sql("delete from slot_portfolios where asset_class = :ac and slot = :n")
+                .param("ac", assetClass.name)
+                .param("n", slot)
+                .update()
+        }
+        val owners = portfolioSlots()
+        val id =
+            requested?.takeIf { free(it, assetClass, slot, owners) } ?: run {
+                val base = "${if (assetClass == AssetClass.CRYPTO) "Crypto" else "Stock"} slot $slot"
+                val names = portfolios.list(true).map { it.name.lowercase() }.toSet()
+                val name = generateSequence(1) { it + 1 }.map { if (it == 1) base else "$base ($it)" }.first { it.lowercase() !in names }
+                val created =
+                    portfolios.create(
+                        app.strategyforge.engine.portfolio
+                            .PortfolioCreate(name, fresh?.startingCash),
+                    )
+                if (fresh?.shorting == true) portfolios.setShorting(created.id, true)
+                created.id
+            }
+        link(assetClass, slot, id)
+        return id
     }
 
     /** Slot number to the strategy running in it. */
@@ -107,9 +229,10 @@ class StrategySlots(
      */
     fun activate(
         strategyId: UUID,
-        req: ActivationRequest,
+        request: ActivationRequest,
         positions: PositionHandling?,
         slot: Int? = null,
+        fresh: NewSlotPortfolio? = null,
     ): SwitchResult =
         db.tx {
             val target = strategies.get(strategyId)
@@ -120,6 +243,8 @@ class StrategySlots(
                 slot ?: activations.active(strategyId)?.slot ?: (1..SLOTS).firstOrNull { it !in taken.keys }
                     ?: throw Problems.conflict("slots-full", "All $SLOTS ${label(assetClass)} slots are in use. Choose a slot to replace.", mapOf("assetClass" to assetClass))
             val old = occupant(assetClass, number, except = strategyId)
+            // Each slot trades its own portfolio (D-079); the requested one only fills a slot that has none.
+            val req = request.copy(portfolioId = portfolioFor(assetClass, number, request.portfolioId, fresh))
             if (old != null && positions == null) {
                 val open = holdings(old.id)
                 throw Problems.conflict(
@@ -326,6 +451,9 @@ class StrategySlots(
     private fun label(assetClass: AssetClass) = if (assetClass == AssetClass.CRYPTO) "crypto" else "stock"
 
     companion object {
+        /** Stands for "the slot's own portfolio" in a request that names none (D-079). */
+        val SLOT_PORTFOLIO: UUID = UUID(0, 0)
+
         /** Slots per asset class (D-051). */
         const val SLOTS = 10
         val ASSET_CLASSES = listOf(AssetClass.CRYPTO, AssetClass.US_EQUITY)

@@ -217,7 +217,7 @@ private fun SlotCards(
     onResume: (String) -> Unit,
 ) {
     SectionTitle("Running now")
-    Text("Up to 10 crypto and 10 stock strategies and 10 TSX plans can run at once, each in its own slot. Give each slot its own portfolio to compare them side by side.", style = MaterialTheme.typography.bodySmall)
+    Text("Up to 10 crypto and 10 stock strategies and 10 TSX plans can run at once, each in its own slot. Each slot trades its own portfolio, so plans never compete for cash or positions.", style = MaterialTheme.typography.bodySmall)
     listOf("CRYPTO" to "Crypto", "US_EQUITY" to "Stocks").forEach { (ac, label) ->
         val mine = slots.filter { it.assetClass == ac }
         val used = mine.filter { it.strategy != null }
@@ -334,6 +334,31 @@ private fun SlotPicker(
     )
 }
 
+/** Which portfolio a plan in slot [n] trades (D-079), and the starting cash when the slot has none yet. */
+@Composable
+fun SlotPortfolioInfo(
+    n: Int,
+    portfolioName: String?,
+    startingCash: String,
+    onStartingCash: (String) -> Unit,
+) {
+    Text("Portfolio", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+    if (portfolioName != null) {
+        Text(
+            "Trades in slot $n's own portfolio, $portfolioName. Plans in other slots never share its cash or positions.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("slot-portfolio"),
+        )
+    } else {
+        Text(
+            "Slot $n gets its own portfolio when this plan starts. Plans in other slots never share its cash or positions.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("slot-portfolio"),
+        )
+        Field("Starting cash for slot $n (USD)", startingCash, onStartingCash, number = true, modifier = Modifier.testTag("slot-starting-cash"))
+    }
+}
+
 /** True when the strategy can open short positions, so its new portfolio gets simulated shorting. */
 private fun canShort(d: app.strategyforge.android.core.model.StrategyDetail): Boolean =
     d.currentVersion
@@ -405,10 +430,8 @@ fun StrategyDetailScreen(
     val priceTf by vm.priceTimeframe.collectAsStateWithLifecycle()
     val priceError by vm.priceError.collectAsStateWithLifecycle()
     val disclosure by vm.disclosure.collectAsStateWithLifecycle()
-    val portfolios by vm.portfolios.collectAsStateWithLifecycle()
     val conflict by vm.slotConflict.collectAsStateWithLifecycle()
     val slots by vm.slots.collectAsStateWithLifecycle()
-    val newPortfolioId by vm.newPortfolioId.collectAsStateWithLifecycle()
     var slot by rememberSaveable { mutableStateOf<Int?>(null) }
     var newBalance by rememberSaveable { mutableStateOf("10000") }
     val replaced by vm.replaced.collectAsStateWithLifecycle()
@@ -416,18 +439,11 @@ fun StrategyDetailScreen(
     var from by rememberSaveable { mutableStateOf("2026-01-02T00:00:00Z") }
     var to by rememberSaveable { mutableStateOf("2026-06-19T00:00:00Z") }
     var capital by rememberSaveable { mutableStateOf("100000") }
-    var allocation by rememberSaveable { mutableStateOf("25") }
+    var allocation by rememberSaveable { mutableStateOf("100") }
     var autonomous by rememberSaveable { mutableStateOf(false) }
     var accepted by rememberSaveable { mutableStateOf(false) }
-    var portfolioId by rememberSaveable { mutableStateOf<String?>(null) }
     val outside by vm.outside.collectAsStateWithLifecycle()
     var showReauth by remember { mutableStateOf(false) }
-    LaunchedEffect(newPortfolioId) {
-        newPortfolioId?.let {
-            portfolioId = it
-            allocation = "100"
-        }
-    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         ResourceContent(state, fmt, vm::refresh) { d ->
             val s = d.strategy
@@ -541,28 +557,10 @@ fun StrategyDetailScreen(
                 val mine = slots.filter { it.assetClass == s.assetClass }
                 val chosen = slot ?: mine.firstOrNull { it.strategy?.id == s.id }?.number ?: mine.firstOrNull { it.strategy == null }?.number
                 SlotPicker(mine, chosen, s.id) { slot = it }
-                chosen?.let { n ->
-                    val label = if (s.assetClass == "CRYPTO") "Crypto" else "Stock"
-                    Text("Portfolio for slot $n", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Field("Starting cash", newBalance, { newBalance = it }, number = true, modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                val base = "$label slot $n"
-                                val name = generateSequence(1) { it + 1 }.map { if (it == 1) base else "$base ($it)" }.first { c -> portfolios.none { p -> p.name.equals(c, ignoreCase = true) } }
-                                vm.createSlotPortfolio(name, newBalance, canShort(d))
-                            },
-                            modifier = Modifier.testTag("new-slot-portfolio"),
-                        ) { Text("New portfolio") }
-                    }
-                }
-                portfolios.forEach { p ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        FilterChip(selected = portfolioId == p.id, onClick = { portfolioId = p.id }, label = { Text(p.name) })
-                    }
-                }
-                Field("Allocation % of portfolio", allocation, { allocation = it }, number = true)
+                // Each slot trades its own portfolio (D-079): made when a plan first runs in the slot, then kept.
+                val slotPortfolio = mine.firstOrNull { it.number == chosen }?.portfolioName
+                chosen?.let { n -> SlotPortfolioInfo(n, slotPortfolio, newBalance) { newBalance = it } }
+                Field("Share of the slot's portfolio (%)", allocation, { allocation = it }, number = true)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = autonomous, onCheckedChange = { autonomous = it }, modifier = Modifier.testTag("autonomous-switch"))
                     Spacer(Modifier.width(8.dp))
@@ -579,13 +577,18 @@ fun StrategyDetailScreen(
                 }
                 Button(
                     onClick = {
-                        portfolioId?.let {
-                            val mine = slots.filter { x -> x.assetClass == s.assetClass }
-                            val chosen = slot ?: mine.firstOrNull { x -> x.strategy?.id == s.id }?.number ?: mine.firstOrNull { x -> x.strategy == null }?.number
-                            vm.activate(it, allocation, autonomous, accepted, slot = chosen)
-                        }
+                        val hasPortfolio = mine.firstOrNull { x -> x.number == chosen }?.portfolioId != null
+                        vm.activate(
+                            null,
+                            allocation,
+                            autonomous,
+                            accepted,
+                            slot = chosen,
+                            startingCash = newBalance.trim().takeIf { !hasPortfolio && it.isNotEmpty() },
+                            shorting = !hasPortfolio && canShort(d),
+                        )
                     },
-                    enabled = portfolioId != null && (!autonomous || accepted),
+                    enabled = chosen != null && (!autonomous || accepted),
                     modifier = Modifier.testTag("activate"),
                 ) { Text(if (autonomous) "Activate in autonomous mode" else "Activate with notifications") }
             }

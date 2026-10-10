@@ -74,6 +74,15 @@ data class Portfolio(
     val reconciliationStatus: String = "OK",
     val createdAt: String? = null,
     val version: Long = 0,
+    /** The slot that owns this portfolio (D-079); null for the owner's own portfolios. */
+    val slot: PortfolioSlot? = null,
+)
+
+/** A crypto or stock slot, as the owner of a portfolio (D-079). */
+@Serializable
+data class PortfolioSlot(
+    val assetClass: String,
+    val number: Int,
 )
 
 @Serializable
@@ -290,6 +299,9 @@ data class Slot(
     val strategy: Strategy? = null,
     val activation: Activation? = null,
     val holdings: List<SlotHolding> = emptyList(),
+    /** The slot's own portfolio (D-079); null until a plan first runs in it. */
+    val portfolioId: String? = null,
+    val portfolioName: String? = null,
 )
 
 /** One point of a time series; [value] is exact decimal text (D-038). */

@@ -438,23 +438,6 @@ class StrategyDetailViewModel
 
         /** Every crypto and stock slot (D-051), to choose where this strategy runs. */
         val slots: StateFlow<List<Slot>> = _slots.asStateFlow()
-        private val _newPortfolioId = MutableStateFlow<String?>(null)
-
-        /** A portfolio just created for a slot; the screen selects it. */
-        val newPortfolioId: StateFlow<String?> = _newPortfolioId.asStateFlow()
-
-        /** Creates a paper portfolio for one slot, with simulated shorting when the strategy can short. */
-        fun createSlotPortfolio(
-            name: String,
-            balance: String,
-            shorting: Boolean,
-        ) = act("Portfolio $name created for this slot") {
-            val created = repo.createPortfolio(name, balance)
-            val p = if (shorting) repo.setShorting(created.id, true) else created
-            _portfolios.value = _portfolios.value + p
-            _newPortfolioId.value = p.id
-        }
-
         private val _price = MutableStateFlow<CandleChart?>(null)
 
         /** The strategy's price chart with its own trades marked (D-038). */
@@ -549,22 +532,36 @@ class StrategyDetailViewModel
         /** Set when another strategy of the same asset class is running (D-035): ask keep or close. */
         val slotConflict: StateFlow<SlotConflict?> = _slotConflict.asStateFlow()
 
+        /** Starts the strategy in [slot]; it trades the slot's own portfolio, made with [startingCash] when the slot has none (D-079). */
         fun activate(
-            portfolioId: String,
+            portfolioId: String?,
             allocation: String,
             autonomous: Boolean,
             disclosureAccepted: Boolean,
             positions: String? = null,
             slot: Int? = null,
+            startingCash: String? = null,
+            shorting: Boolean = false,
         ): Unit =
             act(if (autonomous) "Autonomous paper trading enabled" else "Notifications mode enabled") {
                 try {
-                    val a = repo.activate(id, portfolioId, allocation, autonomous, if (autonomous && disclosureAccepted) _disclosure.value?.version else null, positions, slot)
+                    val a =
+                        repo.activate(
+                            id,
+                            portfolioId,
+                            allocation,
+                            autonomous,
+                            if (autonomous && disclosureAccepted) _disclosure.value?.version else null,
+                            positions,
+                            slot,
+                            startingCash,
+                            shorting,
+                        )
                     _replaced.value = a.replacedStrategyName?.let { ReplaceOutcome(it, a) }
                     runCatching { _slots.value = repo.slots() }
                 } catch (e: ApiError.Http) {
                     if (e.code != "slot-occupied") throw e
-                    _slotConflict.value = SlotConflict.from(e) { keep -> activate(portfolioId, allocation, autonomous, disclosureAccepted, if (keep) "KEEP" else "CLOSE", slot) }
+                    _slotConflict.value = SlotConflict.from(e) { keep -> activate(portfolioId, allocation, autonomous, disclosureAccepted, if (keep) "KEEP" else "CLOSE", slot, startingCash, shorting) }
                 }
             }
 
@@ -646,6 +643,14 @@ class PortfolioViewModel
 
         /** A running plan to open first (from Home), by its key. */
         private var requestedPlan: String? = saved["plan"]
+        private val _overview = MutableStateFlow(requested == null && requestedPlan == null)
+
+        /** True while the overview of every portfolio is shown rather than one portfolio (D-079). */
+        val overview: StateFlow<Boolean> = _overview.asStateFlow()
+        private val _summaries = MutableStateFlow<Map<String, PortfolioSummary>>(emptyMap())
+
+        /** Each active portfolio's summary, for the overview's values. */
+        val summaries: StateFlow<Map<String, PortfolioSummary>> = _summaries.asStateFlow()
         private val _portfolios = MutableStateFlow<List<Portfolio>>(emptyList())
         val portfolios: StateFlow<List<Portfolio>> = _portfolios.asStateFlow()
         private val _selected = MutableStateFlow(requested)
@@ -686,6 +691,7 @@ class PortfolioViewModel
                 repo.portfolios().collect { r ->
                     if (r is Resource.Data) {
                         _portfolios.value = r.value
+                        if (_overview.value) loadSummaries()
                         if (_selected.value == null) {
                             _selected.value = r.value.firstOrNull { it.status == "ACTIVE" }?.id
                             reload()
@@ -698,9 +704,35 @@ class PortfolioViewModel
         }
 
         fun select(id: String) {
+            _overview.value = false
             _plan.value = null
             _selected.value = id
             reload()
+        }
+
+        /** Opens an overview card: its running plan, else its portfolio (D-079). */
+        fun open(e: PortfolioEntry) {
+            val key = e.planKey
+            val id = e.portfolioId
+            if (key != null) {
+                _overview.value = false
+                selectPlan(key)
+            } else if (id != null) {
+                select(id)
+            }
+        }
+
+        /** Back to the overview, with fresh values. */
+        fun showOverview() {
+            _overview.value = true
+            loadPlans()
+        }
+
+        private fun loadSummaries() {
+            val ids = _portfolios.value.filter { it.status == "ACTIVE" }.map { it.id }
+            viewModelScope.launch {
+                _summaries.value = ids.mapNotNull { id -> runCatching { id to repo.portfolioSummaryNow(id) }.getOrNull() }.toMap()
+            }
         }
 
         /** Re-reads the running plans: strategies in crypto and stock slots, and active TSX plans. */
@@ -723,6 +755,7 @@ class PortfolioViewModel
                     requestedPlan = null
                     selectPlan(key)
                 }
+                if (_overview.value) loadSummaries()
                 // A selected plan that stopped falls back to its portfolio (or the default view).
                 if (_plan.value != null && _plans.value.none { it.key == _plan.value }) _plan.value = null
             }
@@ -815,7 +848,8 @@ class PortfolioViewModel
             balance: String,
         ) = act("Portfolio created") {
             val p = repo.createPortfolio(name, balance)
-            _selected.value = p.id
+            _portfolios.value = _portfolios.value + p
+            select(p.id)
         }
 
         private val _suggestions = MutableStateFlow<List<app.strategyforge.android.core.model.InstrumentHit>>(emptyList())

@@ -365,18 +365,27 @@ class Repository(
 
     suspend fun disclosure(): Disclosure = api.get("/v1/autonomy/disclosure", Disclosure.serializer())
 
+    /**
+     * Activates a strategy in a slot. Each slot trades its own portfolio (D-079): [portfolioId] only
+     * fills a slot that has none and is not used by another slot; otherwise the slot's portfolio is
+     * used, or a new one is made with [startingCash] (and simulated shorting when [shorting]).
+     */
     suspend fun activate(
         strategyId: String,
-        portfolioId: String,
+        portfolioId: String?,
         allocationPercent: String,
         autonomous: Boolean,
         disclosureVersion: String?,
         positions: String? = null,
         slot: Int? = null,
+        startingCash: String? = null,
+        shorting: Boolean = false,
     ): Activation {
         val body =
             buildJsonObject {
-                put("portfolioId", portfolioId)
+                portfolioId?.let { put("portfolioId", it) }
+                startingCash?.let { put("startingCash", it) }
+                if (shorting) put("shorting", true)
                 // The slot of its asset class (D-051); without one, the strategy keeps its slot or takes the first free one.
                 slot?.let { put("slot", it.toString()) }
                 put("allocationPercent", allocationPercent)
