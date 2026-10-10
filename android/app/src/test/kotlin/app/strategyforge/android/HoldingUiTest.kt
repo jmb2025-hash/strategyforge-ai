@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.strategyforge.android.core.format.Formatters
 import app.strategyforge.android.core.model.HoldingChart
@@ -132,7 +134,7 @@ class HoldingUiTest {
         rule.onNodeWithText("You paid").performScrollTo().assertExists()
         rule.onNodeWithText("Sold 0.1 @ $82,500.00").performScrollTo().assertExists()
         rule.onNodeWithText("Bought 0.6 @ $80,000.00").performScrollTo().assertExists()
-        rule.onNodeWithTag("holding-range-1W").performScrollTo().performClick()
+        rule.onNodeWithTag("holding-range-1W").performSemanticsAction(SemanticsActions.OnClick)
         assertEquals("1W", range)
         rule.onNodeWithTag("holding-buy").performScrollTo().performClick()
         rule.onNodeWithTag("holding-sell").performScrollTo().performClick()
