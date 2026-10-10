@@ -48,6 +48,47 @@ data class EquityChart(
     val changePercent: BigDecimal?,
 )
 
+/** One point of a holding's history (D-080): what the shares held were worth, and what they cost. */
+data class HoldingPoint(
+    val at: Instant,
+    val price: BigDecimal,
+    val quantity: BigDecimal,
+    val value: BigDecimal,
+    val cost: BigDecimal,
+)
+
+/** A fill of one holding, newest first. */
+data class HoldingTrade(
+    val at: Instant,
+    val side: String,
+    val quantity: BigDecimal,
+    val price: BigDecimal,
+    val fees: BigDecimal,
+    val realizedPnl: BigDecimal,
+    val strategyId: UUID?,
+)
+
+/**
+ * One symbol held in a portfolio over a range (D-080): the holding's value and cost through time,
+ * the gain or loss over the range, the profit already taken by selling, and its trades.
+ */
+data class HoldingChart(
+    val portfolioId: UUID,
+    val symbol: String,
+    val name: String,
+    val assetClass: String,
+    val range: String,
+    val points: List<HoldingPoint>,
+    /** Change in the holding's gain (value minus cost) over the range, so buying more is not counted as a gain. */
+    val gainChange: BigDecimal?,
+    /** Price change over the range, in percent. */
+    val priceChangePercent: BigDecimal?,
+    val realizedPnl: BigDecimal,
+    val fees: BigDecimal,
+    val firstBoughtAt: Instant?,
+    val trades: List<HoldingTrade>,
+)
+
 /**
  * Chart data for the phone (D-038): recent candles with the simulated trades placed on them, and a
  * portfolio's equity curve for a time range, thinned to a size a phone can draw quickly.
@@ -127,8 +168,114 @@ class ChartService(
         return EquityChart(portfolioId, r, points, change, pct)
     }
 
+    /**
+     * [symbol]'s history in a portfolio over [range] (D-080). Quantity and cost follow the fills with
+     * average cost: buying (or shorting) adds the price paid plus commission, and selling part of a
+     * holding takes away that share of its cost. Value is the quantity at each bar's close; shorts are
+     * negative, so value minus cost is the gain either way.
+     */
+    fun holding(
+        portfolioId: UUID,
+        symbol: String,
+        range: String,
+    ): HoldingChart {
+        val r = range.uppercase()
+        val i = instruments.bySymbol(symbol.trim().uppercase())
+        val fills =
+            db
+                .sql(
+                    """
+                    select e.executed_at, e.side, e.quantity, e.price, e.commission, e.spread_cost, e.slippage_cost, e.realized_pnl, o.strategy_id
+                    from paper_executions e join paper_orders o on o.id = e.order_id
+                    where e.portfolio_id = :p and e.instrument_id = :i order by e.executed_at, e.fill_seq
+                    """.trimIndent(),
+                ).param("p", portfolioId)
+                .param("i", i.id)
+                .list {
+                    HoldingTrade(
+                        it.instant("executed_at"),
+                        it.str("side"),
+                        it.dec("quantity"),
+                        it.dec("price"),
+                        it.dec("commission"),
+                        it.dec("realized_pnl"),
+                        it.uuidOrNull("strategy_id"),
+                    )
+                }
+        val now = marketClock.now()
+        val (tf, window) =
+            when (r) {
+                "1D" -> Timeframe.of("5m") to Duration.ofDays(1)
+                "1W" -> Timeframe.of("1h") to Duration.ofDays(7)
+                "1M" -> Timeframe.of("4h") to Duration.ofDays(30)
+                "3M" -> Timeframe.D1 to Duration.ofDays(90)
+                "ALL" -> Timeframe.D1 to Duration.between(fills.firstOrNull()?.at ?: now.minus(Duration.ofDays(30)), now).plusDays(1)
+                else -> throw Problems.badRequest("invalid-range", "range must be one of 1D, 1W, 1M, 3M, ALL")
+            }
+        val from = now.minus(window)
+        val bars = market.candles(i, tf, from, now).bars
+        // Running quantity and cost after each fill.
+        val steps = mutableListOf<Triple<Instant, BigDecimal, BigDecimal>>()
+        var qty = BigDecimal.ZERO
+        var cost = BigDecimal.ZERO
+        fills.forEach { f ->
+            val signed = if (f.side == "BUY" || f.side == "BUY_TO_COVER") f.quantity else f.quantity.negate()
+            val next = qty.add(signed)
+            if (qty.signum() == 0 || qty.signum() == signed.signum()) {
+                cost = cost.add(signed.multiply(f.price)).add(f.fees)
+            } else if (next.signum() == 0 || next.signum() == qty.signum()) {
+                cost = cost.multiply(next).divide(qty, 10, java.math.RoundingMode.HALF_EVEN)
+            } else {
+                // Crossed through zero: the remainder opens a new holding at this price.
+                cost = next.multiply(f.price).add(f.fees)
+            }
+            qty = next
+            steps += Triple(f.at, qty, cost)
+        }
+
+        fun held(at: Instant): Pair<BigDecimal, BigDecimal> = steps.lastOrNull { !it.first.isAfter(at) }?.let { it.second to it.third } ?: (BigDecimal.ZERO to BigDecimal.ZERO)
+        val points =
+            bars.map { b ->
+                val end = b.openTime.plus(tf.duration).let { if (it.isAfter(now)) now else it }
+                val (q, c) = held(end)
+                HoldingPoint(end, b.close, q, q.multiply(b.close), c)
+            }
+        // Leave out the stretch before the first purchase.
+        val shown = thin(points.dropWhile { it.quantity.signum() == 0 && it.cost.signum() == 0 })
+        val gainChange =
+            if (shown.size >= 2) {
+                val g = { p: HoldingPoint -> p.value.subtract(p.cost) }
+                g(shown.last()).subtract(g(shown.first()))
+            } else {
+                null
+            }
+        val firstPrice = points.firstOrNull()?.price
+        val lastPrice = points.lastOrNull()?.price
+        val priceChange =
+            if (firstPrice != null && lastPrice != null && firstPrice.signum() > 0 && points.size >= 2) {
+                lastPrice.subtract(firstPrice).multiply(BigDecimal(100)).divide(firstPrice, 2, java.math.RoundingMode.HALF_EVEN)
+            } else {
+                null
+            }
+        return HoldingChart(
+            portfolioId,
+            i.symbol,
+            i.name,
+            i.assetClass.name,
+            r,
+            shown,
+            gainChange,
+            priceChange,
+            fills.fold(BigDecimal.ZERO) { a, f -> a.add(f.realizedPnl) },
+            fills.fold(BigDecimal.ZERO) { a, f -> a.add(f.fees) },
+            fills.firstOrNull { it.side == "BUY" || it.side == "SELL_SHORT" }?.at,
+            fills.asReversed().take(MAX_HOLDING_TRADES),
+        )
+    }
+
     companion object {
         const val DEFAULT_BARS = 120
+        private const val MAX_HOLDING_TRADES = 100
         const val MIN_BARS = 20
         const val MAX_BARS = 500
         const val MAX_POINTS = 400

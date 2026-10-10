@@ -418,6 +418,18 @@ class Repository(
             CandleChart.serializer(),
         )
 
+    /** One holding's value, cost and trades in a portfolio over [range] (D-080). */
+    suspend fun holding(
+        portfolioId: String,
+        symbol: String,
+        range: String,
+    ): app.strategyforge.android.core.model.HoldingChart =
+        api.decode(
+            api.get("/v1/portfolios/${seg(portfolioId)}/holding?symbol=${q(symbol)}&range=${q(range)}").body,
+            app.strategyforge.android.core.model.HoldingChart
+                .serializer(),
+        )
+
     /** A portfolio's equity curve for 1D, 1W, 1M, 3M or ALL (D-038). */
     suspend fun equityChart(
         portfolioId: String,

@@ -381,6 +381,36 @@ class LocalApi(
         }
         get("/v1/portfolios/{id}") { _, g -> portfolio(engine.portfolios.get(uuid(g[0]))) }
         get("/v1/portfolios/{id}/summary") { _, g -> summary(engine.portfolios.summary(uuid(g[0]))) }
+        // One holding's value, cost and trades over a range (D-080).
+        get("/v1/portfolios/{id}/holding") { r, g ->
+            val symbol = r.query["symbol"]?.takeIf { it.isNotBlank() } ?: throw Problems.badRequest("missing-field", "symbol is required")
+            val h = engine.charts.holding(uuid(g[0]), symbol, r.query["range"] ?: "1M")
+            mapOf(
+                "portfolioId" to h.portfolioId,
+                "symbol" to h.symbol,
+                "name" to h.name,
+                "assetClass" to h.assetClass,
+                "range" to h.range,
+                "points" to h.points.map { mapOf("at" to it.at, "price" to it.price, "quantity" to it.quantity, "value" to it.value, "cost" to it.cost) },
+                "gainChange" to h.gainChange,
+                "priceChangePercent" to h.priceChangePercent,
+                "realizedPnl" to h.realizedPnl,
+                "fees" to h.fees,
+                "firstBoughtAt" to h.firstBoughtAt,
+                "trades" to
+                    h.trades.map {
+                        mapOf(
+                            "at" to it.at,
+                            "side" to it.side,
+                            "quantity" to it.quantity,
+                            "price" to it.price,
+                            "fees" to it.fees,
+                            "realizedPnl" to it.realizedPnl,
+                            "strategyId" to it.strategyId,
+                        )
+                    },
+            )
+        }
         post("/v1/portfolios/{id}/shorting") { r, g -> portfolio(engine.portfolios.setShorting(uuid(g[0]), obj(r).bool("enabled") ?: false)) }
         get("/v1/orders") { r, _ ->
             val statuses = r.query["status"]?.split(',')?.mapNotNull { s -> OrderStatus.entries.firstOrNull { it.name == s.trim() } }
@@ -437,6 +467,8 @@ class LocalApi(
         mapOf(
             "instrumentId" to v.instrumentId,
             "symbol" to v.symbol,
+            // The company or coin name, for the holdings list (D-080).
+            "name" to runCatching { engine.instruments.bySymbol(v.symbol).name }.getOrNull(),
             "assetClass" to v.assetClass,
             "side" to v.side,
             "quantity" to v.quantity,

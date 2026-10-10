@@ -42,6 +42,7 @@ import app.strategyforge.android.core.model.Portfolio
 import app.strategyforge.android.core.model.PortfolioSummary
 import app.strategyforge.android.core.notify.DeepLinks
 import app.strategyforge.android.core.state.ActionState
+import app.strategyforge.android.core.state.Holdings
 import app.strategyforge.android.core.state.OrderForm
 import app.strategyforge.android.core.state.RecommendationPresenter
 import app.strategyforge.android.core.state.RecommendationState
@@ -52,6 +53,8 @@ fun PortfolioScreen(
     vm: PortfolioViewModel,
     fmt: Formatters,
     onChart: (symbol: String, portfolioId: String) -> Unit = { _, _ -> },
+    /** Opens one holding's page (D-080). */
+    onHolding: (symbol: String, portfolioId: String) -> Unit = { _, _ -> },
     session: SessionViewModel? = null,
     /** Opens a symbol's information screen (D-065). */
     onInfo: (symbol: String, portfolioId: String?) -> Unit = { _, _ -> },
@@ -128,42 +131,20 @@ fun PortfolioScreen(
                     SectionTitle(portfolios.firstOrNull { it.id == s.portfolio.id }?.let { titleOf(it) } ?: s.portfolio.name)
                     if (slotPlan != null) SlotPlanCard(slotPlan, scorecard, s, fmt)
                     EquityCard(equity, range, vm::setRange, fmt, s.equity, s.portfolio.name)
-                    AllocationCard(s, fmt)
-                    val shorting = portfolios.firstOrNull { it.id == s.portfolio.id }?.shortingEnabled ?: s.portfolio.shortingEnabled
-                    ShortingSwitch(shorting) { on -> if (on) confirmShorting = true else vm.setShorting(s.portfolio.id, false) }
-                    SfCard {
-                        LabelValue("Equity", fmt.money(s.equity))
-                        LabelValue("Cash", fmt.money(s.cash))
-                        LabelValue("Reserved for orders", fmt.money(s.reservedCash))
-                        LabelValue("Buying power", fmt.money(s.buyingPower))
-                        PnlValue("Realized", s.realizedPnl, fmt)
-                        PnlValue("Unrealized", s.unrealizedPnl, fmt)
-                        PnlValue("Total return", s.totalReturn, fmt)
-                        LabelValue("Fees", fmt.money(s.fees))
-                        LabelValue("As of", fmt.dateTime(s.asOf))
-                        if (s.portfolio.reconciliationStatus != "OK") Banner("Reconciliation ${s.portfolio.reconciliationStatus}: orders are blocked until it passes.", BannerKind.ERROR)
-                    }
+                    PortfolioTotalsCard(s, fmt)
                     // A plan in its slot's own portfolio owns everything in it; one sharing a portfolio shows only its own symbols.
                     val planSymbols = slotPlan?.takeIf { !ownsPortfolio(it, s.portfolio) }?.symbols
                     val positions = if (planSymbols == null) s.positions else s.positions.filter { it.symbol in planSymbols }
-                    SectionTitle(if (slotPlan != null) "This plan's positions" else "Positions")
+                    SectionTitle(if (planSymbols != null) "This plan's holdings" else "Holdings")
                     if (positions.isEmpty()) Text("No open positions.")
-                    positions.forEach { p ->
-                        SfCard(Modifier.clickable { onChart(p.symbol, s.portfolio.id) }.testTag("position-${p.symbol}")) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("${p.symbol} · ${p.side}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                                Text("Chart ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(8.dp))
-                                if (p.priceStatus != "VERIFIED") StatusChip(if (p.priceStatus == "STALE") "Stale data" else p.priceStatus)
-                            }
-                            LabelValue("Quantity", fmt.quantity(p.quantity))
-                            LabelValue("Average cost", fmt.money(p.averageCost))
-                            LabelValue("Market value", fmt.money(p.marketValue))
-                            PnlValue("Unrealized", p.unrealizedPnl, fmt)
-                            p.priceTimestamp?.let { LabelValue("Price time", fmt.dateTime(it)) }
-                            if (p.manualReviewRequired) Banner("Manual Review Required: a corporate action could not be verified.", BannerKind.WARNING)
-                        }
-                    }
+                    // Biggest first, each with its own page (D-080).
+                    positions
+                        .map { it to Holdings.stats(it, s.equity) }
+                        .sortedByDescending { it.second.value ?: java.math.BigDecimal.ZERO }
+                        .forEach { (p, h) -> HoldingRow(h, p, fmt) { onHolding(p.symbol, s.portfolio.id) } }
+                    AllocationCard(s, fmt)
+                    val shorting = portfolios.firstOrNull { it.id == s.portfolio.id }?.shortingEnabled ?: s.portfolio.shortingEnabled
+                    ShortingSwitch(shorting) { on -> if (on) confirmShorting = true else vm.setShorting(s.portfolio.id, false) }
                 }
                 SectionTitle(if (slotPlan != null) "This plan's orders" else "Orders")
                 val o = orders

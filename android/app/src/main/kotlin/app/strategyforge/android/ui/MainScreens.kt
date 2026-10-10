@@ -218,10 +218,40 @@ fun MainShell(
                     hiltViewModel(),
                     fmt,
                     onChart = { sym, pid -> nav.navigate("chart/${Uri.encode(sym)}?portfolioId=$pid") },
+                    onHolding = { sym, pid -> nav.navigate("holding/${Uri.encode(sym)}?portfolioId=$pid") },
                     session = session,
                     onInfo = { sym, pid -> nav.navigate("instrument/${Uri.encode(sym)}" + (pid?.let { "?portfolioId=$it" } ?: "")) },
                     prefill = prefill?.split('|')?.takeIf { it.size == 2 }?.let { it[0] to it[1] },
                     onPrefillUsed = { entry.savedStateHandle[ORDER_PREFILL] = null },
+                )
+            }
+            // One holding with its history and stock-app numbers (D-080).
+            composable(
+                "holding/{symbol}?portfolioId={portfolioId}",
+                arguments =
+                    listOf(
+                        navArgument("symbol") { type = NavType.StringType },
+                        navArgument("portfolioId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+            ) {
+                HoldingScreen(
+                    hiltViewModel(),
+                    fmt,
+                    onTrade = { side, sym ->
+                        val back = nav.previousBackStackEntry
+                        if (back?.destination?.route?.startsWith("portfolio") == true) {
+                            back.savedStateHandle[ORDER_PREFILL] = "$side|$sym"
+                            nav.popBackStack()
+                        } else {
+                            nav.navigate("portfolio")
+                        }
+                    },
+                    onChart = { sym, pid -> nav.navigate("chart/${Uri.encode(sym)}?portfolioId=$pid") },
+                    onInfo = { sym, pid -> nav.navigate("instrument/${Uri.encode(sym)}?portfolioId=$pid") },
                 )
             }
             composable(

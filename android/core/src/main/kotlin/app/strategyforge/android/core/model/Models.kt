@@ -100,6 +100,8 @@ data class Position(
     val priceTimestamp: String? = null,
     val priceStatus: String = "VERIFIED",
     val manualReviewRequired: Boolean = false,
+    /** Company or coin name (D-080). */
+    val name: String? = null,
 )
 
 @Serializable
@@ -115,6 +117,9 @@ data class PortfolioSummary(
     val totalReturn: String = "0",
     val totalReturnPercent: String? = null,
     val fullyPriced: Boolean = true,
+    /** What the open positions cost, and what they are worth now (D-080). */
+    val costBasis: String? = null,
+    val marketValue: String? = null,
     val positions: List<Position> = emptyList(),
     val asOf: String,
 )
@@ -930,4 +935,42 @@ data class AutoBackupInfo(
     val lastLocation: String? = null,
     val lastError: String? = null,
     val nextDueAt: String? = null,
+)
+
+/** One point of a holding's history (D-080): the shares' value and their cost at that time. */
+@Serializable
+data class HoldingPoint(
+    val at: String,
+    val price: String,
+    val quantity: String,
+    val value: String,
+    val cost: String,
+)
+
+@Serializable
+data class HoldingTrade(
+    val at: String,
+    val side: String,
+    val quantity: String,
+    val price: String,
+    val fees: String = "0",
+    val realizedPnl: String = "0",
+    val strategyId: String? = null,
+)
+
+/** One symbol held in a portfolio over a range (D-080). */
+@Serializable
+data class HoldingChart(
+    val portfolioId: String,
+    val symbol: String,
+    val name: String? = null,
+    val assetClass: String = "",
+    val range: String,
+    val points: List<HoldingPoint> = emptyList(),
+    val gainChange: String? = null,
+    val priceChangePercent: String? = null,
+    val realizedPnl: String = "0",
+    val fees: String = "0",
+    val firstBoughtAt: String? = null,
+    val trades: List<HoldingTrade> = emptyList(),
 )

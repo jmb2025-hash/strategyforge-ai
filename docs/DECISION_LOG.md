@@ -1290,3 +1290,22 @@ When a conflict is unresolved, the safest reversible option is selected.
   - `LocalApiAppTest` covers the API fields.
   - `PortfolioOverviewUiTest` covers the overview groups, values and taps, creating an own portfolio, and the activation form text.
 - **Version:** 1.24.0 (versionCode 42).
+
+## D-080 Per-holding performance on the Portfolio screen, like a stock app
+
+- **Date:** 2026-10-10
+- **Context:** The owner could see only the whole portfolio's value chart. Each position showed its quantity, average cost, market value and unrealized profit, but not what was paid, the gain as a percent, its share of the portfolio, or how the holding did over time. The owner asked for the usual stock-app numbers for the portfolio and for each stock in it.
+- **Decision:**
+  - **Portfolio card.** It shows the total value and the total return since the start (money and percent). For the holdings: what was paid, what they are worth now, the gain or loss in money and percent, and the profit taken on sales. Then cash, reserved cash, buying power, fees and the time of the figures. When a price is missing, the card says the totals leave it out.
+  - **Holdings list.** Biggest holding first. Each row shows the symbol and company or coin name, the shares (or coins) and the price each, what they are worth now, the gain or loss in money and percent (coloured), the share of the portfolio, and what was paid with the average cost. Shorts are marked. `core.state.Holdings` does the arithmetic.
+  - **Holding page.** Tapping a holding opens its own page (route `holding/{symbol}?portfolioId=`).
+    - A chart of what the shares were worth against what was paid, over 1D, 1W, 1M, 3M or All. The change in gain over the range counts only price moves, not buying more. The page also shows the price change over the same time.
+    - Shares, average cost, price now, paid, worth now, gain or loss, profit taken on sales, total gain (open and taken), commissions, share of the portfolio, and the first purchase.
+    - Buy more and Sell buttons, which fill the order form; the price chart with trades; and About.
+    - Every trade, marked as made by the plan or by the owner, with the profit on each sale.
+  - **Engine.** `ChartService.holding` (`GET /v1/portfolios/{id}/holding?symbol=&range=`) replays the holding's fills with average cost, as the ledger does. Buying adds the price paid plus commission, and selling part removes that share of the cost. It values the quantity held at each bar's close. Positions now carry the instrument's name.
+- **Tests:**
+  - `ChartsTest`: after buying 0.2 and selling 0.1, the history ends at 0.1 with value equal to quantity times price and cost matching the position's cost basis; trades are listed newest first; realized profit is summed; an invalid range is refused.
+  - `HoldingsTest`: paid, worth, gain, percent and weight for a long and a short; holdings sorted and totalled; missing prices flagged.
+  - `HoldingUiTest`: labels, portfolio totals, the holdings rows and opening one, and the holding page's numbers, trades, range, buy and sell, including a holding already sold.
+- **Version:** 1.25.0 (versionCode 43).

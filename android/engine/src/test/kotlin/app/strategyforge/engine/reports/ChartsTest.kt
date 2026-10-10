@@ -61,6 +61,34 @@ class ChartsTest {
     }
 
     @Test
+    fun `D-080 a holding's history follows its fills with average cost, and lists its trades newest first`() {
+        e.order(p, "BTC-USD", "BUY", "0.2")
+        e.advance(30)
+        e.order(p, "BTC-USD", "SELL", "0.1")
+        e.advance(30)
+        val h = e.charts.holding(p, "btc-usd", "1D")
+        assertThat(h.symbol).isEqualTo("BTC-USD")
+        assertThat(h.name).isNotBlank()
+        assertThat(h.points).isNotEmpty()
+        assertThat(h.points.map { it.at }).isSorted()
+        val last = h.points.last()
+        assertThat(last.quantity).isEqualByComparingTo("0.1")
+        assertThat(last.value).isEqualByComparingTo(last.quantity.multiply(last.price))
+        // The cost left matches the open position's cost basis.
+        val position =
+            e.portfolios
+                .summary(p)
+                .positions
+                .single()
+        assertThat(last.cost.subtract(position.costBasis).abs()).isLessThan(java.math.BigDecimal("0.01"))
+        assertThat(h.trades.map { it.side }).containsExactly("SELL", "BUY")
+        assertThat(h.realizedPnl).isEqualByComparingTo(h.trades.fold(java.math.BigDecimal.ZERO) { a, t -> a.add(t.realizedPnl) })
+        assertThat(h.firstBoughtAt).isEqualTo(h.trades.last().at)
+        assertThat(h.gainChange).isNotNull()
+        assertThat(assertThrows<EngineException> { e.charts.holding(p, "BTC-USD", "2Y") }.code).isEqualTo("invalid-range")
+    }
+
+    @Test
     fun `thinning keeps the first and latest points`() {
         val thinned = ChartService.thin((1..1000).toList(), 50)
         assertThat(thinned).hasSize(50)
