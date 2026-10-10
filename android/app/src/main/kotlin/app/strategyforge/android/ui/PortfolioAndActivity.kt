@@ -665,7 +665,7 @@ fun portfolioEntries(
                 "Slot ${r.slot} · ${r.planName}",
                 (if (r.mode == "AUTONOMOUS") "Autonomous" else "Notify and approve") + " · Canadian dollars",
                 cad(now),
-                if (r.startingCash > 0) java.math.BigDecimal((now / r.startingCash - 1) * 100) else null,
+                if (r.startingCash > 0) java.math.BigDecimal((now / r.startingCash - 1) * 100).setScale(2, java.math.RoundingMode.HALF_EVEN) else null,
                 planKey = t.key,
                 order = r.slot,
             )
