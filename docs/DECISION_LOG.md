@@ -1241,3 +1241,14 @@ When a conflict is unresolved, the safest reversible option is selected.
   In `BacktestServiceTest`, an earlier UNAVAILABLE no longer blocks: the backtest passes and the strategy becomes Paper Eligible.
 - **Owner action:** run "Backtest on recent history" again on each stock plan, then activate it.
 - **Version:** 1.23.4 (versionCode 40).
+
+## D-078 Switch a running TSX plan between notify-and-approve and autonomous
+
+- **Date:** 2026-10-10
+- **Context:** The owner started TSX slot 1 (Dividend Growth & Momentum 24) in notify-and-approve mode and wanted it autonomous, but a TSX run's mode could only be chosen when it started. The run page offered only Approve, Decline and Stop.
+- **Decision:**
+  - **Switch modes.** `TsxService.setMode` (`POST /v1/tsx/runs/{id}/autonomous` and `/notify`) switches an active run's mode, audited as TSX_PLAN_MODE_CHANGED.
+  - **Waiting rebalance.** Turning autonomous on applies a rebalance waiting for approval, as an autonomous run would have.
+  - **Run page.** The run page, and the TSX plan as shown in the Portfolio menu, has "Switch to autonomous" or "Switch to notify and approve", with a note when a waiting rebalance will be applied.
+- **Tests:** a notify run switched to autonomous applies its waiting rebalance and holds those listings. Switching back keeps the holdings, and a stopped run cannot switch. `TsxPlansUiTest` clicks the switch.
+- **Version:** 1.23.5 (versionCode 41).

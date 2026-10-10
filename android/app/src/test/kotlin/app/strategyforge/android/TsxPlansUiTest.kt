@@ -51,7 +51,7 @@ class TsxPlansUiTest {
         rule.setContent {
             SfTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    TsxRunDetail(run, ActionState.Idle, { calls += "approve" }, { calls += "decline" }, { calls += "stop" })
+                    TsxRunDetail(run, ActionState.Idle, { calls += "approve" }, { calls += "decline" }, { calls += "stop" }, { calls += it })
                 }
             }
         }
@@ -62,10 +62,12 @@ class TsxPlansUiTest {
         rule.onNodeWithText("ENB · Enbridge").assertExists()
         rule.onNodeWithText("Dividend C$61.20 reinvested").assertExists()
         rule.onNodeWithTag("tsx-approve").performScrollTo().performClick()
+        // D-078 the mode can be switched from the run.
+        rule.onNodeWithTag("tsx-mode").performScrollTo().performClick()
         rule.onNodeWithTag("tsx-stop").performScrollTo().performClick()
         rule.onNodeWithText("Stop this plan?").assertExists()
         rule.onNodeWithText("Stop").performClick()
-        assertEquals(listOf("approve", "stop"), calls)
+        assertEquals(listOf("approve", if (run.mode == "AUTONOMOUS") "notify" else "autonomous", "stop"), calls)
     }
 
     @Test

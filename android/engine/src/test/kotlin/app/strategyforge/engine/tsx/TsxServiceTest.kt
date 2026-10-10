@@ -60,6 +60,24 @@ class TsxServiceTest {
     }
 
     @Test
+    fun `D-078 a notify run switched to autonomous applies its waiting rebalance, and can switch back`() {
+        tsx.refresh()
+        val r = tsx.create("tsx-dividend-growth-momentum", null, 10_000.0, true, TsxMode.NOTIFY)
+        assertThat(r.pending).isNotNull()
+        val auto = tsx.setMode(r.id, TsxMode.AUTONOMOUS)
+        assertThat(auto.mode).isEqualTo(TsxMode.AUTONOMOUS)
+        assertThat(auto.pending).isNull()
+        assertThat(auto.holdings.map { it.symbol }).containsExactlyInAnyOrderElementsOf(r.pending!!.keys)
+        // Same mode again changes nothing.
+        assertThat(tsx.setMode(r.id, TsxMode.AUTONOMOUS).holdings).hasSameSizeAs(auto.holdings)
+        val back = tsx.setMode(r.id, TsxMode.NOTIFY)
+        assertThat(back.mode).isEqualTo(TsxMode.NOTIFY)
+        assertThat(back.holdings).hasSameSizeAs(auto.holdings)
+        tsx.stop(r.id)
+        assertThat(code { tsx.setMode(r.id, TsxMode.AUTONOMOUS) }).isEqualTo("run-stopped")
+    }
+
+    @Test
     fun `autonomous runs follow the days, reinvesting or paying out dividends`() {
         tsx.refresh()
         val drip = tsx.create("tsx-high-yield-trend", null, 10_000.0, true, TsxMode.AUTONOMOUS)

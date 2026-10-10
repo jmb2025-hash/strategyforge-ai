@@ -432,7 +432,7 @@ fun TsxRunScreen(vm: TsxRunViewModel) {
             Loading()
             return@Column
         }
-        TsxRunDetail(r, action, vm::approve, vm::decline, vm::stop)
+        TsxRunDetail(r, action, vm::approve, vm::decline, vm::stop, vm::setMode)
     }
 }
 
@@ -444,6 +444,8 @@ fun TsxRunDetail(
     onApprove: () -> Unit,
     onDecline: () -> Unit,
     onStop: () -> Unit,
+    /** "autonomous" or "notify" (D-078). */
+    onMode: (String) -> Unit = {},
 ) {
     var view by rememberSaveable { mutableStateOf("value") }
     SectionTitle("Slot ${r.slot}: ${r.planName}")
@@ -462,6 +464,16 @@ fun TsxRunDetail(
         LabelValue("Dividends received", cad2(r.dividendsReceived))
         LabelValue("Dividends", if (r.drip) "Reinvested (DRIP)" else "Paid out as cash")
         LabelValue("Mode", if (r.mode == "AUTONOMOUS") "Autonomous" else "Notify and approve")
+        if (r.status == "ACTIVE") {
+            OutlinedButton(
+                onClick = { onMode(if (r.mode == "AUTONOMOUS") "notify" else "autonomous") },
+                enabled = action != ActionState.Running,
+                modifier = Modifier.testTag("tsx-mode"),
+            ) { Text(if (r.mode == "AUTONOMOUS") "Switch to notify and approve" else "Switch to autonomous") }
+            if (r.mode != "AUTONOMOUS" && r.pending != null) {
+                Text("Switching to autonomous also applies the rebalance waiting below.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
         r.lastDay?.let { LabelValue("Closing prices as of", it) }
         Text(
             "Intraday values are for display and may be delayed up to 15 minutes. Dividends and rebalancing use closing prices, as in the research.",

@@ -454,6 +454,29 @@ class TsxService(
         return get(id)
     }
 
+    /**
+     * Switches a running plan between notify-and-approve and autonomous (D-078). Turning autonomous
+     * on applies a rebalance that was waiting for approval, as an autonomous run would have.
+     */
+    fun setMode(
+        id: UUID,
+        mode: TsxMode,
+    ): TsxRunView {
+        val run = get(id)
+        if (run.status != "ACTIVE") throw Problems.conflict("run-stopped", "This plan is stopped.")
+        if (run.mode == mode) return run
+        if (mode == TsxMode.AUTONOMOUS && run.pending != null) approve(id)
+        db.tx {
+            db
+                .sql("update tsx_runs set mode = :m where id = :id and status = 'ACTIVE'")
+                .param("m", mode.name)
+                .param("id", id)
+                .update()
+            audit.record(AuditCategory.AUTONOMY, "TSX_PLAN_MODE_CHANGED", entityType = "TsxRun", entityId = id, details = mapOf("from" to run.mode, "to" to mode))
+        }
+        return get(id)
+    }
+
     fun stop(id: UUID): TsxRunView {
         get(id)
         db.tx {

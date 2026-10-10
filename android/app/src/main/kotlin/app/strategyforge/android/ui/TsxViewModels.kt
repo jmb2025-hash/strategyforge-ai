@@ -167,6 +167,9 @@ class TsxRunViewModel
 
         fun stop() = act("stop", "Plan stopped")
 
+        /** Switches between notify-and-approve and autonomous (D-078). */
+        fun setMode(mode: String) = act(mode, if (mode == "autonomous") "Now autonomous: rebalances are applied on schedule" else "Now notify and approve: you approve each rebalance")
+
         private fun act(
             what: String,
             success: String,

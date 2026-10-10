@@ -1337,6 +1337,8 @@ class LocalApi(
         get("/v1/tsx/runs/{id}") { _, g -> tsxRun(engine.tsx.get(uuid(g[0])), detail = true) }
         post("/v1/tsx/runs/{id}/approve") { _, g -> tsxRun(engine.tsx.approve(uuid(g[0])), detail = true) }
         post("/v1/tsx/runs/{id}/decline") { _, g -> tsxRun(engine.tsx.decline(uuid(g[0])), detail = true) }
+        post("/v1/tsx/runs/{id}/autonomous") { _, g -> tsxRun(engine.tsx.setMode(uuid(g[0]), app.strategyforge.engine.tsx.TsxMode.AUTONOMOUS), detail = true) }
+        post("/v1/tsx/runs/{id}/notify") { _, g -> tsxRun(engine.tsx.setMode(uuid(g[0]), app.strategyforge.engine.tsx.TsxMode.NOTIFY), detail = true) }
         post("/v1/tsx/runs/{id}/stop") { _, g -> tsxRun(engine.tsx.stop(uuid(g[0])), detail = true) }
     }
 

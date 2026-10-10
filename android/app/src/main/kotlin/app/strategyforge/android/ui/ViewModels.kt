@@ -774,6 +774,8 @@ class PortfolioViewModel
                 when (what) {
                     "approve" -> "Rebalance done at the latest closes"
                     "decline" -> "Rebalance declined"
+                    "autonomous" -> "Now autonomous: rebalances are applied on schedule"
+                    "notify" -> "Now notify and approve: you approve each rebalance"
                     else -> "Plan stopped"
                 },
             ) {

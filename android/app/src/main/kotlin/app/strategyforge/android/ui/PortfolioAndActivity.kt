@@ -125,7 +125,7 @@ fun PortfolioScreen(
         }
         if (plan is RunningPlan.TsxPlan) {
             val r = tsxRun
-            if (r == null) Loading() else TsxRunDetail(r, action, { vm.tsxAction("approve") }, { vm.tsxAction("decline") }, { vm.tsxAction("stop") })
+            if (r == null) Loading() else TsxRunDetail(r, action, { vm.tsxAction("approve") }, { vm.tsxAction("decline") }, { vm.tsxAction("stop") }, { vm.tsxAction(it) })
         } else if (selected == null) {
             EmptyState("Create your first simulated portfolio below.", Art.PORTFOLIO)
         } else {
