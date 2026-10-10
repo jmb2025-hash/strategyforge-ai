@@ -359,6 +359,26 @@ fun SlotPortfolioInfo(
     }
 }
 
+/** The free stock data plan's downloads per minute (Twelve Data Basic, D-081). */
+const val STOCK_REQUESTS_PER_MINUTE = 8
+
+/** How often the plan page checks a stock history download. */
+const val DOWNLOAD_REFRESH_MS = 10_000L
+
+/** Roughly how many minutes [symbols] stocks take to download at the free plan's rate, at least one. */
+fun historyMinutes(symbols: Int): Int = maxOf(1, (symbols + STOCK_REQUESTS_PER_MINUTE - 1) / STOCK_REQUESTS_PER_MINUTE)
+
+/** Progress of a waiting backtest's stock history download (D-081). */
+@Composable
+fun HistoryDownloadBanner(d: app.strategyforge.android.core.model.HistoryDownload) {
+    Banner(
+        "Downloading stock history: ${d.total - d.left} of ${d.total} stocks in, ${d.left} to go (about ${historyMinutes(d.left)} min). " +
+            "The backtest runs again by itself when it's done and you'll get a notification. You can leave this screen.",
+        BannerKind.INFO,
+        Modifier.testTag("history-download"),
+    )
+}
+
 /** True when the strategy can open short positions, so its new portfolio gets simulated shorting. */
 private fun canShort(d: app.strategyforge.android.core.model.StrategyDetail): Boolean =
     d.currentVersion
@@ -443,6 +463,9 @@ fun StrategyDetailScreen(
     var autonomous by rememberSaveable { mutableStateOf(false) }
     var accepted by rememberSaveable { mutableStateOf(false) }
     val outside by vm.outside.collectAsStateWithLifecycle()
+    val download by vm.download.collectAsStateWithLifecycle()
+    // While stock history downloads, check every few seconds so the result shows when the backtest re-runs (D-081).
+    if (download != null) AutoRefresh(DOWNLOAD_REFRESH_MS) { vm.refreshDownload() }
     var showReauth by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         ResourceContent(state, fmt, vm::refresh) { d ->
@@ -502,6 +525,17 @@ fun StrategyDetailScreen(
                 ScorecardCard(null, it, fmt)
             }
             SectionTitle("Backtests")
+            download?.let { HistoryDownloadBanner(it) }
+            // The free stock data plan allows 8 requests a minute, so many stocks take a few minutes (D-081).
+            if (s.assetClass == "US_EQUITY" && syms.size > STOCK_REQUESTS_PER_MINUTE) {
+                Text(
+                    "This plan trades ${syms.size} stocks. The free stock data plan allows $STOCK_REQUESTS_PER_MINUTE downloads a minute, so the first backtest " +
+                        "fetches what it can and the rest downloads in the background (about ${historyMinutes(syms.size)} min); the backtest then runs again by itself.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("stock-limit-note"),
+                )
+            }
             if (backtests.isEmpty()) Text("No backtests yet. A clean backtest is required before paper trading.")
             Button(onClick = { vm.quickBacktest(timeframe(d)) }, modifier = Modifier.fillMaxWidth().testTag("quick-backtest")) { Text("Backtest on recent history") }
             backtests.forEach { b ->

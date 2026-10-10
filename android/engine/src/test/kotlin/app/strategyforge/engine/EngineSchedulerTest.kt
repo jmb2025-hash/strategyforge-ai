@@ -45,11 +45,11 @@ class EngineSchedulerTest {
         val e = Engine(JdbcSqlBackend(DriverManager.getConnection("jdbc:sqlite::memory:")), clock, reader, cryptoProvider = { live })
         e.setMarketMode(MarketMode.LIVE)
         val s = EngineScheduler(e)
-        assertThat(s.tick().ran).containsExactly("tsx", "auto-backup", "stream", "ingestion", "execution", "maintenance", "reconciliation", "reconciliation-all", "evaluation", "expiry", "equity")
+        assertThat(s.tick().ran).containsExactly("tsx", "auto-backup", "stream", "ingestion", "execution", "maintenance", "reconciliation", "reconciliation-all", "evaluation", "expiry", "equity", "history")
         clock.advanceSeconds(5)
         assertThat(s.tick().ran).containsExactly("stream", "execution", "reconciliation")
         clock.advanceSeconds(10)
-        assertThat(s.tick().ran).containsExactly("stream", "ingestion", "execution", "reconciliation", "expiry")
+        assertThat(s.tick().ran).containsExactly("stream", "ingestion", "execution", "reconciliation", "expiry", "history")
         clock.advanceSeconds(5)
         assertThat(s.tick().ran).containsExactly("stream", "execution", "reconciliation", "evaluation")
 

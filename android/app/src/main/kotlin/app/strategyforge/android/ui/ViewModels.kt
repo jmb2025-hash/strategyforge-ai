@@ -428,6 +428,11 @@ class StrategyDetailViewModel
         saved: SavedStateHandle,
     ) : ResourceViewModel<StrategyDetail>() {
         val id: String = checkNotNull(saved["id"])
+        private val _download = MutableStateFlow<app.strategyforge.android.core.model.HistoryDownload?>(null)
+
+        /** Stock history downloading for a waiting backtest (D-081), or null. */
+        val download: StateFlow<app.strategyforge.android.core.model.HistoryDownload?> = _download.asStateFlow()
+
         private val _backtests = MutableStateFlow<List<Backtest>>(emptyList())
         val backtests: StateFlow<List<Backtest>> = _backtests.asStateFlow()
         private val _disclosure = MutableStateFlow<Disclosure?>(null)
@@ -483,8 +488,22 @@ class StrategyDetailViewModel
             loadExtras()
         }
 
+        /** Re-reads the download progress and, once it is done, the backtests and the plan's status. */
+        fun refreshDownload() {
+            viewModelScope.launch {
+                val before = _download.value
+                val now = runCatching { repo.historyDownload(id) }.getOrNull()?.takeIf { it.left > 0 }
+                _download.value = now
+                if (before != null && now == null) {
+                    runCatching { _backtests.value = repo.backtests(id) }
+                    refresh()
+                }
+            }
+        }
+
         fun loadExtras() {
             viewModelScope.launch {
+                runCatching { _download.value = repo.historyDownload(id).takeIf { it.left > 0 } }
                 runCatching { _backtests.value = repo.backtests(id) }
                 runCatching { _scorecard.value = repo.scorecard(id) }
                 runCatching { _disclosure.value = repo.disclosure() }
@@ -525,6 +544,7 @@ class StrategyDetailViewModel
         ) = act("Backtest started; results appear when it completes") {
             repo.runBacktest(id, from, to, capital)
             _backtests.value = repo.backtests(id)
+            _download.value = runCatching { repo.historyDownload(id) }.getOrNull()?.takeIf { it.left > 0 }
         }
 
         private val _slotConflict = MutableStateFlow<SlotConflict?>(null)
@@ -591,6 +611,7 @@ class StrategyDetailViewModel
                     }
                 repo.runBacktest(id, end.minus(java.time.Duration.ofDays(days)).toString(), end.toString(), "100000")
                 _backtests.value = repo.backtests(id)
+                _download.value = runCatching { repo.historyDownload(id) }.getOrNull()?.takeIf { it.left > 0 }
             }
 
         fun deactivate() = act("Strategy stopped") { repo.deactivate(id) }

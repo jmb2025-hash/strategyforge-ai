@@ -121,8 +121,77 @@ class BacktestService(
     private val events: EngineEvents,
     private val profiles: RiskProfileService,
     private val derivatives: app.strategyforge.engine.market.DerivativesService? = null,
+    private val notifications: app.strategyforge.engine.notifications.NotificationService? = null,
+    /** Where bars come from; tests swap it to simulate a data source's request limit (D-081). */
+    private val fetch: (app.strategyforge.engine.market.Instrument, Timeframe, Instant, Instant, Instant) -> app.strategyforge.engine.market.CandleSeries = { i, tf, from, to, at ->
+        market.candles(i, tf, from, to, at)
+    },
 ) {
     private val log = EngineLog.of(javaClass)
+
+    /** Bars a backtest could not get because the data source's request limit was reached (D-081). */
+    data class HistoryFetch(
+        val symbol: String,
+        val timeframe: Timeframe,
+        val from: Instant,
+        val to: Instant,
+        val asOf: Instant,
+    )
+
+    /** A backtest waiting for its stock history to download; it runs again by itself when all is in. */
+    private class Waiting(
+        val request: BacktestRequest,
+        val fetches: ArrayDeque<HistoryFetch>,
+        val total: Int,
+    )
+
+    private val waiting = linkedMapOf<UUID, Waiting>()
+    private val lastWaiting = mutableMapOf<UUID, List<HistoryFetch>>()
+
+    /** Symbols still to download for [strategyId]'s waiting backtest, and how many there were, or null. */
+    fun downloading(strategyId: UUID): Pair<Int, Int>? = waiting[strategyId]?.let { it.fetches.size to it.total }
+
+    /**
+     * Downloads the history waiting backtests need, at most [maxCalls] symbols per call so the data
+     * source's per-minute limit is respected (D-081); the scheduler calls this every few seconds. A
+     * backtest whose history is all in runs again, and the owner is told the result.
+     */
+    fun downloadWaiting(maxCalls: Int = 3): List<BacktestView> {
+        val done = mutableListOf<BacktestView>()
+        var calls = 0
+        for ((strategyId, w) in waiting.entries.toList()) {
+            while (w.fetches.isNotEmpty()) {
+                if (calls >= maxCalls) return done
+                val f = w.fetches.first()
+                calls++
+                val cs = fetch(instruments.bySymbol(f.symbol), f.timeframe, f.from, f.to, f.asOf)
+                if (rateLimited(cs)) return done
+                w.fetches.removeFirst()
+            }
+            waiting.remove(strategyId)
+            val v = runCatching { submit(w.request) }.onFailure { log.error("Backtest re-run for {} failed", strategyId, it) }.getOrNull() ?: continue
+            done += v
+            if (strategyId !in waiting) {
+                val name = runCatching { strategies.get(strategyId).name }.getOrDefault("Your plan")
+                val eligible = v.resultStatus in setOf("OK", "WARNINGS")
+                notifications?.notify(
+                    app.strategyforge.engine.notifications.NotificationCategory.STRATEGY_HEALTH,
+                    app.strategyforge.engine.notifications.Severity.INFO,
+                    "Backtest finished: $name",
+                    if (eligible) {
+                        "All its stock history is downloaded and the backtest passed. You can start it now."
+                    } else {
+                        "All its stock history is downloaded; the backtest result is ${v.resultStatus?.lowercase()?.replace('_', ' ')}. Open the plan to see why."
+                    },
+                    "Strategy",
+                    strategyId,
+                    "history-backtest:${v.id}",
+                )
+            }
+        }
+        return done
+    }
+
     private val mapper = JacksonCanonical.mapper
 
     /**
@@ -133,6 +202,9 @@ class BacktestService(
     fun submit(req: BacktestRequest): BacktestView {
         val id = queueId(req)
         execute(id)
+        // History the data source would not give yet is downloaded in the background, then this runs again (D-081).
+        val missing = lastWaiting.remove(id)
+        if (missing.isNullOrEmpty()) waiting.remove(req.strategyId) else waiting[req.strategyId] = Waiting(req, ArrayDeque(missing), missing.size)
         return get(id)
     }
 
@@ -190,6 +262,7 @@ class BacktestService(
         try {
             val result = runBacktest(id)
             db.tx { complete(id, result) }
+            if (result.waiting.isNotEmpty()) lastWaiting[id] = result.waiting
         } catch (e: Exception) {
             log.error("Backtest {} failed", id, e)
             db
@@ -211,6 +284,7 @@ class BacktestService(
         val integrity: List<IntegrityIssue>,
         val resultStatus: String,
         val benchmark: Map<String, Any?>?,
+        val waiting: List<HistoryFetch> = emptyList(),
     )
 
     private fun runBacktest(id: UUID): RunResult {
@@ -224,15 +298,25 @@ class BacktestService(
         val series = mutableListOf<SymbolSeries>()
         var manualReview = false
         val provider = registry.nameFor(def.assetClass)
+        val downloads = mutableListOf<HistoryFetch>()
         symbols.forEach { sym ->
             val i = instruments.bySymbol(sym)
             val warmup = BarSchedule.lookback(i.assetClass, def.timeframe, def.minimumHistoryBars + 5)
-            val cs = market.candles(i, def.timeframe, req.from.minus(warmup), req.to, asOf)
+            val cs = fetch(i, def.timeframe, req.from.minus(warmup), req.to, asOf)
+            if (rateLimited(cs)) downloads += HistoryFetch(sym, def.timeframe, req.from.minus(warmup), req.to, asOf)
             val inWindow = cs.bars.filter { !it.openTime.isBefore(req.from) }
             val before = cs.bars.size - inWindow.size
             val gapsInWindow = cs.gaps.filter { !it.isBefore(req.from) }
             val gapRatio = if (inWindow.isEmpty()) BigDecimal.ONE else BigDecimal(gapsInWindow.size).divide(BigDecimal(inWindow.size + gapsInWindow.size), MathContext.DECIMAL64)
             when {
+                rateLimited(cs) ->
+                    issues +=
+                        IntegrityIssue(
+                            "CRITICAL",
+                            sym,
+                            "DATA_DOWNLOADING",
+                            "The stock data limit was reached (${cs.detail.substringAfter(": ")}); $sym is downloading in the background and this backtest runs again by itself when all the history is in",
+                        )
                 cs.status in setOf(DataStatus.UNSUPPORTED, DataStatus.OUT_OF_ORDER, DataStatus.MALFORMED, DataStatus.CLOCK_SKEW, DataStatus.PROVIDER_ERROR) ->
                     issues += IntegrityIssue("CRITICAL", sym, "DATA_${cs.status}", cs.detail)
                 inWindow.isEmpty() -> issues += IntegrityIssue("CRITICAL", sym, "MISSING_DATA", "No bars for $sym in the test window")
@@ -311,7 +395,7 @@ class BacktestService(
                         "No look-ahead: indicators are causal and only bars closed by each decision time are used",
                     ),
             )
-        return RunResult(out, metrics, dataset, issues, status, benchmark?.minus("returnFraction"))
+        return RunResult(out, metrics, dataset, issues, status, benchmark?.minus("returnFraction"), downloads)
     }
 
     private fun benchmark(
@@ -545,6 +629,9 @@ class BacktestService(
     }
 
     companion object {
+        /** True when bars were refused only because the data source's request budget was used up (D-081). */
+        fun rateLimited(cs: app.strategyforge.engine.market.CandleSeries): Boolean = cs.status == DataStatus.PROVIDER_ERROR && cs.detail.startsWith("RATE_LIMITED")
+
         const val MAX_DAYS = 3650L
         const val MAX_POINTS = 2000
         val MAX_GAP_RATIO = BigDecimal("0.05")

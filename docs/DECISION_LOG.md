@@ -1309,3 +1309,20 @@ When a conflict is unresolved, the safest reversible option is selected.
   - `HoldingsTest`: paid, worth, gain, percent and weight for a long and a short; holdings sorted and totalled; missing prices flagged.
   - `HoldingUiTest`: labels, portfolio totals, the holdings rows and opening one, and the holding page's numbers, trades, range, buy and sell, including a holding already sold.
 - **Version:** 1.25.0 (versionCode 43).
+
+## D-081 Stock backtests download what the free data plan's per-minute limit refuses, then run again by themselves
+
+- **Date:** 2026-10-10
+- **Context:** "Large-cap dip score" trades 30 US stocks. Twelve Data's free plan allows 8 requests a minute, so each backtest got some stocks and then hit the limit. The refused stocks were recorded as DATA_PROVIDER_ERROR ("RATE_LIMITED: Per-minute request budget used"), which makes the result CRITICAL. The plan stayed VALIDATED, and activation said "Strategy must be Paper Eligible". Three runs in the owner's backup left 30, then 22, then 19 stocks missing.
+- **Decision:**
+  - **No waiting on the engine thread.** The engine runs everything, live trading included, on one thread, so a backtest must not sleep until the limit refills.
+  - **Background download.** A stock refused only because of the request limit becomes a CRITICAL `DATA_DOWNLOADING` issue, which explains what is happening, and joins a download list for that plan (`BacktestService.HistoryFetch`). The scheduler's new live task "history" runs every 10 seconds and fetches at most 3 symbols per run, leaving room for live quotes. When every symbol is in, the same backtest request runs again and the owner gets a "Backtest finished" notification saying whether it passed.
+  - **Data unchanged.** Prices still come from the same source. A Yahoo fallback was rejected for prices, because backtests use unadjusted prices with splits applied as events, and mixing sources could double-adjust.
+  - **App.** The plan page shows the download progress: stocks in, stocks left, and about how many minutes. It checks every 10 seconds and shows the new result when the backtest has run again. On stock plans with more than 8 symbols, a note under Backtests explains the limit and the expected time.
+  - **Limits.** The download list is kept in memory, so a restart before it finishes means pressing Backtest again; the history already downloaded is kept. When the daily budget is used up, the list waits until the next day (UTC).
+- **API:** `GET /v1/strategies/{id}/history-download` returns `{left, total}`.
+- **Tests:**
+  - `HistoryDownloadTest`: a symbol refused three times keeps the plan VALIDATED, stays on the list while still refused, and then downloads; the backtest runs again by itself, the plan becomes Paper Eligible, and one notification is sent. With nothing waiting, nothing is fetched.
+  - `EngineSchedulerTest` includes the new task's cadence.
+  - `HistoryDownloadUiTest` covers the banner and the time estimate.
+- **Version:** 1.25.1 (versionCode 44).

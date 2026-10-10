@@ -197,6 +197,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - 1.23.5 (D-078) TSX run mode switch: TsxService.setMode + /v1/tsx/runs/{id}/autonomous|notify; run page button.
 - 1.24.0 (D-079) one portfolio per slot (slot_portfolios, migration 11, linkPortfolios at startup); Portfolio tab overview (Crypto/Stock/TSX slots, My portfolios); activation form names the slot portfolio; backups include TSX + slot tables.
 - 1.25.0 (D-080) per-holding performance: PortfolioTotalsCard, HoldingRow list, holding page (ChartService.holding, /v1/portfolios/{id}/holding), core Holdings stats.
+- 1.25.1 (D-081) rate-limited stock backtest symbols download in the background (scheduler "history", 3/10s) and the backtest re-runs itself; /v1/strategies/{id}/history-download; plan page progress banner.
         IN PROGRESS (not started in code): TSX manual trading in CAD portfolios (owner chose CAD portfolios, manual first).
 
 3. CURRENT WORKING STATE & BLOCKERS
@@ -230,7 +231,7 @@ APK: https://github.com/jmb2025-hash/strategyforge-ai/releases/tag/phone-latest 
 - Every user-facing update ships a new APK via CI to release tag phone-latest, signed with the owner's PERMANENT key
   (D-059: phone-release refuses any other certificate; updates install over the old app and keep all data). CI cancels in-progress runs
   (push once, then wait). Job logs via mcp__github__get_job_logs (no gh CLI).
-- Decision log entry per change (next: D-081). Update StrategyExplainer for any new feature.
+- Decision log entry per change (next: D-082). Update StrategyExplainer for any new feature.
 - Demo replay clock = 2026-06-22T13:30Z: backtests on demo data must end by then.
 - Plans: every setup must stay expressible as a 1.0 doc (TradingPlans.setupDocument); keep single strategies
   (schema 1.0) working as one-setup plans (tests rely on them).

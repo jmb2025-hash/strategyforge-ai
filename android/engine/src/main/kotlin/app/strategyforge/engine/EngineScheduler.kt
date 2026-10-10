@@ -40,6 +40,8 @@ class EngineScheduler(
             Triple("evaluation", Duration.ofSeconds(20), { engine.evaluation.evaluateAll() }),
             Triple("expiry", Duration.ofSeconds(15), { engine.recommendations.expireDue() }),
             Triple("equity", Duration.ofSeconds(60), { engine.portfolios.recordPeriodicEquity() }),
+            // Stock history a backtest could not get within the data limit, a few symbols at a time (D-081).
+            Triple("history", Duration.ofSeconds(10), { engine.backtests.downloadWaiting() }),
         )
 
     /** Stores the streams' fresh ticks for the watched instruments (D-056). */

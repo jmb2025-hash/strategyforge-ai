@@ -170,7 +170,7 @@ class Engine(
     // ------------------------------------------------------------------ strategies and backtests
     val validator = StrategyValidator({ instruments.findBySymbol(it) }, { sources.active() })
     val strategies = StrategyService(db, validator, audit, wall, sources, events)
-    val backtests = BacktestService(db, strategies, instruments, market, corporateActions, sources, settings, marketClock, wall, audit, events, riskProfiles, derivatives)
+    val backtests = BacktestService(db, strategies, instruments, market, corporateActions, sources, settings, marketClock, wall, audit, events, riskProfiles, derivatives, notifications)
 
     val risk =
         RiskEngine(

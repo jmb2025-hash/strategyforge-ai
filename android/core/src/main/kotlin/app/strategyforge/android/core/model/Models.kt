@@ -974,3 +974,10 @@ data class HoldingChart(
     val firstBoughtAt: String? = null,
     val trades: List<HoldingTrade> = emptyList(),
 )
+
+/** Stock history still downloading for a plan's waiting backtest (D-081): symbols left of the total. */
+@Serializable
+data class HistoryDownload(
+    val left: Int = 0,
+    val total: Int = 0,
+)

@@ -643,6 +643,11 @@ class LocalApi(
                     "leftOpen" to result.leftOpen.map { holding(it) },
                 )
         }
+        // Stock history still downloading for a waiting backtest (D-081).
+        get("/v1/strategies/{id}/history-download") { _, g ->
+            val d = engine.backtests.downloading(uuid(g[0]))
+            mapOf("left" to (d?.first ?: 0), "total" to (d?.second ?: 0))
+        }
         get("/v1/strategies/{id}/outside-positions") { _, g -> engine.slots.outsidePositions(uuid(g[0])).map { holding(it) } }
         post("/v1/strategies/{id}/adopt") { _, g -> engine.slots.adopt(uuid(g[0])).map { holding(it) } }
         post("/v1/strategies/{id}/resume") { _, g ->

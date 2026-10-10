@@ -560,6 +560,14 @@ class Repository(
     /** The crypto and stock strategy slots (D-035). */
     suspend fun slots(): List<Slot> = api.get("/v1/slots", ListSerializer(Slot.serializer()))
 
+    /** Stock history still downloading for a waiting backtest; the backtest runs again by itself when it is in (D-081). */
+    suspend fun historyDownload(strategyId: String): app.strategyforge.android.core.model.HistoryDownload =
+        api.get(
+            "/v1/strategies/${seg(strategyId)}/history-download",
+            app.strategyforge.android.core.model.HistoryDownload
+                .serializer(),
+        )
+
     /** Positions in a running strategy's symbols and portfolio that it does not manage, e.g. bought by hand (D-075). */
     suspend fun outsidePositions(strategyId: String): List<app.strategyforge.android.core.model.SlotHolding> =
         api.get(
